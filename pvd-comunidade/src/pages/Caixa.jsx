@@ -3,6 +3,8 @@ import React, { useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, toNumBR } from "../domain/math";
+import { loadJSON, saveJSON } from "../storage/storage";
+import { LS_KEYS } from "../storage/keys";
 
 /* ===================== máscara de moeda (digit shifting) ===================== */
 function onlyDigits(s) {
@@ -20,23 +22,12 @@ function maskBRLFromDigits(raw) {
 }
 
 /* ===================== storage: status do evento ===================== */
-const LS_EVENTOS_META = "pvd_eventos_meta";
-
 function loadEventosMeta() {
-  try {
-    const raw = localStorage.getItem(LS_EVENTOS_META);
-    const arr = JSON.parse(raw || "[]");
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+  const arr = loadJSON(LS_KEYS.eventosMeta, []);
+  return Array.isArray(arr) ? arr : [];
 }
 function saveEventosMeta(arr) {
-  try {
-    localStorage.setItem(LS_EVENTOS_META, JSON.stringify(Array.isArray(arr) ? arr : []));
-  } catch {
-    // sem crash
-  }
+  saveJSON(LS_KEYS.eventosMeta, Array.isArray(arr) ? arr : []);
 }
 
 export default function Caixa({
@@ -58,10 +49,22 @@ export default function Caixa({
   const eventoNome = String(evento?.nome || "").trim();
   const eventoAberto = Boolean(eventoNome);
 
-  // ✅ SOMENTE DINHEIRO (não mostra itens, não mostra pix/cartão aqui)
-  const totalDinheiroVendas = Number(
-    resumoEvento?.porPagamento?.dinheiro ?? resumoEvento?.dinheiro ?? 0
-  ) || 0;
+  const vendas = loadJSON(LS_KEYS.vendas, []);
+  const eventoCache = loadJSON(LS_KEYS.evento, null);
+
+  const vendasEvento = vendas.filter((v) => {
+    if (eventoCache?.id && v?.eventoId) return v.eventoId === eventoCache.id;
+    return (
+      String(v?.eventoNome).toLowerCase() === String(eventoCache?.nome).toLowerCase()
+    );
+  });
+
+  const totalDinheiroVendas = vendasEvento
+    .filter((v) => {
+      const p = String(v?.pagamento ?? v?.formaPagamento ?? "").toLowerCase();
+      return p === "dinheiro" || p === "cash" || p === "";
+    })
+    .reduce((s, v) => s + Number(v?.total ?? v?.valorTotal ?? 0), 0);
 
   // ✅ campo abertura com máscara “shift”
   const [aberturaTxt, setAberturaTxt] = useState(() => {
@@ -110,7 +113,7 @@ export default function Caixa({
       totalNoCaixa: Number(totalNoCaixaAgora || 0) || 0,
     };
 
-    // ✅ marca no localStorage como ENCERRADO
+    // ✅ marca no cache como ENCERRADO
     const meta = loadEventosMeta();
     // remove registro antigo do mesmo nome (evita duplicar)
     const semEsse = meta.filter((x) => String(x?.nome || "").trim() !== eventoNome);
