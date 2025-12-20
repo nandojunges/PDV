@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
+import ProductTile from "../components/ProductTile";
 import { fmtBRL, toNumBR, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { loadJSON, saveJSON } from "../storage/storage";
@@ -176,33 +177,11 @@ export default function Venda({
         )}
 
         <div className="atalhoGrid">
-          {produtosAtivos.map((p) => (
-            <button
-              key={p.id}
-              className="btn atalhoCard"
-              onClick={() => addProduto(p)}
-              type="button"
-            >
-              <div className="atalhoImgWrap">
-                {p.img ? (
-                  <img className="atalhoImg" src={p.img} alt={p.nome} />
-                ) : (
-                  <div className="atalhoFallback" aria-hidden="true">
-                    🛒
-                  </div>
-                )}
-              </div>
-              <div className="atalhoNome">{p.nome}</div>
-              <div className="atalhoPreco">{fmtBRL(p.preco)}</div>
-              {(p.tipo === "combo" || p.tipo === "caucao") && (
-                <div className="badge">
-                  {p.tipo === "combo" ? "Combo" : "Caução"}
-                </div>
-              )}
-            </button>
+          {(produtosAtivos ?? []).map((p) => (
+            <ProductTile key={p.id} produto={p} onClick={() => addProduto(p)} />
           ))}
 
-          {produtosAtivos.length === 0 && (
+          {(produtosAtivos ?? []).length === 0 && (
             <div className="muted">
               Nenhum produto ativo. Vá em Produtos e cadastre.
             </div>
@@ -225,7 +204,7 @@ export default function Venda({
           <div className="muted">Adicione produtos para começar.</div>
         ) : (
           <div className="cartList">
-            {itensCarrinho.map((it) => (
+            {(itensCarrinho ?? []).map((it) => (
               <div key={it.produtoId} className="cartRow">
                 <div className="cartLeft">
                   <div className="cartName">{it.nome}</div>
@@ -262,7 +241,7 @@ export default function Venda({
               Forma de pagamento
             </div>
             <select
-              className="input inputLarge"
+              className="input inputLarge paymentSelect"
               value={pagamento}
               onChange={(e) => setPagamento(e.target.value)}
             >

@@ -13,14 +13,16 @@ export default function Button({
   title,
   ...rest
 }) {
-  const styles = useMemo(() => {
-    const base = {
-      appearance: "none",
-      WebkitAppearance: "none",
-      border: "1px solid transparent",
-      borderRadius: 12,
-      height: small ? 34 : 42,
-      padding: small ? "0 10px" : "0 14px",
+    const styles = useMemo(() => {
+      const base = {
+        appearance: "none",
+        WebkitAppearance: "none",
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: "transparent",
+        borderRadius: 12,
+        height: small ? 34 : 42,
+        padding: small ? "0 10px" : "0 14px",
       fontSize: small ? 13 : 14,
       fontWeight: 800,
       lineHeight: 1,
