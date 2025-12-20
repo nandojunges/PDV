@@ -175,32 +175,30 @@ export default function Venda({
           </div>
         )}
 
-        <div className="grid productGrid">
+        <div className="atalhoGrid">
           {produtosAtivos.map((p) => (
             <button
               key={p.id}
-              className="btn productBtn"
+              className="btn atalhoCard"
               onClick={() => addProduto(p)}
               type="button"
             >
-              <div className="productInner">
-                <div className="productThumb">
-                  {p.img ? (
-                    <img src={p.img} alt="" />
-                  ) : (
-                    <div className="thumbPlaceholder">+</div>
-                  )}
-                </div>
-                <div className="productInfo">
-                  <div className="productName">{p.nome}</div>
-                  <div className="productPrice">{fmtBRL(p.preco)}</div>
-                  {(p.tipo === "combo" || p.tipo === "caucao") && (
-                    <div className="badge">
-                      {p.tipo === "combo" ? "Combo" : "Caução"}
-                    </div>
-                  )}
-                </div>
+              <div className="atalhoImgWrap">
+                {p.img ? (
+                  <img className="atalhoImg" src={p.img} alt={p.nome} />
+                ) : (
+                  <div className="atalhoFallback" aria-hidden="true">
+                    🛒
+                  </div>
+                )}
               </div>
+              <div className="atalhoNome">{p.nome}</div>
+              <div className="atalhoPreco">{fmtBRL(p.preco)}</div>
+              {(p.tipo === "combo" || p.tipo === "caucao") && (
+                <div className="badge">
+                  {p.tipo === "combo" ? "Combo" : "Caução"}
+                </div>
+              )}
             </button>
           ))}
 

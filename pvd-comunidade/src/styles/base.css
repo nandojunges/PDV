@@ -185,33 +185,68 @@ body { margin: 0; }
 .big { font-weight: 900; font-size: 22px; }
 
 /* Venda */
-.productGrid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-.productBtn {
+.atalhoGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 420px) {
+  .atalhoGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 768px) {
+  .atalhoGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1100px) {
+  .atalhoGrid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+.atalhoCard {
   text-align: center;
   padding: 12px;
-  border-radius: 18px;
-  min-height: 120px;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-}
-.productInner { display: flex; gap: 8px; align-items: center; flex-direction: column; }
-.productThumb {
-  width: 64px;
-  height: 64px;
   border-radius: 16px;
-  overflow: hidden;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.atalhoCard:hover {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.atalhoCard:active { transform: translateY(0); }
+
+.atalhoImgWrap {
+  width: 100%;
+  height: 60px;
+  border-radius: 14px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.productThumb img { width: 100%; height: 100%; object-fit: contain; }
-.thumbPlaceholder { color: #9ca3af; font-weight: 900; font-size: 26px; }
-.productInfo { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.productName {
-  font-weight: 900;
+
+.atalhoImg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.atalhoFallback {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.atalhoNome {
+  font-weight: 800;
   font-size: 13px;
   line-height: 1.2;
   display: -webkit-box;
@@ -219,7 +254,8 @@ body { margin: 0; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.productPrice { color: #6b7280; font-size: 13px; }
+
+.atalhoPreco { color: #6b7280; font-size: 13px; }
 
 .cartList { display: flex; flex-direction: column; gap: 10px; }
 .cartRow { display: flex; justify-content: space-between; gap: 10px; }
