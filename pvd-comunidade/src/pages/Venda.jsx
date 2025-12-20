@@ -4,6 +4,8 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, toNumBR, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
+import { loadJSON, saveJSON } from "../storage/storage";
+import { LS_KEYS } from "../storage/keys";
 
 export default function Venda({
   evento = {},
@@ -81,6 +83,7 @@ export default function Venda({
 
     const venda = buildVenda({
       id: uid(),
+      eventoId: evento?.id ?? null,
       eventoNome: evento.nome,
       carrinho,
       pagamento,
@@ -90,6 +93,9 @@ export default function Venda({
         pagamento === "dinheiro" && recebidoTxt.trim() ? troco : null,
     });
 
+    const prevLS = loadJSON(LS_KEYS.vendas, []);
+    const next = [venda, ...(Array.isArray(prevLS) ? prevLS : [])];
+    saveJSON(LS_KEYS.vendas, next);
     setVendas((prev = []) => [venda, ...prev]);
     limpar();
     alert("Venda finalizada!");

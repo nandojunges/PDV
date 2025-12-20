@@ -59,12 +59,25 @@ export default function Caixa({
     );
   });
 
+  function totalFallback(v) {
+    if (Number(v?.total)) return Number(v.total);
+    const itens = v?.itens ?? v?.carrinho ?? [];
+    if (!Array.isArray(itens)) return 0;
+    return itens.reduce(
+      (s, it) =>
+        s +
+        (Number(it?.subtotal) ||
+          (Number(it?.qtd) || 0) * (Number(it?.unitario ?? it?.preco) || 0)),
+      0
+    );
+  }
+
   const totalDinheiroVendas = vendasEvento
     .filter((v) => {
       const p = String(v?.pagamento ?? v?.formaPagamento ?? "").toLowerCase();
       return p === "dinheiro" || p === "cash" || p === "";
     })
-    .reduce((s, v) => s + Number(v?.total ?? v?.valorTotal ?? 0), 0);
+    .reduce((s, v) => s + totalFallback(v), 0);
 
   // ✅ campo abertura com máscara “shift”
   const [aberturaTxt, setAberturaTxt] = useState(() => {

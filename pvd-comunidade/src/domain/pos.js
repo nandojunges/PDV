@@ -4,25 +4,35 @@ export function totalDoCarrinho(carrinho) {
   return (carrinho || []).reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
 }
 
-export function buildVenda({ id, eventoNome, carrinho, pagamento, recebido, troco }) {
-  const total = totalDoCarrinho(carrinho);
+export function buildVenda(data) {
+  const carrinho = Array.isArray(data?.carrinho) ? data.carrinho : [];
+  const itens = carrinho.map((it) => {
+    const qtd = Number(it?.qtd ?? it?.quantidade ?? 0) || 0;
+    const unitario = Number(it?.unitario ?? it?.preco ?? it?.valor ?? 0) || 0;
+    const subtotal = Number(it?.subtotal ?? qtd * unitario) || 0;
+    return {
+      produtoId: it?.produtoId ?? it?.id ?? "",
+      nome: it?.nome ?? it?.produto ?? it?.name ?? "",
+      qtd,
+      unitario,
+      subtotal,
+    };
+  });
+
+  const total = itens.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+  const createdAt = new Date().toISOString();
 
   return {
-    id,
-    data: new Date().toISOString(),
-    eventoNome,
-    pagamento, // dinheiro | pix | cartao
-    recebido: recebido ?? null,
-    troco: troco ?? null,
+    id: data?.id,
+    eventoId: data?.eventoId ?? null,
+    eventoNome: data?.eventoNome ?? "",
+    pagamento: data?.pagamento ?? "dinheiro",
+    recebido: data?.recebido ?? null,
+    troco: data?.troco ?? null,
+    itens,
     total,
-    itens: (carrinho || []).map((it) => ({
-      produtoId: it.produtoId,
-      nome_snapshot: it.nome,
-      preco_snapshot: it.preco,
-      qtd: it.qtd,
-      subtotal: it.subtotal,
-      tipo_snapshot: it.tipo || "simples",
-    })),
+    createdAt,
+    data: createdAt,
   };
 }
 
