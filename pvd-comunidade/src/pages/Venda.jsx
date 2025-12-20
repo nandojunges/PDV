@@ -21,10 +21,14 @@ export default function Venda({
   const [pagamento, setPagamento] = useState("dinheiro");
   const [recebidoTxt, setRecebidoTxt] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingVenda, setPendingVenda] = useState(null);
+  const [vendaDraft, setVendaDraft] = useState(null);
   const [aviso, setAviso] = useState("");
 
-  const total = useMemo(() => totalDoCarrinho(carrinho || []), [carrinho]);
+  const itensCarrinho = useMemo(
+    () => (Array.isArray(carrinho) ? carrinho : []),
+    [carrinho],
+  );
+  const total = useMemo(() => totalDoCarrinho(itensCarrinho), [itensCarrinho]);
   const recebido = useMemo(() => toNumBR(recebidoTxt), [recebidoTxt]);
   const troco = useMemo(() => Math.max(0, recebido - total), [recebido, total]);
 
@@ -55,7 +59,7 @@ export default function Venda({
     function onKeyDown(e) {
       if (e.key === "Escape") {
         setConfirmOpen(false);
-        setPendingVenda(null);
+        setVendaDraft(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -115,56 +119,51 @@ export default function Venda({
       setAviso("Abra um evento primeiro.");
       return;
     }
-    if (!carrinho || carrinho.length === 0) {
+    if (itensCarrinho.length === 0) {
       setAviso("Carrinho vazio.");
       return;
     }
 
-    if (pagamento === "dinheiro" && recebidoTxt.trim() && recebido < total) {
+    if (pagamento === "dinheiro" && recebido < total) {
       setAviso("Valor recebido menor que o total.");
       return;
     }
 
-    const venda = buildVenda({
-      id: uid(),
+    const draft = {
       eventoId: evento?.id ?? null,
       eventoNome: evento.nome,
-      carrinho,
+      carrinho: itensCarrinho,
       pagamento,
-      recebido:
-        pagamento === "dinheiro" && recebidoTxt.trim() ? recebido : null,
-      troco:
-        pagamento === "dinheiro" && recebidoTxt.trim() ? troco : null,
-    });
+      recebido: pagamento === "dinheiro" ? recebido : null,
+      troco: pagamento === "dinheiro" ? troco : null,
+      total,
+    };
 
     setAviso("");
-    setPendingVenda(venda);
+    setVendaDraft(draft);
     setConfirmOpen(true);
   }
 
   function cancelarConfirmacao() {
     setConfirmOpen(false);
-    setPendingVenda(null);
+    setVendaDraft(null);
   }
 
-  function confirmar(imprimir) {
-    if (!pendingVenda) return;
+  function confirmar() {
+    if (!vendaDraft) return;
+    const vendaFinal = buildVenda({ id: uid(), ...vendaDraft });
     const prevLS = loadJSON(LS_KEYS.vendas, []);
-    const next = [pendingVenda, ...(Array.isArray(prevLS) ? prevLS : [])];
+    const next = [vendaFinal, ...(Array.isArray(prevLS) ? prevLS : [])];
     saveJSON(LS_KEYS.vendas, next);
-    setVendas((prev = []) => [pendingVenda, ...prev]);
+    setVendas((prev = []) => [vendaFinal, ...prev]);
     setConfirmOpen(false);
-    setPendingVenda(null);
+    setVendaDraft(null);
     limpar();
-    if (imprimir) {
-      setTimeout(() => window.print(), 50);
-    }
+    setTimeout(() => window.print(), 50);
   }
 
-  const itensConfirm = Array.isArray(pendingVenda?.carrinho)
-    ? pendingVenda.carrinho
-    : Array.isArray(carrinho)
-    ? carrinho
+  const itensConfirm = Array.isArray(vendaDraft?.carrinho)
+    ? vendaDraft.carrinho
     : [];
 
   return (
@@ -176,7 +175,7 @@ export default function Venda({
           </div>
         )}
 
-        <div className="grid">
+        <div className="grid productGrid">
           {produtosAtivos.map((p) => (
             <button
               key={p.id}
@@ -194,7 +193,7 @@ export default function Venda({
                 </div>
                 <div className="productInfo">
                   <div className="productName">{p.nome}</div>
-                  <div className="muted">{fmtBRL(p.preco)}</div>
+                  <div className="productPrice">{fmtBRL(p.preco)}</div>
                   {(p.tipo === "combo" || p.tipo === "caucao") && (
                     <div className="badge">
                       {p.tipo === "combo" ? "Combo" : "Caução"}
@@ -216,7 +215,7 @@ export default function Venda({
       <Card
         title="Carrinho"
         subtitle="Revise e finalize"
-        right={<span className="badge">{carrinho.length} itens</span>}
+        right={<span className="badge">{itensCarrinho.length} itens</span>}
       >
         {aviso && (
           <div style={{ marginBottom: 12 }}>
@@ -224,11 +223,11 @@ export default function Venda({
           </div>
         )}
 
-        {carrinho.length === 0 ? (
+        {itensCarrinho.length === 0 ? (
           <div className="muted">Adicione produtos para começar.</div>
         ) : (
           <div className="cartList">
-            {carrinho.map((it) => (
+            {itensCarrinho.map((it) => (
               <div key={it.produtoId} className="cartRow">
                 <div className="cartLeft">
                   <div className="cartName">{it.nome}</div>
@@ -265,7 +264,7 @@ export default function Venda({
               Forma de pagamento
             </div>
             <select
-              className="input"
+              className="input inputLarge"
               value={pagamento}
               onChange={(e) => setPagamento(e.target.value)}
             >
@@ -278,7 +277,7 @@ export default function Venda({
           {pagamento === "dinheiro" && (
             <div>
               <div className="muted" style={{ marginBottom: 6 }}>
-                Valor recebido (opcional)
+                Valor recebido
               </div>
               <input
                 className="input"
@@ -308,11 +307,11 @@ export default function Venda({
 
         <div className="hr" />
         <div className="muted">
-          Dica: Pix/Cartão não usa troco. Dinheiro pode informar recebido.
+          Dica: Pix/Cartão não usa troco. Dinheiro precisa informar recebido.
         </div>
       </Card>
 
-      {confirmOpen && pendingVenda && (
+      {confirmOpen && vendaDraft && (
         <div
           style={overlayStyle}
           onClick={cancelarConfirmacao}
@@ -334,7 +333,7 @@ export default function Venda({
                   {new Date().toLocaleString("pt-BR")}
                 </div>
               </div>
-              <span className="badge">{pendingVenda.eventoNome}</span>
+              <span className="badge">{vendaDraft.eventoNome}</span>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -387,25 +386,25 @@ export default function Venda({
             <div className="row space" style={{ marginBottom: 6 }}>
               <div className="muted">Pagamento</div>
               <div style={{ fontWeight: 700, textTransform: "capitalize" }}>
-                {pendingVenda.pagamento}
+                {vendaDraft.pagamento}
               </div>
             </div>
 
-            {pendingVenda.pagamento === "dinheiro" && (
+            {vendaDraft.pagamento === "dinheiro" && (
               <div style={{ marginBottom: 12 }}>
                 <div className="row space">
                   <div className="muted">Valor recebido</div>
                   <div>
-                    {pendingVenda.recebido != null
-                      ? fmtBRL(pendingVenda.recebido)
+                    {vendaDraft.recebido != null
+                      ? fmtBRL(vendaDraft.recebido)
                       : "—"}
                   </div>
                 </div>
                 <div className="row space">
                   <div className="muted">Troco</div>
                   <div>
-                    {pendingVenda.troco != null
-                      ? fmtBRL(pendingVenda.troco)
+                    {vendaDraft.troco != null
+                      ? fmtBRL(vendaDraft.troco)
                       : "—"}
                   </div>
                 </div>
@@ -417,11 +416,8 @@ export default function Venda({
               style={{ justifyContent: "flex-end", gap: 8, marginTop: 16 }}
             >
               <Button onClick={cancelarConfirmacao}>Cancelar</Button>
-              <Button onClick={() => confirmar(true)}>
-                Confirmar e Imprimir
-              </Button>
-              <Button variant="primary" onClick={() => confirmar(false)}>
-                Confirmar sem imprimir
+              <Button variant="primary" onClick={confirmar}>
+                Confirmar + Imprimir
               </Button>
             </div>
           </div>
