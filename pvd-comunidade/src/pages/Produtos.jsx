@@ -193,8 +193,15 @@ function IconImg({ iconKey, size = 42 }) {
 }
 
 /* ===================== componente ===================== */
-export default function Produtos({ produtos = [], setProdutos, setTab }) {
+export default function Produtos({ produtos = [], setProdutos, setTab, onSalvarOfertaDoEvento }) {
   const itensEvento = useMemo(() => (Array.isArray(produtos) ? produtos : []), [produtos]);
+  const atalhosDisponiveis = useMemo(
+    () =>
+      LIB.filter(
+        (it) => !itensEvento.some((p) => String(p?.nome || "").trim() === String(it.nome).trim())
+      ),
+    [itensEvento]
+  );
 
   const [nome, setNome] = useState("");
   const [precoDigits, setPrecoDigits] = useState("");
@@ -494,7 +501,14 @@ export default function Produtos({ produtos = [], setProdutos, setTab }) {
           {podeFinalizar && (
             <button
               type="button"
-              onClick={() => (typeof setTab === "function" ? setTab("caixa") : null)}
+              onClick={() => {
+                if (typeof onSalvarOfertaDoEvento === "function") {
+                  onSalvarOfertaDoEvento(itensEvento);
+                }
+                if (typeof setTab === "function") {
+                  setTab("caixa");
+                }
+              }}
               style={btnPrimary}
             >
               Finalizar produtos
@@ -512,7 +526,7 @@ export default function Produtos({ produtos = [], setProdutos, setTab }) {
             gap: 10,
           }}
         >
-          {LIB.map((it) => (
+          {atalhosDisponiveis.map((it) => (
             <button
               key={it.key}
               type="button"

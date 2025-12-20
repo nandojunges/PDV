@@ -55,6 +55,12 @@ export default function App() {
   useEffect(() => saveJSON(LS_KEYS.vendas, vendas), [vendas]);
   useEffect(() => saveJSON(LS_KEYS.caixa, caixa), [caixa]);
   useEffect(() => saveJSON(LS_KEYS.ajustes, ajustes), [ajustes]);
+  useEffect(() => {
+    setEvento((prev) => ({
+      ...prev,
+      produtos: Array.isArray(produtos) ? produtos : [],
+    }));
+  }, [produtos]);
 
   const resumoEvento = useMemo(() => {
     const nomeEv = (evento?.nome || "").trim();
@@ -149,6 +155,12 @@ export default function App() {
             produtos={produtos}
             setProdutos={setProdutos}
             setTab={setTab}
+            onSalvarOfertaDoEvento={(novosProdutos) =>
+              setEvento((prev) => ({
+                ...prev,
+                produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
+              }))
+            }
           />
         )}
 
