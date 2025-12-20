@@ -188,11 +188,7 @@ body { margin: 0; }
 .atalhoGrid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (min-width: 420px) {
-  .atalhoGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (min-width: 768px) {

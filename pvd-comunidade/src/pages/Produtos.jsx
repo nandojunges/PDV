@@ -80,7 +80,9 @@ const LIB = [
 const btnBase = {
   height: 44,
   borderRadius: 14,
-  border: "1px solid #d1d5db",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "#d1d5db",
   padding: "0 14px",
   fontWeight: 900,
   cursor: "pointer",
