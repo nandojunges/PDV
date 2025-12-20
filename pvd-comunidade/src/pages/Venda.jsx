@@ -161,6 +161,12 @@ export default function Venda({
     }
   }
 
+  const itensConfirm = Array.isArray(pendingVenda?.carrinho)
+    ? pendingVenda.carrinho
+    : Array.isArray(carrinho)
+    ? carrinho
+    : [];
+
   return (
     <div className="split">
       <Card title="Produtos" subtitle="Toque para adicionar">
@@ -353,8 +359,8 @@ export default function Venda({
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingVenda.carrinho.map((it) => (
-                    <tr key={it.produtoId}>
+                  {itensConfirm.map((it, idx) => (
+                    <tr key={`${it.produtoId ?? it.id ?? idx}`}>
                       <td style={{ padding: "6px 0" }}>{it.nome}</td>
                       <td style={{ textAlign: "center" }}>{it.qtd}</td>
                       <td style={{ textAlign: "right" }}>
@@ -374,7 +380,7 @@ export default function Venda({
             <div className="row space" style={{ marginBottom: 8 }}>
               <div style={{ fontWeight: 900 }}>Total</div>
               <div style={{ fontWeight: 900 }}>
-                {fmtBRL(totalDoCarrinho(pendingVenda.carrinho))}
+                {fmtBRL(totalDoCarrinho(itensConfirm))}
               </div>
             </div>
 
