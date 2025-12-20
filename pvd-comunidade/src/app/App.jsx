@@ -182,6 +182,7 @@ export default function App() {
             resumoEvento={resumoEvento}
             disabled={!hasEventoAberto}
             onZerarCaixa={zerarCaixaEvento}
+            onAbrirCaixaOk={() => setTab("venda")}
           />
         )}
 
