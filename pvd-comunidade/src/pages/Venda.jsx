@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { fmtBRL, toNumBR, uid } from "../domain/math";
+import { fmtBRL, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
@@ -68,8 +68,14 @@ export default function Venda({
     [carrinho],
   );
   const total = useMemo(() => totalDoCarrinho(itensCarrinho), [itensCarrinho]);
-  const recebido = useMemo(() => toNumBR(recebidoTxt), [recebidoTxt]);
-  const troco = useMemo(() => Math.max(0, recebido - total), [recebido, total]);
+  const valorRecebidoNum = useMemo(
+    () => Number(String(recebidoTxt).replace(/\./g, "").replace(",", ".")) || 0,
+    [recebidoTxt],
+  );
+  const troco = useMemo(() => {
+    if (pagamento !== "dinheiro" || valorRecebidoNum <= 0) return null;
+    return Math.max(0, valorRecebidoNum - total);
+  }, [pagamento, valorRecebidoNum, total]);
 
   const overlayStyle = {
     position: "fixed",
@@ -227,18 +233,15 @@ export default function Venda({
       return;
     }
 
-    if (pagamento === "dinheiro" && recebido < total) {
-      setAviso("Valor recebido menor que o total.");
-      return;
-    }
+    const informouRecebido = pagamento === "dinheiro" && valorRecebidoNum > 0;
 
     const draft = {
       eventoId: evento?.id ?? null,
       eventoNome: evento.nome,
       carrinho: itensCarrinho,
       pagamento,
-      recebido: pagamento === "dinheiro" ? recebido : null,
-      troco: pagamento === "dinheiro" ? troco : null,
+      recebido: informouRecebido ? valorRecebidoNum : null,
+      troco: informouRecebido ? troco : null,
       total,
     };
 
@@ -445,14 +448,12 @@ export default function Venda({
                 onChange={(e) => setRecebidoTxt(e.target.value)}
                 inputMode="decimal"
               />
-              {recebidoTxt.trim() && (
-                <div className="row space" style={{ marginTop: 8 }}>
-                  <div className="muted">Troco</div>
-                  <div style={{ fontWeight: 900 }}>
-                    {fmtBRL(troco)}
-                  </div>
+              <div className="row space" style={{ marginTop: 8 }}>
+                <div className="muted">Troco</div>
+                <div style={{ fontWeight: 900 }}>
+                  {troco != null ? fmtBRL(troco) : "—"}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -466,7 +467,8 @@ export default function Venda({
 
         <div className="hr" />
         <div className="muted">
-          Dica: Pix/Cartão não usa troco. Dinheiro precisa informar recebido.
+          Dica: Pix/Cartão não usa troco. Dinheiro pode informar recebido para
+          calcular troco.
         </div>
       </Card>
 
