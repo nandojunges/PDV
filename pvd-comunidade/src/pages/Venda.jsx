@@ -7,6 +7,42 @@ import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
 
+/* ===================== ícones (imagens realistas) ===================== */
+const ICONS = {
+  agua: "/Icons/agua.png",
+  ref_lata: "/Icons/refri-lata.png",
+  ref_600: "/Icons/refri-600.png",
+  ref_2l: "/Icons/refri-2l.png",
+  cer_lata: "/Icons/cerveja-lata.png",
+  cer_garrafa: "/Icons/cerveja-garrafa.png",
+  chope: "/Icons/chope.png",
+  barril: "/Icons/barril.png",
+  lanche: "/Icons/lanche.png",
+  sobremesa: "/Icons/sobremesa.png",
+  sorvete: "/Icons/sorvete.png",
+  fichas: "/Icons/fichas.png",
+  suco: "/Icons/suco.png",
+};
+
+function IconImg({ iconKey, size = 42 }) {
+  const src = ICONS[iconKey] || ICONS.ref_600;
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{
+        width: size,
+        height: size,
+        objectFit: "contain",
+        display: "block",
+      }}
+      onError={(e) => {
+        e.currentTarget.style.display = "none";
+      }}
+    />
+  );
+}
+
 export default function Venda({
   evento = {},
   produtos = [],
@@ -175,30 +211,73 @@ export default function Venda({
           </div>
         )}
 
-        <div className="atalhoGrid">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: 10,
+          }}
+        >
           {produtosAtivos.map((p) => (
             <button
               key={p.id}
-              className="btn atalhoCard"
-              onClick={() => addProduto(p)}
               type="button"
+              onClick={() => addProduto(p)}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 18,
+                background: "#fff",
+                padding: 12,
+                cursor: "pointer",
+                minHeight: 86,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 6,
+                WebkitTapHighlightColor: "transparent",
+              }}
             >
-              <div className="atalhoImgWrap">
-                {p.img ? (
-                  <img className="atalhoImg" src={p.img} alt={p.nome} />
-                ) : (
-                  <div className="atalhoFallback" aria-hidden="true">
-                    🛒
-                  </div>
-                )}
-              </div>
-              <div className="atalhoNome">{p.nome}</div>
-              <div className="atalhoPreco">{fmtBRL(p.preco)}</div>
-              {(p.tipo === "combo" || p.tipo === "caucao") && (
-                <div className="badge">
-                  {p.tipo === "combo" ? "Combo" : "Caução"}
-                </div>
+              {p.img ? (
+                <img
+                  src={p.img}
+                  alt={p.nome}
+                  style={{
+                    width: 46,
+                    height: 46,
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <IconImg iconKey={p.iconKey} size={46} />
               )}
+
+              <div
+                style={{
+                  fontWeight: 950,
+                  fontSize: 13,
+                  textAlign: "center",
+                  lineHeight: 1.1,
+                  maxWidth: "100%",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  color: "#2563eb",
+                }}
+                title={p.nome}
+              >
+                {p.nome}
+              </div>
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 12,
+                  color: "#111827",
+                }}
+              >
+                {fmtBRL(p.preco)}
+              </div>
             </button>
           ))}
 
