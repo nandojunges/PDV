@@ -1,5 +1,5 @@
 // src/pages/Venda.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, toNumBR, uid } from "../domain/math";
@@ -20,10 +20,47 @@ export default function Venda({
   const [carrinho, setCarrinho] = useState([]);
   const [pagamento, setPagamento] = useState("dinheiro");
   const [recebidoTxt, setRecebidoTxt] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingVenda, setPendingVenda] = useState(null);
+  const [aviso, setAviso] = useState("");
 
   const total = useMemo(() => totalDoCarrinho(carrinho || []), [carrinho]);
   const recebido = useMemo(() => toNumBR(recebidoTxt), [recebidoTxt]);
   const troco = useMemo(() => Math.max(0, recebido - total), [recebido, total]);
+
+  const overlayStyle = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: 16,
+  };
+
+  const modalCardStyle = {
+    background: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    width: "100%",
+    maxWidth: 720,
+    maxHeight: "90vh",
+    overflow: "auto",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+  };
+
+  useEffect(() => {
+    if (!confirmOpen) return undefined;
+    function onKeyDown(e) {
+      if (e.key === "Escape") {
+        setConfirmOpen(false);
+        setPendingVenda(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [confirmOpen]);
 
   function precisaEventoAberto() {
     return !String(evento?.nome || "").trim();
@@ -74,11 +111,18 @@ export default function Venda({
   }
 
   function finalizar() {
-    if (precisaEventoAberto()) return alert("Abra um evento primeiro.");
-    if (!carrinho || carrinho.length === 0) return alert("Carrinho vazio.");
+    if (precisaEventoAberto()) {
+      setAviso("Abra um evento primeiro.");
+      return;
+    }
+    if (!carrinho || carrinho.length === 0) {
+      setAviso("Carrinho vazio.");
+      return;
+    }
 
     if (pagamento === "dinheiro" && recebidoTxt.trim() && recebido < total) {
-      return alert("Valor recebido menor que o total.");
+      setAviso("Valor recebido menor que o total.");
+      return;
     }
 
     const venda = buildVenda({
@@ -93,12 +137,28 @@ export default function Venda({
         pagamento === "dinheiro" && recebidoTxt.trim() ? troco : null,
     });
 
+    setAviso("");
+    setPendingVenda(venda);
+    setConfirmOpen(true);
+  }
+
+  function cancelarConfirmacao() {
+    setConfirmOpen(false);
+    setPendingVenda(null);
+  }
+
+  function confirmar(imprimir) {
+    if (!pendingVenda) return;
     const prevLS = loadJSON(LS_KEYS.vendas, []);
-    const next = [venda, ...(Array.isArray(prevLS) ? prevLS : [])];
+    const next = [pendingVenda, ...(Array.isArray(prevLS) ? prevLS : [])];
     saveJSON(LS_KEYS.vendas, next);
-    setVendas((prev = []) => [venda, ...prev]);
+    setVendas((prev = []) => [pendingVenda, ...prev]);
+    setConfirmOpen(false);
+    setPendingVenda(null);
     limpar();
-    alert("Venda finalizada!");
+    if (imprimir) {
+      setTimeout(() => window.print(), 50);
+    }
   }
 
   return (
@@ -152,6 +212,12 @@ export default function Venda({
         subtitle="Revise e finalize"
         right={<span className="badge">{carrinho.length} itens</span>}
       >
+        {aviso && (
+          <div style={{ marginBottom: 12 }}>
+            <span className="badge">{aviso}</span>
+          </div>
+        )}
+
         {carrinho.length === 0 ? (
           <div className="muted">Adicione produtos para começar.</div>
         ) : (
@@ -239,6 +305,122 @@ export default function Venda({
           Dica: Pix/Cartão não usa troco. Dinheiro pode informar recebido.
         </div>
       </Card>
+
+      {confirmOpen && pendingVenda && (
+        <div
+          style={overlayStyle}
+          onClick={cancelarConfirmacao}
+          role="presentation"
+        >
+          <div
+            style={modalCardStyle}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirmar pedido"
+          >
+            <div className="row space" style={{ marginBottom: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>
+                  Confirmar pedido
+                </div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {new Date().toLocaleString("pt-BR")}
+                </div>
+              </div>
+              <span className="badge">{pendingVenda.eventoNome}</span>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <table
+                className="table"
+                style={{ width: "100%", borderCollapse: "collapse" }}
+              >
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", paddingBottom: 8 }}>
+                      Item
+                    </th>
+                    <th style={{ textAlign: "center", paddingBottom: 8 }}>
+                      Qtd
+                    </th>
+                    <th style={{ textAlign: "right", paddingBottom: 8 }}>
+                      Unitário
+                    </th>
+                    <th style={{ textAlign: "right", paddingBottom: 8 }}>
+                      Subtotal
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingVenda.carrinho.map((it) => (
+                    <tr key={it.produtoId}>
+                      <td style={{ padding: "6px 0" }}>{it.nome}</td>
+                      <td style={{ textAlign: "center" }}>{it.qtd}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {fmtBRL(it.preco)}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {fmtBRL(it.subtotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="hr" />
+
+            <div className="row space" style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 900 }}>Total</div>
+              <div style={{ fontWeight: 900 }}>
+                {fmtBRL(totalDoCarrinho(pendingVenda.carrinho))}
+              </div>
+            </div>
+
+            <div className="row space" style={{ marginBottom: 6 }}>
+              <div className="muted">Pagamento</div>
+              <div style={{ fontWeight: 700, textTransform: "capitalize" }}>
+                {pendingVenda.pagamento}
+              </div>
+            </div>
+
+            {pendingVenda.pagamento === "dinheiro" && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="row space">
+                  <div className="muted">Valor recebido</div>
+                  <div>
+                    {pendingVenda.recebido != null
+                      ? fmtBRL(pendingVenda.recebido)
+                      : "—"}
+                  </div>
+                </div>
+                <div className="row space">
+                  <div className="muted">Troco</div>
+                  <div>
+                    {pendingVenda.troco != null
+                      ? fmtBRL(pendingVenda.troco)
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div
+              className="row"
+              style={{ justifyContent: "flex-end", gap: 8, marginTop: 16 }}
+            >
+              <Button onClick={cancelarConfirmacao}>Cancelar</Button>
+              <Button onClick={() => confirmar(true)}>
+                Confirmar e Imprimir
+              </Button>
+              <Button variant="primary" onClick={() => confirmar(false)}>
+                Confirmar sem imprimir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
