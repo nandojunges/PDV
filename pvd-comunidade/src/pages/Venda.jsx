@@ -24,6 +24,9 @@ const ICONS = {
   suco: "/Icons/suco.png",
 };
 
+const BARRIL_LITROS = [5, 10, 15, 20, 30, 50];
+const DEFAULT_BARRIL_LITROS = 30;
+
 function IconImg({ iconKey, size = 42 }) {
   const src = ICONS[iconKey] || ICONS.ref_600;
   return (
@@ -106,24 +109,42 @@ export default function Venda({
     return !String(evento?.nome || "").trim();
   }
 
+  function isBarrilProduto(produto) {
+    return (
+      produto?.isBarril === true ||
+      produto?.precoModo === "por_litro" ||
+      /barril/i.test(produto?.nome || "")
+    );
+  }
+
   function addProduto(p) {
     if (!p) return;
     setCarrinho((prev = []) => {
-      const idx = prev.findIndex((x) => x.produtoId === p.id);
+      const barril = isBarrilProduto(p);
+      const barrilLitros = barril ? DEFAULT_BARRIL_LITROS : null;
+      const unitarioPorLitro = barril ? Number(p.preco || 0) : 0;
+      const unitario = barril ? unitarioPorLitro * barrilLitros : Number(p.preco || 0);
+      const cartKey = barril ? `${p.id}::${barrilLitros}` : `${p.id}`;
+      const idx = prev.findIndex((x) => x.cartKey === cartKey);
       if (idx >= 0) {
         const cp = [...prev];
         const novaQtd = cp[idx].qtd + 1;
-        cp[idx] = { ...cp[idx], qtd: novaQtd, subtotal: novaQtd * cp[idx].preco };
+        const precoAtual = Number(cp[idx].unitario ?? cp[idx].preco ?? 0);
+        cp[idx] = { ...cp[idx], qtd: novaQtd, subtotal: novaQtd * precoAtual };
         return cp;
       }
       return [
         ...prev,
         {
+          cartKey,
           produtoId: p.id,
-          nome: p.nome,
-          preco: p.preco,
+          nome: barril ? `Barril ${barrilLitros}L` : p.nome,
+          preco: unitario,
+          unitario,
+          unitarioPorLitro: barril ? unitarioPorLitro : undefined,
+          barrilLitros: barril ? barrilLitros : undefined,
           qtd: 1,
-          subtotal: p.preco,
+          subtotal: unitario,
           tipo: p.tipo || "simples",
           img: p.img || "",
         },
@@ -131,15 +152,61 @@ export default function Venda({
     });
   }
 
-  function alterarQtd(produtoId, delta) {
+  function alterarQtd(cartKey, delta) {
     setCarrinho((prev = []) => {
       const cp = prev.map((it) => ({ ...it }));
-      const idx = cp.findIndex((x) => x.produtoId === produtoId);
+      const idx = cp.findIndex((x) => x.cartKey === cartKey);
       if (idx < 0) return prev;
       const nova = cp[idx].qtd + delta;
-      if (nova <= 0) return cp.filter((x) => x.produtoId !== produtoId);
+      if (nova <= 0) return cp.filter((x) => x.cartKey !== cartKey);
       cp[idx].qtd = nova;
-      cp[idx].subtotal = nova * cp[idx].preco;
+      const precoAtual = Number(cp[idx].unitario ?? cp[idx].preco ?? 0);
+      cp[idx].subtotal = nova * precoAtual;
+      return cp;
+    });
+  }
+
+  function alterarLitros(cartKey, litros) {
+    setCarrinho((prev = []) => {
+      const cp = prev.map((it) => ({ ...it }));
+      const idx = cp.findIndex((x) => x.cartKey === cartKey);
+      if (idx < 0) return prev;
+      const item = cp[idx];
+      if (!item?.barrilLitros) return prev;
+      const novoLitros = Number(litros);
+      const unitarioPorLitro = Number(item.unitarioPorLitro || 0);
+      const novoUnitario = unitarioPorLitro * novoLitros;
+      const novoCartKey = `${item.produtoId}::${novoLitros}`;
+      const nome = `Barril ${novoLitros}L`;
+      const existenteIdx = cp.findIndex(
+        (x, i) => x.cartKey === novoCartKey && i !== idx,
+      );
+      if (existenteIdx >= 0) {
+        const existente = cp[existenteIdx];
+        const novaQtd = existente.qtd + item.qtd;
+        cp[existenteIdx] = {
+          ...existente,
+          nome,
+          barrilLitros: novoLitros,
+          unitarioPorLitro,
+          unitario: novoUnitario,
+          preco: novoUnitario,
+          qtd: novaQtd,
+          subtotal: novaQtd * novoUnitario,
+        };
+        cp.splice(idx, 1);
+        return cp;
+      }
+      cp[idx] = {
+        ...item,
+        cartKey: novoCartKey,
+        nome,
+        barrilLitros: novoLitros,
+        unitarioPorLitro,
+        unitario: novoUnitario,
+        preco: novoUnitario,
+        subtotal: item.qtd * novoUnitario,
+      };
       return cp;
     });
   }
@@ -305,17 +372,32 @@ export default function Venda({
         ) : (
           <div className="cartList">
             {itensCarrinho.map((it) => (
-              <div key={it.produtoId} className="cartRow">
+              <div key={it.cartKey || it.produtoId} className="cartRow">
                 <div className="cartLeft">
                   <div className="cartName">{it.nome}</div>
                   <div className="muted">{fmtBRL(it.preco)} cada</div>
+                  {it.barrilLitros && (
+                    <div style={{ marginTop: 6 }}>
+                      <select
+                        className="input"
+                        value={it.barrilLitros}
+                        onChange={(e) => alterarLitros(it.cartKey, e.target.value)}
+                      >
+                        {BARRIL_LITROS.map((litros) => (
+                          <option key={litros} value={litros}>
+                            {litros}L
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="cartRight">
-                  <Button small onClick={() => alterarQtd(it.produtoId, -1)}>
+                  <Button small onClick={() => alterarQtd(it.cartKey, -1)}>
                     -
                   </Button>
                   <div className="cartQty">{it.qtd}</div>
-                  <Button small onClick={() => alterarQtd(it.produtoId, +1)}>
+                  <Button small onClick={() => alterarQtd(it.cartKey, +1)}>
                     +
                   </Button>
                 </div>
@@ -436,7 +518,7 @@ export default function Venda({
                 </thead>
                 <tbody>
                   {itensConfirm.map((it, idx) => (
-                    <tr key={`${it.produtoId ?? it.id ?? idx}`}>
+                    <tr key={`${it.cartKey ?? it.produtoId ?? it.id ?? idx}`}>
                       <td style={{ padding: "6px 0" }}>{it.nome}</td>
                       <td style={{ textAlign: "center" }}>{it.qtd}</td>
                       <td style={{ textAlign: "right" }}>

@@ -16,6 +16,8 @@ export function buildVenda(data) {
       qtd,
       unitario,
       subtotal,
+      barrilLitros: it?.barrilLitros ?? null,
+      unitarioPorLitro: it?.unitarioPorLitro ?? null,
     };
   });
 
