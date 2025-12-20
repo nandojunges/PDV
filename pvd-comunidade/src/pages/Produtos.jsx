@@ -246,6 +246,11 @@ export default function Produtos({
     return keyByName || atalhoKey || "";
   }
 
+  function isBarrilNome(nm) {
+    const nomeNormalizado = String(nm || "").toLowerCase();
+    return nomeNormalizado.includes("barril") || getIconKeyForItem(nm) === "barril";
+  }
+
   function adicionarItemAoEvento() {
     if (!podeAdicionar) return;
 
@@ -253,6 +258,7 @@ export default function Produtos({
     const t = tipo?.value === "combo" ? "combo" : "unitario";
     const qtdCombo = t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
     const iconKey = getIconKeyForItem(nm);
+    const barril = isBarrilNome(nm) || iconKey === "barril";
 
     setProdutos((prev) => {
       const arr = Array.isArray(prev) ? prev : [];
@@ -266,6 +272,8 @@ export default function Produtos({
         tipo: t,
         comboQtd: qtdCombo,
         iconKey,
+        isBarril: barril,
+        precoModo: barril ? "por_litro" : "unitario",
       };
 
       if (idx >= 0) {
@@ -295,6 +303,7 @@ export default function Produtos({
   }
 
   const podeFinalizar = itensEvento.length >= 1;
+  const barrilAtual = isBarrilNome(nome);
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -360,7 +369,7 @@ export default function Produtos({
 
           <div>
             <div className="muted" style={{ marginBottom: 6 }}>
-              Preço
+              {barrilAtual ? "Preço (por litro)" : "Preço"}
             </div>
             <input
               className="input"
@@ -370,7 +379,9 @@ export default function Produtos({
               style={{ fontSize: 18, fontWeight: 900 }}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              Digite só números (ex: 800 = 8,00).
+              {barrilAtual
+                ? "Digite só números (ex: 1800 = 18,00 por litro)."
+                : "Digite só números (ex: 800 = 8,00)."}
             </div>
           </div>
         </div>
