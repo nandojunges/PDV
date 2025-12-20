@@ -10,14 +10,20 @@ function norm(s) {
 }
 
 function extrairItensVenda(v) {
-  const itens = v?.itens ?? v?.items ?? v?.carrinho ?? v?.produtos ?? [];
+  const itens = v?.itens ?? v?.carrinho ?? v?.items ?? v?.produtos ?? [];
   if (!Array.isArray(itens)) return [];
 
-  return itens.map((i) => ({
-    nome: i?.nome ?? i?.produto ?? i?.name ?? "",
-    qtd: Number(i?.qtd ?? i?.quantidade ?? i?.qty ?? 0) || 0,
-    unitario: Number(i?.unitario ?? i?.preco ?? i?.valor ?? 0) || 0,
-  }));
+  return itens.map((i) => {
+    const qtd = Number(i?.qtd ?? i?.quantidade ?? i?.qty ?? 0) || 0;
+    const unitario = Number(i?.unitario ?? i?.preco ?? i?.valor ?? 0) || 0;
+    const subtotal = Number(i?.subtotal ?? qtd * unitario) || 0;
+    return {
+      nome: i?.nome ?? i?.produto ?? i?.name ?? "",
+      qtd,
+      unitario,
+      subtotal,
+    };
+  });
 }
 
 export default function Relatorio() {
@@ -26,8 +32,10 @@ export default function Relatorio() {
   const caixa = loadJSON(LS_KEYS.caixa, null);
 
   const vendasEvento = vendas.filter((v) => {
-    if (evento?.id && v?.eventoId) return v.eventoId === evento.id;
-    return norm(v?.eventoNome) === norm(evento?.nome);
+    const matchId = evento?.id && v?.eventoId && v.eventoId === evento.id;
+    const matchNome =
+      norm(v?.eventoNome) && norm(evento?.nome) && norm(v.eventoNome) === norm(evento.nome);
+    return matchId || matchNome;
   });
 
   const mapa = new Map();
@@ -37,7 +45,7 @@ export default function Relatorio() {
       if (!it.nome) return;
       const cur = mapa.get(it.nome) || { nome: it.nome, qtd: 0, unitario: it.unitario, total: 0 };
       cur.qtd += it.qtd;
-      cur.total += it.qtd * it.unitario;
+      cur.total += it.subtotal;
       cur.unitario = it.unitario || cur.unitario;
       mapa.set(it.nome, cur);
     });
