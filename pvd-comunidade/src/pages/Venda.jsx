@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { fmtBRL, uid } from "../domain/math";
+import { fmtBRL, toBRDateTime, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
@@ -46,11 +46,163 @@ function IconImg({ iconKey, size = 42 }) {
   );
 }
 
+function expandirItensParaTickets(itens = []) {
+  const lista = Array.isArray(itens) ? itens : [];
+  const tickets = [];
+
+  const round2 = (value) => Number(Number(value || 0).toFixed(2));
+
+  for (const item of lista) {
+    const nome = String(item?.nome || "").trim();
+    if (!nome) continue;
+    const qtd = Number(item?.qtd || 0) || 0;
+    if (qtd <= 0) continue;
+
+    const tipo = item?.tipo === "combo" ? "combo" : "unitario";
+    const unitario = Number(item?.unitario ?? item?.preco ?? 0) || 0;
+    const subtotal = Number(item?.subtotal ?? 0) || 0;
+
+    if (tipo === "combo") {
+      const totalCombo = unitario || (qtd > 0 ? subtotal / qtd : 0);
+      const n = Number(item?.comboQtd || 2) || 2;
+      const unitDiv = round2(totalCombo / n);
+      const totalTickets = qtd * n;
+      for (let i = 0; i < totalTickets; i += 1) {
+        tickets.push({
+          linhaTitulo: `1x ${nome} (combo)`,
+          linhaSub: "",
+          valorUnit: unitDiv,
+          meta: { tipo: "combo", comboQtd: n },
+        });
+      }
+      continue;
+    }
+
+    const valorUnit = round2(unitario);
+    for (let i = 0; i < qtd; i += 1) {
+      tickets.push({
+        linhaTitulo: `1x ${nome}`,
+        linhaSub: "",
+        valorUnit,
+        meta: { tipo: "unitario" },
+      });
+    }
+  }
+
+  return tickets;
+}
+
+function printTickets({ eventoNome, dataISO, tickets, mensagemRodape }) {
+  const janela = window.open("", "_blank", "width=420,height=700");
+  if (!janela) return;
+
+  const safeText = (text) =>
+    String(text || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
+  const dataTexto = dataISO ? toBRDateTime(dataISO) : toBRDateTime(new Date().toISOString());
+  const tituloEvento = safeText(eventoNome || "");
+  const rodape = safeText(mensagemRodape || "Obrigado pela preferência!");
+  const lista = Array.isArray(tickets) ? tickets : [];
+
+  const conteudoTickets = lista
+    .map((ticket) => {
+      const titulo = safeText(ticket.linhaTitulo);
+      const sub = safeText(ticket.linhaSub || "");
+      const valor = fmtBRL(Number(ticket.valorUnit || 0));
+      return `
+        <div class="ticket">
+          <div class="ticket-header">
+            <div class="ticket-title">${tituloEvento}</div>
+            <div class="ticket-date">${safeText(dataTexto)}</div>
+          </div>
+          <div class="ticket-line">
+            <div class="ticket-left">
+              <div class="ticket-main">${titulo}</div>
+              ${sub ? `<div class="ticket-sub">${sub}</div>` : ""}
+            </div>
+            <div class="ticket-price">${valor}</div>
+          </div>
+          <div class="ticket-footer">${rodape}</div>
+          <div class="cut">CORTE AQUI</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  const html = `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Tickets</title>
+        <style>
+          body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
+          .ticket {
+            width: 80mm;
+            max-width: 80mm;
+            border: 1px dashed #bbb;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px auto;
+            box-sizing: border-box;
+          }
+          .ticket-header { text-align: center; margin-bottom: 8px; }
+          .ticket-title { font-weight: 700; font-size: 16px; }
+          .ticket-date { font-size: 11px; color: #555; }
+          .ticket-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: baseline;
+            margin: 8px 0 10px;
+          }
+          .ticket-left { flex: 1 1 auto; min-width: 0; }
+          .ticket-main { font-weight: 700; font-size: 14px; word-break: break-word; }
+          .ticket-sub { font-size: 11px; color: #666; margin-top: 2px; }
+          .ticket-price { font-weight: 700; font-size: 14px; white-space: nowrap; }
+          .ticket-footer { text-align: center; font-size: 12px; font-weight: 700; }
+          .cut {
+            border-top: 1px dashed #bbb;
+            margin-top: 10px;
+            padding-top: 6px;
+            text-align: center;
+            font-size: 11px;
+            color: #444;
+          }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .ticket { page-break-inside: avoid; }
+          }
+          @page { size: auto; margin: 6mm; }
+        </style>
+      </head>
+      <body>
+        ${conteudoTickets || "<div class=\"ticket\">Sem tickets para imprimir.</div>"}
+      </body>
+    </html>
+  `;
+
+  janela.document.open();
+  janela.document.write(html);
+  janela.document.close();
+  janela.focus();
+  setTimeout(() => {
+    janela.print();
+  }, 250);
+}
+
 export default function Venda({
   evento = {},
   produtos = [],
   vendas = [],
   setVendas = () => {},
+  ajustes = {},
 }) {
   const produtosAtivos = useMemo(() => {
     return Array.isArray(produtos) ? produtos.filter((p) => p?.ativo) : [];
@@ -265,7 +417,13 @@ export default function Venda({
     setConfirmOpen(false);
     setVendaDraft(null);
     limpar();
-    setTimeout(() => window.print(), 50);
+    const tickets = expandirItensParaTickets(vendaFinal.itens);
+    printTickets({
+      eventoNome: ajustes?.nomeOrganizacao || vendaFinal.eventoNome,
+      dataISO: vendaFinal.createdAt || new Date().toISOString(),
+      tickets,
+      mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
+    });
   }
 
   const itensConfirm = Array.isArray(vendaDraft?.carrinho)

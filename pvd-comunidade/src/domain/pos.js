@@ -16,6 +16,9 @@ export function buildVenda(data) {
       qtd,
       unitario,
       subtotal,
+      tipo: it?.tipo ?? "unitario",
+      comboQtd: it?.comboQtd ?? null,
+      isBarril: it?.isBarril ?? false,
       barrilLitros: it?.barrilLitros ?? null,
       unitarioPorLitro: it?.unitarioPorLitro ?? null,
     };
