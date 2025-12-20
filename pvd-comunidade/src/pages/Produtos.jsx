@@ -1,5 +1,5 @@
 // src/pages/Produtos.jsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, Component } from "react";
 import Select from "react-select";
 import Card from "../components/Card";
 
@@ -32,20 +32,26 @@ function fmtBRL(n) {
 }
 
 /* ===================== ícones (imagens realistas) ===================== */
+/**
+ * IMPORTANTE:
+ * Pelo print, sua pasta é: public/Icons (I maiúsculo)
+ * Então a URL correta é: "/Icons/arquivo.png"
+ * (Se você quiser usar "/icons/...", renomeie a pasta para "icons".)
+ */
 const ICONS = {
-  agua: "/icons/agua.png",
-  ref_lata: "/icons/refri-lata.png",
-  ref_600: "/icons/refri-600.png",
-  ref_2l: "/icons/refri-2l.png",
-  cer_lata: "/icons/cerveja-lata.png",
-  cer_garrafa: "/icons/cerveja-garrafa.png",
-  chope: "/icons/chope.png",
-  barril: "/icons/barril.png",
-  lanche: "/icons/lanche.png",
-  sobremesa: "/icons/sobremesa.png",
-  sorvete: "/icons/sorvete.png",
-  fichas: "/icons/fichas.png",
-  suco: "/icons/suco.png",
+  agua: "/Icons/agua.png",
+  ref_lata: "/Icons/refri-lata.png",
+  ref_600: "/Icons/refri-600.png",
+  ref_2l: "/Icons/refri-2l.png",
+  cer_lata: "/Icons/cerveja-lata.png",
+  cer_garrafa: "/Icons/cerveja-garrafa.png",
+  chope: "/Icons/chope.png",
+  barril: "/Icons/barril.png",
+  lanche: "/Icons/lanche.png",
+  sobremesa: "/Icons/sobremesa.png",
+  sorvete: "/Icons/sorvete.png",
+  fichas: "/Icons/fichas.png",
+  suco: "/Icons/suco.png",
 };
 
 const LIB = [
@@ -121,7 +127,7 @@ const rsStyles = {
   menuPortal: (b) => ({ ...b, zIndex: 999999 }),
 };
 
-class SelectErrorBoundary extends React.Component {
+class SelectErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false };
@@ -193,15 +199,20 @@ function IconImg({ iconKey, size = 42 }) {
 }
 
 /* ===================== componente ===================== */
-export default function Produtos({ produtos = [], setProdutos, setTab, onSalvarOfertaDoEvento }) {
+export default function Produtos({
+  produtos = [],
+  setProdutos = () => {},
+  setTab = () => {},
+  onSalvarOfertaDoEvento,
+}) {
   const itensEvento = useMemo(() => (Array.isArray(produtos) ? produtos : []), [produtos]);
-  const atalhosDisponiveis = useMemo(
-    () =>
-      LIB.filter(
-        (it) => !itensEvento.some((p) => String(p?.nome || "").trim() === String(it.nome).trim())
-      ),
-    [itensEvento]
-  );
+
+  const atalhosDisponiveis = useMemo(() => {
+    const usados = new Set(
+      itensEvento.map((p) => String(p?.nome || "").trim().toLowerCase()).filter(Boolean)
+    );
+    return LIB.filter((it) => !usados.has(String(it.nome).trim().toLowerCase()));
+  }, [itensEvento]);
 
   const [nome, setNome] = useState("");
   const [precoDigits, setPrecoDigits] = useState("");
@@ -231,8 +242,8 @@ export default function Produtos({ produtos = [], setProdutos, setTab, onSalvarO
   }
 
   function getIconKeyForItem(nm) {
-    const found = LIB.find((x) => x.nome === nm);
-    return found?.key || atalhoKey || "";
+    const keyByName = LIB.find((x) => String(x.nome).trim() === String(nm).trim())?.key;
+    return keyByName || atalhoKey || "";
   }
 
   function adicionarItemAoEvento() {
@@ -478,7 +489,14 @@ export default function Produtos({ produtos = [], setProdutos, setTab, onSalvarO
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
+                >
                   <button type="button" onClick={() => toggleAtivo(p.id)} style={btnSoft}>
                     {p.ativo ? "Inativar" : "Ativar"}
                   </button>
