@@ -128,6 +128,13 @@ export default function App() {
     }));
   }
 
+  function finalizarCaixaEvento() {
+    setEvento({ nome: "", abertoEm: null, produtos: [] });
+    setProdutos([]);
+    setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
+    setTab("evento");
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "#f5f6f8" }}>
       <TopBar
@@ -183,6 +190,7 @@ export default function App() {
             disabled={!hasEventoAberto}
             onZerarCaixa={zerarCaixaEvento}
             onAbrirCaixaOk={() => setTab("venda")}
+            onFinalizarCaixa={finalizarCaixaEvento}
           />
         )}
 
