@@ -1,26 +1,17 @@
 // src/pages/Evento.jsx
 import React, { useMemo, useState, useEffect } from "react";
+import { loadJSON, saveJSON } from "../storage/storage";
+import { LS_KEYS } from "../storage/keys";
 
 const SENHA_EXCLUIR = "123456";
 
 /* ===================== storage: status do evento ===================== */
-const LS_EVENTOS_META = "pvd_eventos_meta";
-
 function loadEventosMeta() {
-  try {
-    const raw = localStorage.getItem(LS_EVENTOS_META);
-    const arr = JSON.parse(raw || "[]");
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+  const arr = loadJSON(LS_KEYS.eventosMeta, []);
+  return Array.isArray(arr) ? arr : [];
 }
 function saveEventosMeta(arr) {
-  try {
-    localStorage.setItem(LS_EVENTOS_META, JSON.stringify(Array.isArray(arr) ? arr : []));
-  } catch {
-    // sem crash
-  }
+  saveJSON(LS_KEYS.eventosMeta, Array.isArray(arr) ? arr : []);
 }
 
 function pad2(n) {
@@ -113,7 +104,7 @@ export default function Evento({
   const [senha, setSenha] = useState("");
   const [erroSenha, setErroSenha] = useState("");
 
-  // ✅ mapa de encerrados (localStorage)
+  // ✅ mapa de encerrados (cache)
   const encerradosMap = useMemo(() => {
     const meta = loadEventosMeta();
     const map = new Map();
@@ -314,7 +305,7 @@ export default function Evento({
       }));
     }
 
-    // remove também o status ENCERRADO no localStorage
+    // remove também o status ENCERRADO no cache
     const meta = loadEventosMeta();
     const novo = meta.filter((m) => String(m?.nome || "").trim() !== nomeEv);
     saveEventosMeta(novo);

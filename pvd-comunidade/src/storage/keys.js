@@ -5,4 +5,5 @@ export const LS_KEYS = {
   vendas: "pvd_vendas_v1",
   caixa: "pvd_caixa_v1",
   ajustes: "pvd_ajustes_v1",
+  eventosMeta: "pvd_eventos_meta",
 };
