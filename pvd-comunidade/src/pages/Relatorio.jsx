@@ -22,6 +22,8 @@ function extrairItensVenda(v) {
       qtd,
       unitario,
       subtotal,
+      barrilLitros: i?.barrilLitros ?? null,
+      unitarioPorLitro: i?.unitarioPorLitro ?? null,
     };
   });
 }
@@ -43,15 +45,31 @@ export default function Relatorio() {
   vendasEvento.forEach((v) => {
     extrairItensVenda(v).forEach((it) => {
       if (!it.nome) return;
-      const cur = mapa.get(it.nome) || { nome: it.nome, qtd: 0, unitario: it.unitario, total: 0 };
+      const nomeBase = it.nome;
+      const key = it.barrilLitros ? `${nomeBase}::${it.barrilLitros}` : nomeBase;
+      const cur = mapa.get(key) || {
+        nome: nomeBase,
+        qtd: 0,
+        unitario: it.unitario,
+        total: 0,
+        barrilLitros: it.barrilLitros,
+      };
       cur.qtd += it.qtd;
       cur.total += it.subtotal;
       cur.unitario = it.unitario || cur.unitario;
-      mapa.set(it.nome, cur);
+      mapa.set(key, cur);
     });
   });
 
-  const linhas = Array.from(mapa.values());
+  const linhas = Array.from(mapa.values()).map((it) => {
+    if (!it.barrilLitros) return it;
+    const litrosTag = `${it.barrilLitros}L`;
+    const jaTemLitros = new RegExp(`\\b${it.barrilLitros}\\s*L\\b`, "i").test(it.nome);
+    return {
+      ...it,
+      nome: jaTemLitros ? it.nome : `${it.nome} ${litrosTag}`,
+    };
+  });
   const totalVendido = linhas.reduce((s, l) => s + l.total, 0);
   const abertura = Number(caixa?.abertura ?? 0);
   const totalGeral = abertura + totalVendido;
