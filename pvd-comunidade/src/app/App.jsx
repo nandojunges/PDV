@@ -23,7 +23,7 @@ export default function App() {
   const [tab, setTab] = useState("evento");
 
   const [evento, setEvento] = useState(() =>
-    loadJSON(LS_KEYS.evento, { nome: "", abertoEm: "" })
+    loadJSON(LS_KEYS.evento, { nome: "", abertoEm: null, produtos: [] })
   );
 
   const [produtos, setProdutos] = useState(() =>
@@ -36,8 +36,7 @@ export default function App() {
 
   const [caixa, setCaixa] = useState(() =>
     loadJSON(LS_KEYS.caixa, {
-      eventoNome: "",
-      abertoEm: "",
+      abertoEm: null,
       abertura: null,
       movimentos: [],
     })
@@ -73,12 +72,13 @@ export default function App() {
 
     const abertoEm = new Date().toISOString();
 
-    setEvento({ nome: nm, abertoEm });
-    setCaixa((prev) => ({
-      ...prev,
-      eventoNome: nm,
-      abertoEm,
-    }));
+    setEvento({ nome: nm, abertoEm, produtos: [] });
+    setProdutos([]);
+    setCaixa({
+      abertura: null,
+      abertoEm: null,
+      movimentos: [],
+    });
 
     // ao abrir, vai para PRODUTOS
     setTab("produtos");
@@ -87,10 +87,10 @@ export default function App() {
   function zerarTudo() {
     if (!confirm("Zerar TODOS os dados?")) return;
 
-    setEvento({ nome: "", abertoEm: "" });
+    setEvento({ nome: "", abertoEm: null, produtos: [] });
     setProdutos([]);
     setVendas([]);
-    setCaixa({ eventoNome: "", abertoEm: "", abertura: null, movimentos: [] });
+    setCaixa({ abertoEm: null, abertura: null, movimentos: [] });
     setAjustes({
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
