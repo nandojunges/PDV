@@ -44,6 +44,7 @@ export default function Caixa({
   caixa,
   setCaixa = () => {},
   resumoEvento,
+  onAbrirCaixaOk,
   onZerarCaixa,
   onFinalizarCaixa,
   disabled = false,
@@ -88,6 +89,8 @@ export default function Caixa({
       abertura: aberturaValor,
       abertoEm: prev?.abertoEm || new Date().toISOString(),
     }));
+
+    if (typeof onAbrirCaixaOk === "function") onAbrirCaixaOk();
   }
 
   function finalizarCaixa() {
