@@ -46,7 +46,7 @@ function IconImg({ iconKey, size = 42 }) {
   );
 }
 
-function expandirItensParaTickets(itens = []) {
+export function expandirItensParaTickets(itens = []) {
   const lista = Array.isArray(itens) ? itens : [];
   const tickets = [];
 
@@ -92,7 +92,7 @@ function expandirItensParaTickets(itens = []) {
   return tickets;
 }
 
-function printTickets({ eventoNome, dataISO, tickets, mensagemRodape }) {
+export function printTickets({ eventoNome, dataISO, tickets, mensagemRodape }) {
   const html = buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -469,7 +469,20 @@ export default function Venda({
 
   function confirmar() {
     if (!vendaDraft) return;
-    const vendaFinal = buildVenda({ id: uid(), ...vendaDraft });
+    const vendaBase = buildVenda({ id: uid(), ...vendaDraft });
+    const criadoEm =
+      vendaBase?.criadoEm || vendaBase?.createdAt || new Date().toISOString();
+    const vendaFinal = {
+      ...vendaBase,
+      id: vendaBase?.id || uid(),
+      criadoEm,
+      createdAt: vendaBase?.createdAt || criadoEm,
+      data: vendaBase?.data || criadoEm,
+      eventoNome: String(vendaBase?.eventoNome || vendaDraft?.eventoNome || "").trim(),
+      total: Number(vendaBase?.total ?? vendaDraft?.total ?? 0) || 0,
+      pagamento: String(vendaBase?.pagamento || vendaDraft?.pagamento || "dinheiro"),
+      itens: Array.isArray(vendaBase?.itens) ? vendaBase.itens : [],
+    };
     const prevLS = loadJSON(LS_KEYS.vendas, []);
     const next = [vendaFinal, ...(Array.isArray(prevLS) ? prevLS : [])];
     saveJSON(LS_KEYS.vendas, next);
