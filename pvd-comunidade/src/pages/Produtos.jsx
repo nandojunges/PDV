@@ -52,6 +52,8 @@ const ICONS = {
   sorvete: "/Icons/sorvete.png",
   fichas: "/Icons/fichas.png",
   suco: "/Icons/suco.png",
+  // ✅ NOVO
+  almoco_socio: "/Icons/almocosocio.png",
 };
 
 const LIB = [
@@ -74,6 +76,9 @@ const LIB = [
   { key: "fichas", nome: "Fichas" },
 
   { key: "suco", nome: "Suco" },
+
+  // ✅ NOVO
+  { key: "almoco_socio", nome: "Almoço do Sócio" },
 ];
 
 /* ===================== botões ===================== */
