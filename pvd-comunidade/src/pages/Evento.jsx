@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
 import { getFlowState } from "../domain/eventoFlow";
-import { useConfig } from "../config/useConfig";
+import { useConfig } from "../config/ConfigProvider";
 import { PDV_PORT, gerarPin } from "../net/pdvNetConfig";
 import { getLocalIpHint } from "../net/pdvLocalIp";
 import { startPdvServer } from "../net/pdvServer";
