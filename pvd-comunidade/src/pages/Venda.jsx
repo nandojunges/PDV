@@ -6,7 +6,12 @@ import { fmtBRL, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { useConfig } from "../config/ConfigProvider";
 import { postSaleToMaster } from "../net/connectivity";
-import { enqueuePendingSale, getOrCreateDeviceId, persistSale } from "../state/pdvStore";
+import {
+  buildSaleSummaryFromSale,
+  enqueuePendingSale,
+  getOrCreateDeviceId,
+  persistSale,
+} from "../state/pdvStore";
 
 /* ===================== ícones (imagens realistas) ===================== */
 const ICONS = {
@@ -507,6 +512,7 @@ export default function Venda({
       const port = String(config?.masterPort || "").trim();
       const pin = String(config?.pinAtual || "").trim();
       const eventId = String(config?.eventIdAtual || "").trim();
+      const summary = buildSaleSummaryFromSale({ sale: vendaFinal, deviceId });
       if (host && port && pin && eventId) {
         try {
           await postSaleToMaster({
@@ -515,13 +521,13 @@ export default function Venda({
             pin,
             eventId,
             deviceId,
-            sale: vendaFinal,
+            summary,
           });
         } catch {
-          enqueuePendingSale({ sale: vendaFinal });
+          enqueuePendingSale({ summary, sale: vendaFinal });
         }
       } else {
-        enqueuePendingSale({ sale: vendaFinal });
+        enqueuePendingSale({ summary, sale: vendaFinal });
       }
     }
   }

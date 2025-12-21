@@ -1,9 +1,10 @@
 // src/pages/Relatorio.jsx
-import React from "react";
+import React, { useMemo } from "react";
 import Card from "../components/Card";
 import { fmtBRL } from "../domain/math";
 import { loadJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
+import { useConfig } from "../config/ConfigProvider";
 
 function norm(s) {
   return String(s ?? "").trim().toLowerCase();
@@ -28,10 +29,16 @@ function extrairItensVenda(v) {
   });
 }
 
-export default function Relatorio() {
-  const evento = loadJSON(LS_KEYS.evento, null);
-  const vendas = loadJSON(LS_KEYS.vendas, []);
-  const caixa = loadJSON(LS_KEYS.caixa, null);
+function extrairItensResumo(summary) {
+  if (!summary) return [];
+  return extrairItensVenda(summary);
+}
+
+export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caixa: caixaProp }) {
+  const { permitirMultiDispositivo, config } = useConfig();
+  const evento = eventoProp ?? loadJSON(LS_KEYS.evento, null);
+  const vendas = Array.isArray(vendasProp) ? vendasProp : loadJSON(LS_KEYS.vendas, []);
+  const caixa = caixaProp ?? loadJSON(LS_KEYS.caixa, null);
 
   const vendasEvento = vendas.filter((v) => {
     const matchId = evento?.id && v?.eventoId && v.eventoId === evento.id;
@@ -39,6 +46,13 @@ export default function Relatorio() {
       norm(v?.eventoNome) && norm(evento?.nome) && norm(v.eventoNome) === norm(evento.nome);
     return matchId || matchNome;
   });
+
+  const isMaster = permitirMultiDispositivo && config?.modoMulti === "master";
+  const saleSummaries = useMemo(() => {
+    if (!isMaster) return [];
+    const raw = loadJSON(LS_KEYS.saleSummaries, []);
+    return Array.isArray(raw) ? raw : [];
+  }, [isMaster]);
 
   const mapa = new Map();
 
@@ -60,6 +74,37 @@ export default function Relatorio() {
       mapa.set(key, cur);
     });
   });
+
+  if (isMaster) {
+    const nomeAtual = String(evento?.nome || "").trim();
+    saleSummaries
+      .filter((summary) => {
+        const matchId = evento?.id && summary?.eventoId && summary.eventoId === evento.id;
+        const matchNome =
+          norm(summary?.eventoNome) &&
+          norm(evento?.nome) &&
+          norm(summary.eventoNome) === norm(evento.nome);
+        return (matchId || matchNome) && (!nomeAtual || norm(summary?.eventoNome) === norm(nomeAtual));
+      })
+      .forEach((summary) => {
+        extrairItensResumo(summary).forEach((it) => {
+          if (!it.nome) return;
+          const nomeBase = it.nome;
+          const key = it.barrilLitros ? `${nomeBase}::${it.barrilLitros}` : nomeBase;
+          const cur = mapa.get(key) || {
+            nome: nomeBase,
+            qtd: 0,
+            unitario: it.unitario,
+            total: 0,
+            barrilLitros: it.barrilLitros,
+          };
+          cur.qtd += it.qtd;
+          cur.total += it.subtotal;
+          cur.unitario = it.unitario || cur.unitario;
+          mapa.set(key, cur);
+        });
+      });
+  }
 
   const linhas = Array.from(mapa.values()).map((it) => {
     if (!it.barrilLitros) return it;
