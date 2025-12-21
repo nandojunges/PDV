@@ -4,8 +4,9 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
-import { loadJSON, saveJSON } from "../storage/storage";
-import { LS_KEYS } from "../storage/keys";
+import { useConfig } from "../config/ConfigProvider";
+import { postSaleToMaster } from "../net/connectivity";
+import { enqueuePendingSale, getOrCreateDeviceId, persistSale } from "../state/pdvStore";
 
 /* ===================== ícones (imagens realistas) ===================== */
 const ICONS = {
@@ -264,6 +265,9 @@ export default function Venda({
   setTab = () => {},
   ajustes = {},
 }) {
+  const { permitirMultiDispositivo, config } = useConfig();
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+
   const produtosAtivos = useMemo(() => {
     return Array.isArray(produtos) ? produtos.filter((p) => p?.ativo) : [];
   }, [produtos]);
@@ -467,7 +471,7 @@ export default function Venda({
     setVendaDraft(null);
   }
 
-  function confirmar() {
+  async function confirmar() {
     if (!vendaDraft) return;
     const vendaBase = buildVenda({ id: uid(), ...vendaDraft });
     const criadoEm =
@@ -483,10 +487,7 @@ export default function Venda({
       pagamento: String(vendaBase?.pagamento || vendaDraft?.pagamento || "dinheiro"),
       itens: Array.isArray(vendaBase?.itens) ? vendaBase.itens : [],
     };
-    const prevLS = loadJSON(LS_KEYS.vendas, []);
-    const next = [vendaFinal, ...(Array.isArray(prevLS) ? prevLS : [])];
-    saveJSON(LS_KEYS.vendas, next);
-    setVendas((prev = []) => [vendaFinal, ...prev]);
+    persistSale({ sale: vendaFinal, setVendas });
     setConfirmOpen(false);
     setVendaDraft(null);
     limpar();
@@ -500,6 +501,29 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
     });
+
+    if (permitirMultiDispositivo && config?.modoMulti === "client") {
+      const host = String(config?.masterHost || "").trim();
+      const port = String(config?.masterPort || "").trim();
+      const pin = String(config?.pinAtual || "").trim();
+      const eventId = String(config?.eventIdAtual || "").trim();
+      if (host && port && pin && eventId) {
+        try {
+          await postSaleToMaster({
+            host,
+            port,
+            pin,
+            eventId,
+            deviceId,
+            sale: vendaFinal,
+          });
+        } catch {
+          enqueuePendingSale({ sale: vendaFinal });
+        }
+      } else {
+        enqueuePendingSale({ sale: vendaFinal });
+      }
+    }
   }
 
   const itensConfirm = Array.isArray(vendaDraft?.carrinho)
