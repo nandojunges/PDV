@@ -14,6 +14,7 @@ import { LS_KEYS } from "../storage/keys";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
+import { getFlowState } from "../domain/eventoFlow";
 
 export default function App() {
   useEffect(() => {
@@ -71,6 +72,10 @@ export default function App() {
   }, [vendas, evento]);
 
   const hasEventoAberto = Boolean((evento?.nome || "").trim());
+  const flowState = useMemo(
+    () => getFlowState({ evento, produtos, caixa, vendas }),
+    [evento, produtos, caixa, vendas]
+  );
 
   function abrirEvento(nome) {
     const nm = String(nome || "").trim();
@@ -142,6 +147,7 @@ export default function App() {
         setTab={setTab}
         evento={evento}
         resumo={resumoEvento}
+        flowState={flowState}
         onZerarTudo={zerarTudo}
       />
 
@@ -152,6 +158,7 @@ export default function App() {
             abrirEvento={abrirEvento}
             vendas={vendas}
             caixa={caixa}
+            flowState={flowState}
             setCaixa={setCaixa}
             setVendas={setVendas}
           />
@@ -188,6 +195,8 @@ export default function App() {
             caixa={caixa}
             setCaixa={setCaixa}
             resumoEvento={resumoEvento}
+            vendas={vendas}
+            flowState={flowState}
             disabled={!hasEventoAberto}
             onZerarCaixa={zerarCaixaEvento}
             onAbrirCaixaOk={() => setTab("venda")}
