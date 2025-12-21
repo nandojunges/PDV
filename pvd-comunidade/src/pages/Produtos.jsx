@@ -1,5 +1,5 @@
 // src/pages/Produtos.jsx
-import React, { useMemo, useState, Component } from "react";
+import React, { useMemo, useRef, useState, Component } from "react";
 import Select from "react-select";
 import Card from "../components/Card";
 
@@ -229,6 +229,27 @@ export default function Produtos({
     precoNum > 0 &&
     (tipo?.value !== "combo" || (parseInt(comboQtd, 10) || 0) >= 2);
 
+  // ✅ refs para rolar pro topo e focar o preço
+  const topoRef = useRef(null);
+  const precoRef = useRef(null);
+
+  function scrollTopoEFocusPreco() {
+    // rola para o topo do card de cadastro
+    if (topoRef.current?.scrollIntoView) {
+      topoRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // foca o input de preço (delay ajuda em mobile)
+    setTimeout(() => {
+      try {
+        precoRef.current?.focus?.();
+        precoRef.current?.select?.();
+      } catch (_) {}
+    }, 250);
+  }
+
   function limparTopo() {
     setNome("");
     setPrecoDigits("");
@@ -241,6 +262,9 @@ export default function Produtos({
     if (readOnly) return;
     setNome(it.nome);
     setAtalhoKey(it.key);
+
+    // ✅ ajuste do fluxo: sobe pro formulário e foca no preço
+    scrollTopoEFocusPreco();
   }
 
   function getIconKeyForItem(nm) {
@@ -315,11 +339,15 @@ export default function Produtos({
     <div style={{ display: "grid", gap: 12 }}>
       {/* ===== CADASTRO ===== */}
       <Card title="Produtos" subtitle="Selecione no atalho, digite o preço e adicione.">
+        {/* ✅ âncora para scroll */}
+        <div ref={topoRef} />
+
         {readOnly && (
           <div className="badge" style={{ marginBottom: 10 }}>
             Produtos sincronizados pelo mestre (somente leitura).
           </div>
         )}
+
         <div className="formGrid">
           <div>
             <div className="muted" style={{ marginBottom: 6 }}>
@@ -385,6 +413,7 @@ export default function Produtos({
               {barrilAtual ? "Preço (por litro)" : "Preço"}
             </div>
             <input
+              ref={precoRef}
               className="input"
               value={precoBRL}
               onChange={(e) => setPrecoDigits(String(e.target.value || "").replace(/\D/g, ""))}
