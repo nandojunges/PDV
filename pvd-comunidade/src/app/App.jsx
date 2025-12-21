@@ -15,9 +15,10 @@ import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
 import { getFlowState } from "../domain/eventoFlow";
-import { stopMasterServer, postSaleToMaster } from "../net/connectivity";
+import { stopMasterServer, postSaleToMaster, syncFromMaster } from "../net/connectivity";
 import { useConfig } from "../config/ConfigProvider";
 import {
+  buildSaleSummaryFromSale,
   getOrCreateDeviceId,
   readPendingSales,
   removePendingSaleById,
@@ -73,6 +74,10 @@ export default function App() {
 
   useEffect(() => saveJSON(LS_KEYS.evento, evento), [evento]);
   useEffect(() => saveJSON(LS_KEYS.produtos, produtos), [produtos]);
+  useEffect(() => {
+    if (!Array.isArray(produtos)) return;
+    saveJSON(LS_KEYS.produtosUpdatedAt, new Date().toISOString());
+  }, [produtos]);
   useEffect(() => saveJSON(LS_KEYS.vendas, vendas), [vendas]);
   useEffect(() => saveJSON(LS_KEYS.caixa, caixa), [caixa]);
   useEffect(() => saveJSON(LS_KEYS.ajustes, ajustes), [ajustes]);
@@ -187,8 +192,10 @@ export default function App() {
       const pendentes = readPendingSales();
       if (pendentes.length === 0) return;
       for (const item of pendentes) {
-        const sale = item?.sale;
-        if (!sale) continue;
+        const summary =
+          item?.summary ||
+          (item?.sale ? buildSaleSummaryFromSale({ sale: item.sale, deviceId }) : null);
+        if (!summary) continue;
         try {
           await postSaleToMaster({
             host,
@@ -196,9 +203,9 @@ export default function App() {
             pin,
             eventId,
             deviceId,
-            sale,
+            summary,
           });
-          removePendingSaleById(sale.id);
+          removePendingSaleById(summary.saleId || summary.id);
         } catch {
           break;
         }
@@ -206,6 +213,60 @@ export default function App() {
     }, 5000);
 
     return () => clearInterval(interval);
+  }, [
+    permitirMultiDispositivo,
+    config?.modoMulti,
+    config?.masterHost,
+    config?.masterPort,
+    config?.pinAtual,
+    config?.eventIdAtual,
+    evento?.nome,
+    deviceId,
+  ]);
+
+  useEffect(() => {
+    if (!permitirMultiDispositivo) return undefined;
+    if (config?.modoMulti !== "client") return undefined;
+    if (!evento?.nome) return undefined;
+
+    const host = String(config?.masterHost || "").trim();
+    const port = String(config?.masterPort || "").trim();
+    const pin = String(config?.pinAtual || "").trim();
+    const eventId = String(config?.eventIdAtual || "").trim();
+
+    if (!host || !port || !pin || !eventId) return undefined;
+
+    let cancelled = false;
+    const syncProdutos = async () => {
+      if (cancelled) return;
+      const since = loadJSON(LS_KEYS.produtosSyncAt, null);
+      try {
+        const response = await syncFromMaster({
+          host,
+          port,
+          pin,
+          eventId,
+          deviceId,
+          since,
+        });
+        const delta = response?.snapshotDelta || null;
+        if (Array.isArray(delta?.products)) {
+          setProdutos(delta.products);
+          saveJSON(LS_KEYS.produtosSyncAt, delta.updatedAt || new Date().toISOString());
+        } else if (delta?.updatedAt) {
+          saveJSON(LS_KEYS.produtosSyncAt, delta.updatedAt);
+        }
+      } catch {
+        // mantém offline
+      }
+    };
+
+    void syncProdutos();
+    const interval = setInterval(syncProdutos, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [
     permitirMultiDispositivo,
     config?.modoMulti,
@@ -248,6 +309,7 @@ export default function App() {
             produtos={produtos}
             setProdutos={setProdutos}
             setTab={setTab}
+            readOnly={permitirMultiDispositivo && config?.modoMulti === "client"}
             onSalvarOfertaDoEvento={(novosProdutos) =>
               setEvento((prev) => ({
                 ...prev,

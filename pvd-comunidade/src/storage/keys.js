@@ -9,4 +9,7 @@ export const LS_KEYS = {
   eventosMeta: "pvd_eventos_meta",
   pendingSales: "pvd_pending_sales_v1",
   deviceId: "pvd_device_id_v1",
+  produtosUpdatedAt: "pvd_produtos_updated_at_v1",
+  produtosSyncAt: "pvd_produtos_sync_at_v1",
+  saleSummaries: "pvd_sale_summaries_v1",
 };

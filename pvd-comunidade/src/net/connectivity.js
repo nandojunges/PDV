@@ -249,9 +249,16 @@ export async function startMasterServer({
 
     if (path === "/sale") {
       const sale = payload?.sale || null;
+      const summary = payload?.saleSummary || payload?.summary || null;
       const result =
         typeof onSale === "function"
-          ? await onSale({ sale, deviceId: payload?.deviceId, ip })
+          ? await onSale({
+              sale,
+              summary,
+              deviceId: payload?.deviceId,
+              type: payload?.type,
+              ip,
+            })
           : null;
       const totals = result?.totals || null;
       const applied = result?.applied !== false;
@@ -273,6 +280,7 @@ export async function startMasterServer({
           ? await onSyncRequest({
               deviceId: payload?.deviceId,
               since: payload?.since,
+              type: payload?.type,
               ip,
             })
           : null;
@@ -281,7 +289,8 @@ export async function startMasterServer({
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           ok: true,
-          snapshotDelta: result || { sales: [], totals: null, updatedAt: new Date().toISOString() },
+          snapshotDelta:
+            result || { products: null, updatedAt: new Date().toISOString() },
         }),
       };
     }
@@ -331,15 +340,30 @@ export async function joinAsClient({ host, port, pin, eventId, deviceId, deviceN
   const url = `http://${host}:${port}/join`;
   return postJson({
     url,
-    payload: { pin, eventId, deviceId, deviceName },
+    payload: { pin, eventId, deviceId, deviceName, type: "REQUEST_PRODUCTS" },
   });
 }
 
-export async function postSaleToMaster({ host, port, pin, eventId, deviceId, sale }) {
+export async function postSaleToMaster({
+  host,
+  port,
+  pin,
+  eventId,
+  deviceId,
+  summary,
+  sale,
+}) {
   const url = `http://${host}:${port}/sale`;
   return postJson({
     url,
-    payload: { pin, eventId, deviceId, sale },
+    payload: {
+      pin,
+      eventId,
+      deviceId,
+      sale,
+      saleSummary: summary || null,
+      type: "SALE_SUMMARY",
+    },
   });
 }
 
@@ -347,6 +371,6 @@ export async function syncFromMaster({ host, port, pin, eventId, deviceId, since
   const url = `http://${host}:${port}/sync`;
   return postJson({
     url,
-    payload: { pin, eventId, deviceId, since },
+    payload: { pin, eventId, deviceId, since, type: "SYNC_PRODUCTS" },
   });
 }

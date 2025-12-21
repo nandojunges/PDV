@@ -14,9 +14,10 @@ import {
 import {
   buildTotals,
   countPendingSales,
-  getEventoSnapshot,
+  getProdutosSnapshot,
+  getProdutosSnapshotDelta,
   getOrCreateDeviceId,
-  getSnapshotDelta,
+  persistSaleSummary,
   persistSale,
 } from "../state/pdvStore";
 
@@ -449,21 +450,22 @@ export default function Evento({
         deviceName: navigator?.userAgent || "Cliente",
       });
       const snapshot = response?.snapshot || null;
-      if (snapshot?.itensEvento && typeof setProdutos === "function") {
-        setProdutos(Array.isArray(snapshot.itensEvento) ? snapshot.itensEvento : []);
+      if (snapshot?.products && typeof setProdutos === "function") {
+        setProdutos(Array.isArray(snapshot.products) ? snapshot.products : []);
+        if (snapshot?.updatedAt) {
+          saveJSON(LS_KEYS.produtosSyncAt, snapshot.updatedAt);
+        }
       }
-      if (snapshot?.caixaState && typeof setCaixa === "function") {
-        setCaixa(snapshot.caixaState);
-      }
-      if (snapshot?.relatorioState?.vendas && typeof setVendas === "function") {
-        setVendas(Array.isArray(snapshot.relatorioState.vendas) ? snapshot.relatorioState.vendas : []);
-      }
-      if (snapshot?.evento?.nome && typeof setEvento === "function") {
+      if (snapshot?.products && typeof setEvento === "function") {
+        const nomeEvento =
+          String(snapshot?.eventName || "").trim() ||
+          String(evento?.nome || "").trim() ||
+          "Evento sincronizado";
         setEvento((prev) => ({
           ...(prev || {}),
-          nome: snapshot.evento.nome,
-          abertoEm: snapshot.evento.abertoEm || prev?.abertoEm,
-          produtos: Array.isArray(snapshot.itensEvento) ? snapshot.itensEvento : prev?.produtos || [],
+          nome: nomeEvento,
+          abertoEm: prev?.abertoEm || new Date().toISOString(),
+          produtos: Array.isArray(snapshot.products) ? snapshot.products : prev?.produtos || [],
           modo: "client",
         }));
       }
@@ -498,10 +500,21 @@ export default function Evento({
         eventId: eventoIdCurto,
         onClientJoin: () => {
           setClientsConnected((prev) => prev + 1);
-          const snapshot = getEventoSnapshot();
+          const snapshot = getProdutosSnapshot();
           return { snapshot };
         },
-        onSale: ({ sale }) => {
+        onSale: ({ sale, summary }) => {
+          if (summary) {
+            const result = persistSaleSummary(summary);
+            return {
+              applied: result.added,
+              totals: null,
+              serverSaleId: summary?.saleId || summary?.id || null,
+            };
+          }
+          if (!sale) {
+            return { applied: false, totals: null, serverSaleId: null };
+          }
           const result = persistSale({ sale, setVendas });
           const vendasLista = loadJSON(LS_KEYS.vendas, []);
           const vendasEvento = Array.isArray(vendasLista)
@@ -516,7 +529,7 @@ export default function Evento({
           };
         },
         onSyncRequest: ({ since }) => {
-          return getSnapshotDelta({ since });
+          return getProdutosSnapshotDelta({ since });
         },
       });
       const ip = await getLocalIp();

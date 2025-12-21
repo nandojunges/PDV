@@ -204,6 +204,7 @@ export default function Produtos({
   setProdutos = () => {},
   setTab = () => {},
   onSalvarOfertaDoEvento,
+  readOnly = false,
 }) {
   const itensEvento = useMemo(() => (Array.isArray(produtos) ? produtos : []), [produtos]);
 
@@ -237,6 +238,7 @@ export default function Produtos({
   }
 
   function escolherAtalho(it) {
+    if (readOnly) return;
     setNome(it.nome);
     setAtalhoKey(it.key);
   }
@@ -252,6 +254,7 @@ export default function Produtos({
   }
 
   function adicionarItemAoEvento() {
+    if (readOnly) return;
     if (!podeAdicionar) return;
 
     const nm = String(nome || "").trim();
@@ -288,16 +291,19 @@ export default function Produtos({
   }
 
   function removerItem(id) {
+    if (readOnly) return;
     setProdutos((prev) => (Array.isArray(prev) ? prev : []).filter((x) => x.id !== id));
   }
 
   function toggleAtivo(id) {
+    if (readOnly) return;
     setProdutos((prev) =>
       (Array.isArray(prev) ? prev : []).map((p) => (p.id === id ? { ...p, ativo: !p.ativo } : p))
     );
   }
 
   function limparItensEvento() {
+    if (readOnly) return;
     if (!confirm("Limpar todos os itens do evento?")) return;
     setProdutos([]);
   }
@@ -309,6 +315,11 @@ export default function Produtos({
     <div style={{ display: "grid", gap: 12 }}>
       {/* ===== CADASTRO ===== */}
       <Card title="Produtos" subtitle="Selecione no atalho, digite o preço e adicione.">
+        {readOnly && (
+          <div className="badge" style={{ marginBottom: 10 }}>
+            Produtos sincronizados pelo mestre (somente leitura).
+          </div>
+        )}
         <div className="formGrid">
           <div>
             <div className="muted" style={{ marginBottom: 6 }}>
@@ -338,6 +349,7 @@ export default function Produtos({
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 style={{ fontSize: 16 }}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -348,7 +360,7 @@ export default function Produtos({
             </div>
 
             {/* ✅ react-select com proteção (sem tela branca) */}
-            <TipoSelectSafe value={tipo} onChange={setTipo} />
+            <TipoSelectSafe value={tipo} onChange={readOnly ? () => {} : setTipo} />
           </div>
 
           {tipo?.value === "combo" && (
@@ -363,6 +375,7 @@ export default function Produtos({
                 inputMode="numeric"
                 placeholder="Ex: 4"
                 style={{ fontSize: 16 }}
+                disabled={readOnly}
               />
             </div>
           )}
@@ -377,6 +390,7 @@ export default function Produtos({
               onChange={(e) => setPrecoDigits(String(e.target.value || "").replace(/\D/g, ""))}
               inputMode="numeric"
               style={{ fontSize: 18, fontWeight: 900 }}
+              disabled={readOnly}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
               {barrilAtual
@@ -392,17 +406,17 @@ export default function Produtos({
           <button
             type="button"
             onClick={adicionarItemAoEvento}
-            disabled={!podeAdicionar}
+            disabled={!podeAdicionar || readOnly}
             style={{
-              ...(podeAdicionar ? btnPrimary : btnSoft),
-              opacity: podeAdicionar ? 1 : 0.55,
-              cursor: podeAdicionar ? "pointer" : "not-allowed",
+              ...(podeAdicionar && !readOnly ? btnPrimary : btnSoft),
+              opacity: podeAdicionar && !readOnly ? 1 : 0.55,
+              cursor: podeAdicionar && !readOnly ? "pointer" : "not-allowed",
             }}
           >
             Adicionar item ao evento
           </button>
 
-          <button type="button" onClick={limparTopo} style={btnSoft}>
+          <button type="button" onClick={limparTopo} style={btnSoft} disabled={readOnly}>
             Limpar
           </button>
         </div>
@@ -523,7 +537,7 @@ export default function Produtos({
         <div className="hr" />
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between" }}>
-          <button type="button" onClick={limparItensEvento} style={btnSoft}>
+          <button type="button" onClick={limparItensEvento} style={btnSoft} disabled={readOnly}>
             Limpar itens do evento
           </button>
 
@@ -560,12 +574,14 @@ export default function Produtos({
               key={it.key}
               type="button"
               onClick={() => escolherAtalho(it)}
+              disabled={readOnly}
               style={{
                 border: "1px solid #e5e7eb",
                 borderRadius: 18,
                 background: "#fff",
                 padding: 12,
-                cursor: "pointer",
+                cursor: readOnly ? "not-allowed" : "pointer",
+                opacity: readOnly ? 0.6 : 1,
                 minHeight: 86,
                 display: "flex",
                 flexDirection: "column",
