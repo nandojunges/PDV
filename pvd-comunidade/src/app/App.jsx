@@ -15,6 +15,7 @@ import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
 import { getFlowState } from "../domain/eventoFlow";
+import { stopPdvServer } from "../net/pdvServer";
 
 export default function App() {
   useEffect(() => {
@@ -25,6 +26,7 @@ export default function App() {
 
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
+    if (raw === null) return null;
     const fallback = { nome: "", abertoEm: null, produtos: [], modo: "local", rede: null };
     if (!raw || typeof raw !== "object") return fallback;
     return {
@@ -66,10 +68,13 @@ export default function App() {
   useEffect(() => saveJSON(LS_KEYS.caixa, caixa), [caixa]);
   useEffect(() => saveJSON(LS_KEYS.ajustes, ajustes), [ajustes]);
   useEffect(() => {
-    setEvento((prev) => ({
-      ...prev,
-      produtos: Array.isArray(produtos) ? produtos : [],
-    }));
+    setEvento((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        produtos: Array.isArray(produtos) ? produtos : [],
+      };
+    });
   }, [produtos]);
 
   const resumoEvento = useMemo(() => {
@@ -106,20 +111,31 @@ export default function App() {
     setTab("produtos");
   }
 
+  async function encerrarEventoAtual() {
+    if (evento?.modo === "mestre") {
+      try {
+        await stopPdvServer();
+      } catch (error) {
+        console.warn("Não foi possível encerrar o servidor local.", error);
+      }
+    }
+
+    setEvento(null);
+    setProdutos([]);
+    setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
+    setTab("evento");
+  }
+
   function zerarTudo() {
     if (!confirm("Zerar TODOS os dados?")) return;
 
-    setEvento({ nome: "", abertoEm: null, produtos: [], modo: "local", rede: null });
-    setProdutos([]);
+    void encerrarEventoAtual();
     setVendas([]);
-    setCaixa({ abertoEm: null, abertura: null, movimentos: [] });
     setAjustes({
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
     });
-
-    setTab("evento");
   }
 
   function zerarVendasEvento() {
@@ -145,10 +161,7 @@ export default function App() {
   }
 
   function finalizarCaixaEvento() {
-    setEvento({ nome: "", abertoEm: null, produtos: [], modo: "local", rede: null });
-    setProdutos([]);
-    setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
-    setTab("evento");
+    void encerrarEventoAtual();
   }
 
   return (
@@ -229,7 +242,11 @@ export default function App() {
         )}
 
         {tab === "ajustes" && (
-          <Ajustes ajustes={ajustes} setAjustes={setAjustes} />
+          <Ajustes
+            ajustes={ajustes}
+            setAjustes={setAjustes}
+            hasEventoAberto={hasEventoAberto}
+          />
         )}
       </main>
     </div>
