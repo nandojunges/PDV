@@ -15,6 +15,7 @@ import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
 import { getFlowState } from "../domain/eventoFlow";
+import { ConfigProvider } from "../config/useConfig";
 
 export default function App() {
   useEffect(() => {
@@ -141,86 +142,92 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f6f8" }}>
-      <TopBar
-        tab={tab}
-        setTab={setTab}
-        evento={evento}
-        resumo={resumoEvento}
-        flowState={flowState}
-        onZerarTudo={zerarTudo}
-      />
+    <ConfigProvider>
+      <div style={{ minHeight: "100vh", background: "#f5f6f8" }}>
+        <TopBar
+          tab={tab}
+          setTab={setTab}
+          evento={evento}
+          resumo={resumoEvento}
+          flowState={flowState}
+          onZerarTudo={zerarTudo}
+        />
 
-      <main style={{ padding: 16 }}>
-        {tab === "evento" && (
-          <Evento
-            evento={evento}
-            abrirEvento={abrirEvento}
-            vendas={vendas}
-            caixa={caixa}
-            flowState={flowState}
-            setCaixa={setCaixa}
-            setVendas={setVendas}
-          />
-        )}
+        <main style={{ padding: 16 }}>
+          {tab === "evento" && (
+            <Evento
+              evento={evento}
+              abrirEvento={abrirEvento}
+              vendas={vendas}
+              caixa={caixa}
+              flowState={flowState}
+              setCaixa={setCaixa}
+              setVendas={setVendas}
+            />
+          )}
 
-        {tab === "produtos" && (
-          <Produtos
-            produtos={produtos}
-            setProdutos={setProdutos}
-            setTab={setTab}
-            onSalvarOfertaDoEvento={(novosProdutos) =>
-              setEvento((prev) => ({
-                ...prev,
-                produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
-              }))
-            }
-          />
-        )}
+          {tab === "produtos" && (
+            <Produtos
+              produtos={produtos}
+              setProdutos={setProdutos}
+              setTab={setTab}
+              onSalvarOfertaDoEvento={(novosProdutos) =>
+                setEvento((prev) => ({
+                  ...prev,
+                  produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
+                }))
+              }
+            />
+          )}
 
-        {tab === "venda" && (
-          <Venda
-            evento={evento}
-            produtos={produtos}
-            vendas={vendas}
-            setVendas={setVendas}
-            setTab={setTab}
-            ajustes={ajustes}
-          />
-        )}
+          {tab === "venda" && (
+            <Venda
+              evento={evento}
+              produtos={produtos}
+              vendas={vendas}
+              setVendas={setVendas}
+              setTab={setTab}
+              ajustes={ajustes}
+            />
+          )}
 
-        {tab === "caixa" && (
-          <Caixa
-            evento={evento}
-            caixa={caixa}
-            setCaixa={setCaixa}
-            resumoEvento={resumoEvento}
-            vendas={vendas}
-            flowState={flowState}
-            disabled={!hasEventoAberto}
-            onZerarCaixa={zerarCaixaEvento}
-            onAbrirCaixaOk={() => setTab("venda")}
-            onFinalizarCaixa={finalizarCaixaEvento}
-          />
-        )}
+          {tab === "caixa" && (
+            <Caixa
+              evento={evento}
+              caixa={caixa}
+              setCaixa={setCaixa}
+              resumoEvento={resumoEvento}
+              vendas={vendas}
+              flowState={flowState}
+              disabled={!hasEventoAberto}
+              onZerarCaixa={zerarCaixaEvento}
+              onAbrirCaixaOk={() => setTab("venda")}
+              onFinalizarCaixa={finalizarCaixaEvento}
+            />
+          )}
 
-        {tab === "relatorio" && (
-          <Relatorio
-            evento={evento}
-            vendas={vendas}
-            produtos={produtos}
-            caixa={caixa}
-            ajustes={ajustes}
-            resumoEvento={resumoEvento}
-            onZerarVendas={zerarVendasEvento}
-            disabled={!hasEventoAberto}
-          />
-        )}
+          {tab === "relatorio" && (
+            <Relatorio
+              evento={evento}
+              vendas={vendas}
+              produtos={produtos}
+              caixa={caixa}
+              ajustes={ajustes}
+              resumoEvento={resumoEvento}
+              onZerarVendas={zerarVendasEvento}
+              disabled={!hasEventoAberto}
+            />
+          )}
 
-        {tab === "ajustes" && (
-          <Ajustes ajustes={ajustes} setAjustes={setAjustes} />
-        )}
-      </main>
-    </div>
+          {tab === "ajustes" && (
+            <Ajustes
+              ajustes={ajustes}
+              setAjustes={setAjustes}
+              hasEventoAberto={hasEventoAberto}
+            />
+          )}
+        </main>
+      </div>
+    </ConfigProvider>
   );
 }
