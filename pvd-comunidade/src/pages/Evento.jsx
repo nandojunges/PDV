@@ -10,7 +10,6 @@ import {
   joinAsClient,
   startMasterServer,
   stopMasterServer,
-  syncFromMaster,
 } from "../net/connectivity";
 import {
   buildTotals,
@@ -137,8 +136,8 @@ export default function Evento({
   const [serverAtivo, setServerAtivo] = useState(false);
   const [serverErro, setServerErro] = useState("");
   const [clientsConnected, setClientsConnected] = useState(0);
-  const [lastSyncAt, setLastSyncAt] = useState(null);
   const [pendingCount, setPendingCount] = useState(countPendingSales());
+  const [avisoConectar, setAvisoConectar] = useState("");
 
   // modal excluir
   const [evExcluir, setEvExcluir] = useState(null);
@@ -261,14 +260,34 @@ export default function Evento({
   }, [eventoKey]);
 
   const eventoIdCurto = eventoKey ? shortId(eventoKey) : "";
-  const isCliente = config?.modoMulti === "client";
+  const isCliente = config?.modoMulti === "client" || evento?.modo === "client";
   const portaMaster = config?.masterPort || portaPlaceholder;
+  const isNative = useMemo(() => {
+    const cap = window?.Capacitor;
+    if (!cap) return false;
+    if (typeof cap.isNativePlatform === "function") {
+      return cap.isNativePlatform();
+    }
+    return Boolean(cap?.getPlatform && cap.getPlatform() !== "web");
+  }, []);
+
+  const eventoIdAtual = isCliente ? clienteEventId || config?.eventIdAtual || "" : eventoIdCurto;
+  const eventoPinAtual = isCliente ? clientePin || config?.pinAtual || "" : eventoPin;
+  const hostAtual = isCliente ? clienteHost || config?.masterHost || "" : serverIp || "";
+  const portaAtual = isCliente ? clientePorta || config?.masterPort || portaPlaceholder : portaMaster;
+  const hostParaQr = hostAtual || (isNative ? "" : window?.location?.hostname || "localhost");
   const qrPayload = useMemo(() => {
-    if (!eventoIdCurto || !eventoPin) return "";
-    const host = serverIp || "";
-    const port = portaMaster || portaPlaceholder;
-    return `PDV_EVENT|id=${eventoIdCurto}|pin=${eventoPin}|host=${host}|port=${port}`;
-  }, [eventoIdCurto, eventoPin, serverIp, portaMaster, portaPlaceholder]);
+    if (!eventoIdAtual || !eventoPinAtual) return "";
+    const host = hostParaQr || "0.0.0.0";
+    const port = portaAtual || portaPlaceholder;
+    return `PDV_EVENT|id=${eventoIdAtual}|pin=${eventoPinAtual}|host=${host}|port=${port}`;
+  }, [eventoIdAtual, eventoPinAtual, hostParaQr, portaAtual, portaPlaceholder]);
+
+  const qrUrl = useMemo(() => {
+    if (!qrPayload) return "";
+    const encoded = encodeURIComponent(qrPayload);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encoded}`;
+  }, [qrPayload]);
 
   useEffect(() => {
     if (!eventoAberto || !permitirMultiDispositivo) {
@@ -278,7 +297,7 @@ export default function Evento({
       return;
     }
 
-    if (!isCliente) {
+    if (evento?.modo !== "client") {
       updateConfig((prev) => {
         const next = {
           ...prev,
@@ -304,7 +323,7 @@ export default function Evento({
         return "Desconectado";
       });
     }
-  }, [eventoAberto, permitirMultiDispositivo, isCliente, eventoPin, eventoIdCurto, updateConfig]);
+  }, [eventoAberto, permitirMultiDispositivo, evento, eventoPin, eventoIdCurto, updateConfig]);
 
   useEffect(() => {
     setPendingCount(countPendingSales());
@@ -353,7 +372,41 @@ export default function Evento({
     setModoConectar("manual");
     setQrInput("");
     setErroConectar("");
+    setAvisoConectar("");
     setMostrarConectar(true);
+  }
+
+  async function lerQrCode() {
+    setErroConectar("");
+    setAvisoConectar("");
+    if (!isNative) {
+      setAvisoConectar("Disponível apenas no APK");
+      return;
+    }
+
+    const plugins = window?.Capacitor?.Plugins || {};
+    const scanner = plugins.BarcodeScanner || plugins.QRScanner;
+    if (!scanner?.scan) {
+      setErroConectar("Leitor de QR não disponível.");
+      return;
+    }
+
+    try {
+      const result = await scanner.scan();
+      const content =
+        result?.content ||
+        result?.text ||
+        result?.data ||
+        result?.result?.content ||
+        "";
+      if (!content) {
+        setErroConectar("QR inválido.");
+        return;
+      }
+      setQrInput(String(content));
+    } catch (error) {
+      setErroConectar(error?.message || "Não foi possível ler o QR.");
+    }
   }
 
   async function conectarCliente() {
@@ -416,7 +469,6 @@ export default function Evento({
       }
 
       setStatusConexao("Conectado");
-      setLastSyncAt(snapshot?.serverTime || new Date().toISOString());
       updateConfig((prev) => ({
         ...prev,
         modoMulti: "client",
@@ -484,34 +536,6 @@ export default function Evento({
     } finally {
       setServerAtivo(false);
       setStatusConexao("Servidor inativo");
-    }
-  }
-
-  async function sincronizarCliente() {
-    const host = String(config?.masterHost || "").trim();
-    const porta = String(config?.masterPort || "").trim();
-    const pin = String(config?.pinAtual || "").trim();
-    const eventId = String(config?.eventIdAtual || "").trim();
-    if (!host || !porta || !pin || !eventId) return;
-    setStatusConexao("Sincronizando...");
-    try {
-      const response = await syncFromMaster({
-        host,
-        port: porta,
-        pin,
-        eventId,
-        deviceId,
-        since: lastSyncAt,
-      });
-      const delta = response?.snapshotDelta || null;
-      if (delta?.sales && typeof setVendas === "function") {
-        delta.sales.forEach((sale) => persistSale({ sale, setVendas }));
-      }
-      setLastSyncAt(delta?.updatedAt || new Date().toISOString());
-      setStatusConexao("Conectado");
-    } catch (error) {
-      setStatusConexao("Falha ao sincronizar");
-      setServerErro(error?.message || "Não foi possível sincronizar.");
     }
   }
 
@@ -656,6 +680,8 @@ export default function Evento({
       ? `${clientsConnected} cliente(s) conectado(s)`
       : "Aguardando conexões"
     : "Servidor inativo";
+  const statusAtual = isCliente ? statusConexao : statusMaster;
+  const ipMestreLabel = hostAtual ? hostAtual : "IP será exibido automaticamente no APK";
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", paddingBottom: 12 }}>
@@ -707,7 +733,7 @@ export default function Evento({
               </button>
             )}
 
-            {eventoAberto && permitirMultiDispositivo && (
+            {permitirMultiDispositivo && (
               <button
                 style={{ ...btn("soft"), height: 34 }}
                 onClick={abrirModalConectar}
@@ -719,7 +745,7 @@ export default function Evento({
             {eventoAberto && permitirMultiDispositivo && (
               <button
                 style={{ ...btn("soft"), height: 34 }}
-                onClick={() => setMostrarConectividade((prev) => !prev)}
+                onClick={() => setMostrarConectividade(true)}
               >
                 Conectividade
               </button>
@@ -882,100 +908,59 @@ export default function Evento({
           <div style={modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={modalHead}>Conectividade</div>
             <div style={modalBody}>
-              {!isCliente ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <div>
-                      <strong style={{ color: "#111827" }}>ID do evento:</strong>{" "}
-                      {eventoIdCurto || "-"}
-                    </div>
-                    <div>
-                      <strong style={{ color: "#111827" }}>PIN:</strong> {eventoPin || "-"}
-                    </div>
-                    <div>
-                      <strong style={{ color: "#111827" }}>Endereço:</strong>{" "}
-                      {serverIp ? serverIp : "-"}
-                    </div>
-                    <div>
-                      <strong style={{ color: "#111827" }}>Porta:</strong> {portaMaster}
-                    </div>
-                    <div>
-                      <strong style={{ color: "#111827" }}>Status:</strong> {statusMaster}
-                    </div>
-                    {serverAtivo && !serverIp && (
-                      <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                        No Vite: modo demonstração
-                      </div>
-                    )}
-                    {serverErro && (
-                      <div style={{ fontSize: 12, color: "#9ca3af" }}>{serverErro}</div>
-                    )}
-                  </div>
-
-                  <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
-                    {qrPayload ? (
-                      <>
-                        <div
-                          style={{
-                            width: 160,
-                            height: 160,
-                            borderRadius: 12,
-                            border: "1px dashed #d1d5db",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 11,
-                            color: "#9ca3af",
-                            textAlign: "center",
-                            padding: 10,
-                          }}
-                        >
-                          QR Code (TODO)
-                        </div>
-                        <div style={{ fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-                          {qrPayload}
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                        QR disponível após gerar ID e PIN.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div>
-                    <strong style={{ color: "#111827" }}>IP do mestre:</strong>{" "}
-                    {clienteHost || config?.masterHost || "-"}
-                  </div>
-                  <div>
-                    <strong style={{ color: "#111827" }}>Porta:</strong>{" "}
-                    {clientePorta || config?.masterPort || portaPlaceholder}
-                  </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ display: "grid", gap: 6 }}>
                   <div>
                     <strong style={{ color: "#111827" }}>ID do evento:</strong>{" "}
-                    {clienteEventId || config?.eventIdAtual || "-"}
+                    {eventoIdAtual || "-"}
                   </div>
                   <div>
-                    <strong style={{ color: "#111827" }}>PIN:</strong>{" "}
-                    {clientePin || config?.pinAtual || "-"}
+                    <strong style={{ color: "#111827" }}>PIN:</strong> {eventoPinAtual || "-"}
                   </div>
                   <div>
-                    <strong style={{ color: "#111827" }}>Status:</strong> {statusConexao}
+                    <strong style={{ color: "#111827" }}>IP do mestre:</strong> {ipMestreLabel}
                   </div>
                   <div>
-                    <strong style={{ color: "#111827" }}>Fila offline:</strong>{" "}
-                    {pendingCount} venda(s)
+                    <strong style={{ color: "#111827" }}>Porta:</strong> {portaAtual}
                   </div>
-                  <button style={btn("soft")} onClick={sincronizarCliente}>
-                    Sincronizar agora
-                  </button>
+                  <div>
+                    <strong style={{ color: "#111827" }}>Status:</strong> {statusAtual}
+                  </div>
+                  {pendingCount > 0 && isCliente && (
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                      Fila offline: {pendingCount} venda(s)
+                    </div>
+                  )}
+                  {!isNative && (
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                      Servidor LAN e leitura de QR funcionam apenas no APK
+                    </div>
+                  )}
                   {serverErro && (
                     <div style={{ fontSize: 12, color: "#9ca3af" }}>{serverErro}</div>
                   )}
                 </div>
-              )}
+
+                <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
+                  {qrUrl ? (
+                    <img
+                      src={qrUrl}
+                      alt="QR Code do evento"
+                      style={{
+                        width: 160,
+                        height: 160,
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                      }}
+                    />
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                      QR disponível após gerar ID e PIN.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1181,21 +1166,37 @@ export default function Evento({
                 </div>
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    Cole o conteúdo do QR:
-                  </div>
-                  <input
-                    value={qrInput}
-                    onChange={(e) => {
-                      setQrInput(e.target.value);
-                      setErroConectar("");
-                    }}
-                    placeholder="PDV_EVENT|id=...|pin=...|host=...|port=..."
-                    style={inputStyle}
-                  />
+                  <button style={btn("soft")} onClick={lerQrCode}>
+                    Ler QR Code
+                  </button>
+                  {!isNative && (
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                      Disponível apenas no APK
+                    </div>
+                  )}
+                  {qrInput && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#6b7280",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        padding: 8,
+                        background: "#f9fafb",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {qrInput}
+                    </div>
+                  )}
                 </div>
               )}
 
+              {avisoConectar && (
+                <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>
+                  {avisoConectar}
+                </div>
+              )}
               {erroConectar && (
                 <div style={{ color: "#ef4444", fontSize: 12, marginTop: 10, fontWeight: 700 }}>
                   {erroConectar}
