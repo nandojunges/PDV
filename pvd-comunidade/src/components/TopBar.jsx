@@ -8,7 +8,10 @@ export default function TopBar({ evento, tab, setTab, flowState }) {
     <div className="topbar">
       <div className="row space topbarRow">
         <div className="topbarLeft">
-          <div className="topTitle">PVD Comunidade</div>
+          <div className="topTitle">
+            PVD Comunidade
+            <span className="topDeveloper">Desenvolvido por Fernando Junges</span>
+          </div>
 
           <div className="topMeta">
             {evento?.nome ? (

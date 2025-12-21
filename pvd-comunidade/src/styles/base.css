@@ -26,6 +26,13 @@ body { margin: 0; }
 .topbarRow { gap: 10px; }
 
 .topTitle { font-weight: 900; }
+.topDeveloper {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255,255,255,.7);
+  margin-left: 8px;
+  white-space: nowrap;
+}
 .topMeta { margin-top: 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .topMetaText { color: rgba(255,255,255,.85); font-size: 13px; }
 
