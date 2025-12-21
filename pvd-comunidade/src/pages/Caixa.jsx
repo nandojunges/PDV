@@ -5,6 +5,7 @@ import Button from "../components/Button";
 import { fmtBRL, toNumBR } from "../domain/math";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
+import { expandirItensParaTickets, printTickets } from "./Venda";
 
 /* ===================== máscara de moeda (digit shifting) ===================== */
 function onlyDigits(s) {
@@ -30,6 +31,28 @@ function saveEventosMeta(arr) {
   saveJSON(LS_KEYS.eventosMeta, Array.isArray(arr) ? arr : []);
 }
 
+function norm(s) {
+  return String(s ?? "").trim().toLowerCase();
+}
+
+function formatHora(iso) {
+  const dt = new Date(iso || Date.now());
+  if (Number.isNaN(dt.getTime())) return "--:--";
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+}
+
+function getVendaDate(venda) {
+  return (
+    venda?.criadoEm ||
+    venda?.createdAt ||
+    venda?.data ||
+    venda?.created_at ||
+    venda?.created ||
+    null
+  );
+}
+
 export default function Caixa({
   evento = {},
   caixa,
@@ -53,13 +76,28 @@ export default function Caixa({
 
   const vendasLista = Array.isArray(vendas) ? vendas : loadJSON(LS_KEYS.vendas, []);
   const eventoCache = loadJSON(LS_KEYS.evento, null);
+  const eventoRef = eventoCache || evento;
 
-  const vendasEvento = vendasLista.filter((v) => {
-    if (eventoCache?.id && v?.eventoId) return v.eventoId === eventoCache.id;
-    return (
-      String(v?.eventoNome).toLowerCase() === String(eventoCache?.nome).toLowerCase()
-    );
-  });
+  const vendasEvento = useMemo(() => {
+    const lista = Array.isArray(vendasLista) ? vendasLista : [];
+    return lista.filter((v) => {
+      const matchId = eventoRef?.id && v?.eventoId && v.eventoId === eventoRef.id;
+      const matchNome =
+        norm(v?.eventoNome) &&
+        norm(eventoRef?.nome) &&
+        norm(v.eventoNome) === norm(eventoRef.nome);
+      return matchId || matchNome;
+    });
+  }, [vendasLista, eventoRef?.id, eventoRef?.nome]);
+
+  const vendasRecentes = useMemo(() => {
+    const ordenadas = [...vendasEvento].sort((a, b) => {
+      const dataA = new Date(getVendaDate(a) || 0).getTime();
+      const dataB = new Date(getVendaDate(b) || 0).getTime();
+      return dataB - dataA;
+    });
+    return ordenadas.slice(0, 10);
+  }, [vendasEvento]);
 
   function totalFallback(v) {
     if (Number(v?.total)) return Number(v.total);
@@ -151,6 +189,17 @@ export default function Caixa({
 
   const bloqueiaZerarCaixa =
     vendasEvento.length > 0 || flowState === "VENDENDO";
+
+  function reimprimirVenda(venda) {
+    if (!venda?.itens?.length) return;
+    const tickets = expandirItensParaTickets(venda.itens);
+    printTickets({
+      eventoNome: venda.eventoNome || evento.nome,
+      dataISO: venda.criadoEm || venda.createdAt || new Date().toISOString(),
+      tickets,
+      mensagemRodape: "Obrigado pela preferência!",
+    });
+  }
 
   return (
     <div className="split">
@@ -248,6 +297,58 @@ export default function Caixa({
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
           Ao finalizar: o evento fica marcado como encerrado e o sistema deve limpar o evento atual (Relatório zera).
         </div>
+      </Card>
+
+      <Card title="Últimas vendas" subtitle="Reimprima se a impressora falhar.">
+        {!eventoAberto ? (
+          <div className="muted">Abra um evento para ver as últimas vendas.</div>
+        ) : vendasRecentes.length === 0 ? (
+          <div className="muted">Nenhuma venda registrada neste evento.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {vendasRecentes.map((venda, index) => {
+              const dataISO = getVendaDate(venda);
+              const hora = formatHora(dataISO);
+              const totalVenda = Number(venda?.total || 0) || 0;
+              const pagamento = String(venda?.pagamento || "dinheiro");
+              const podeReimprimir = Array.isArray(venda?.itens) && venda.itens.length > 0;
+              return (
+                <div
+                  key={venda?.id || `${dataISO || "sem-data"}-${index}`}
+                  className="row space"
+                  style={{
+                    paddingBottom: 10,
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div className="row" style={{ gap: 8 }}>
+                      <div style={{ fontWeight: 900 }}>{hora}</div>
+                      {index === 0 && <span className="badge">ÚLTIMA</span>}
+                    </div>
+                    <div className="muted">
+                      {fmtBRL(totalVenda)} • {pagamento}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    small
+                    onClick={() => reimprimirVenda(venda)}
+                    disabled={disabled || !podeReimprimir}
+                    title={
+                      podeReimprimir
+                        ? "Reimprimir tickets"
+                        : "Venda sem itens para reimprimir"
+                    }
+                  >
+                    Reimprimir
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
