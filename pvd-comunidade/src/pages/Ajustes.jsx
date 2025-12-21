@@ -3,12 +3,12 @@ import React, { useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
-import DebugRedePDV from "./DebugRedePDV";
+import { useConfig } from "../config/useConfig";
 
-export default function Ajustes({ ajustes, setAjustes }) {
+export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
-  const [mostrarDebugRede, setMostrarDebugRede] = useState(false);
+  const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
   const fileRef = useRef(null);
 
@@ -268,6 +268,30 @@ export default function Ajustes({ ajustes, setAjustes }) {
               </Button>
             </div>
 
+            {!hasEventoAberto ? (
+              <div className="fullRow" style={{ marginTop: 8 }}>
+                <div className="muted" style={{ marginBottom: 6 }}>
+                  Permitir multi-dispositivo
+                </div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(permitirMultiDispositivo)}
+                    onChange={(e) => setPermitirMultiDispositivo(e.target.checked)}
+                    disabled={hasEventoAberto}
+                  />
+                  Habilitar uso do PDV em mais de um dispositivo
+                </label>
+              </div>
+            ) : null}
+
             <div className="muted" style={{ marginTop: 4 }}>
               No celular, a pré-visualização fica abaixo para não desconfigurar.
             </div>
@@ -333,20 +357,6 @@ export default function Ajustes({ ajustes, setAjustes }) {
           </div>
         </div>
 
-        <div style={{ marginTop: 24 }}>
-          <div className="muted" style={{ fontWeight: 800, marginBottom: 8 }}>
-            Ferramentas de teste
-          </div>
-          <Button variant="secondary" onClick={() => setMostrarDebugRede((v) => !v)}>
-            {mostrarDebugRede ? "Fechar Debug de Rede" : "Abrir Debug de Rede"}
-          </Button>
-        </div>
-
-        {mostrarDebugRede ? (
-          <div style={{ marginTop: 16 }}>
-            <DebugRedePDV />
-          </div>
-        ) : null}
       </div>
     </Card>
   );
