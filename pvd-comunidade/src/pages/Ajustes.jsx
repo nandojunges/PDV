@@ -3,10 +3,12 @@ import React, { useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
+import DebugRedePDV from "./DebugRedePDV";
 
 export default function Ajustes({ ajustes, setAjustes }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
+  const [mostrarDebugRede, setMostrarDebugRede] = useState(false);
 
   const fileRef = useRef(null);
 
@@ -330,6 +332,21 @@ export default function Ajustes({ ajustes, setAjustes }) {
             </div>
           </div>
         </div>
+
+        <div style={{ marginTop: 24 }}>
+          <div className="muted" style={{ fontWeight: 800, marginBottom: 8 }}>
+            Ferramentas de teste
+          </div>
+          <Button variant="secondary" onClick={() => setMostrarDebugRede((v) => !v)}>
+            {mostrarDebugRede ? "Fechar Debug de Rede" : "Abrir Debug de Rede"}
+          </Button>
+        </div>
+
+        {mostrarDebugRede ? (
+          <div style={{ marginTop: 16 }}>
+            <DebugRedePDV />
+          </div>
+        ) : null}
       </div>
     </Card>
   );
