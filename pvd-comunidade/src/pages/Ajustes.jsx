@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
-import { useConfig } from "../config/useConfig";
+import { useConfig } from "../config/ConfigProvider";
 
 export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
