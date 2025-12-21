@@ -7,9 +7,10 @@ const DEFAULT_CONFIG = {
   permitirMultiDispositivo: false,
   modoMulti: "master",
   masterHost: "",
-  masterPort: "8787",
+  masterPort: "5179",
   pinAtual: "",
   eventIdAtual: "",
+  autoStartMasterOnOpen: true,
 };
 
 function readPermitirMultiDispositivo() {
@@ -58,6 +59,10 @@ function normalizeConfig(raw) {
     masterPort: typeof raw?.masterPort === "string" ? raw.masterPort : DEFAULT_CONFIG.masterPort,
     pinAtual: typeof raw?.pinAtual === "string" ? raw.pinAtual : "",
     eventIdAtual: typeof raw?.eventIdAtual === "string" ? raw.eventIdAtual : "",
+    autoStartMasterOnOpen:
+      typeof raw?.autoStartMasterOnOpen === "boolean"
+        ? raw.autoStartMasterOnOpen
+        : DEFAULT_CONFIG.autoStartMasterOnOpen,
   };
 }
 

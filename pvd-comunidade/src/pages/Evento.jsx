@@ -5,6 +5,21 @@ import { LS_KEYS } from "../storage/keys";
 import { getFlowState } from "../domain/eventoFlow";
 import { useConfig } from "../config/ConfigProvider";
 import { getOrCreateEventoKey, getOrCreateEventoPin, shortId } from "../rede/eventIdentity";
+import {
+  getLocalIp,
+  joinAsClient,
+  startMasterServer,
+  stopMasterServer,
+  syncFromMaster,
+} from "../net/connectivity";
+import {
+  buildTotals,
+  countPendingSales,
+  getEventoSnapshot,
+  getOrCreateDeviceId,
+  getSnapshotDelta,
+  persistSale,
+} from "../state/pdvStore";
 
 const SENHA_EXCLUIR = "123456";
 
@@ -90,11 +105,14 @@ export default function Evento({
   vendas = [],
   caixa,
   flowState,
+  setEvento,
   setCaixa,
   setVendas,
+  setProdutos,
 }) {
   const { permitirMultiDispositivo, config, updateConfig } = useConfig();
   const [nome, setNome] = useState(evento?.nome || "");
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
 
   // ✅ se mudar o evento ativo (abrir/zerar), reflete no input
   useEffect(() => {
@@ -104,14 +122,20 @@ export default function Evento({
   // modal resumo
   const [evResumo, setEvResumo] = useState(null);
 
-  // conectividade (mock)
+  // conectividade
   const [modoConectividade, setModoConectividade] = useState(config?.modoMulti || "master");
   const [clienteHost, setClienteHost] = useState(config?.masterHost || "");
-  const [clientePorta, setClientePorta] = useState(config?.masterPort || "8787");
+  const [clientePorta, setClientePorta] = useState(config?.masterPort || "5179");
   const [clientePin, setClientePin] = useState(config?.pinAtual || "");
   const [clienteEventId, setClienteEventId] = useState(config?.eventIdAtual || "");
   const [statusConexao, setStatusConexao] = useState("Aguardando conexões");
   const [mostrarConectar, setMostrarConectar] = useState(false);
+  const [serverIp, setServerIp] = useState("");
+  const [serverAtivo, setServerAtivo] = useState(false);
+  const [serverErro, setServerErro] = useState("");
+  const [clientsConnected, setClientsConnected] = useState(0);
+  const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [pendingCount, setPendingCount] = useState(countPendingSales());
 
   // modal excluir
   const [evExcluir, setEvExcluir] = useState(null);
@@ -220,7 +244,7 @@ export default function Evento({
     flowState || getFlowState({ evento, produtos: produtosEvento, caixa, vendas });
   const eventoBloqueado = estadoFluxo === "PRONTO_PARA_VENDER" || estadoFluxo === "VENDENDO";
   const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
-  const portaPlaceholder = "8787";
+  const portaPlaceholder = "5179";
 
   const eventoKey = useMemo(() => {
     if (!permitirMultiDispositivo || !eventoAberto) return "";
@@ -239,6 +263,8 @@ export default function Evento({
     if (!eventoAberto || !permitirMultiDispositivo) {
       setModoConectividade("master");
       setStatusConexao("Aguardando conexões");
+      setServerAtivo(false);
+      setServerErro("");
       return;
     }
 
@@ -275,6 +301,26 @@ export default function Evento({
     }
   }, [eventoAberto, permitirMultiDispositivo, config?.modoMulti, eventoPin, eventoIdCurto, updateConfig]);
 
+  useEffect(() => {
+    setPendingCount(countPendingSales());
+  }, [vendas]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPendingCount(countPendingSales());
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!eventoAberto || !permitirMultiDispositivo) return;
+    if (modoConectividade !== "master") return;
+    if (!config?.autoStartMasterOnOpen) return;
+    if (serverAtivo) return;
+    void iniciarServidor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventoAberto, permitirMultiDispositivo, modoConectividade, config?.autoStartMasterOnOpen]);
+
   function alertEventoBloqueado() {
     alert("Evento em andamento. Finalize o caixa para editar/excluir.");
   }
@@ -289,6 +335,9 @@ export default function Evento({
   function trocarModoConectividade(next) {
     setModoConectividade(next);
     setStatusConexao(next === "client" ? "Desconectado" : "Aguardando conexões");
+    if (next === "client" && serverAtivo) {
+      void pararServidor();
+    }
     updateConfig((prev) => ({
       ...prev,
       modoMulti: next,
@@ -305,7 +354,7 @@ export default function Evento({
     setMostrarConectar(true);
   }
 
-  function conectarCliente() {
+  async function conectarCliente() {
     const host = String(clienteHost || "").trim();
     const porta = String(clientePorta || "").trim() || portaPlaceholder;
     const pin = String(clientePin || "").trim();
@@ -316,17 +365,135 @@ export default function Evento({
     setClientePin(pin);
     setClienteEventId(eventId);
     setModoConectividade("client");
-    setStatusConexao("Conectado (mock)");
+    setStatusConexao("Conectando...");
 
-    updateConfig((prev) => ({
-      ...prev,
-      modoMulti: "client",
-      masterHost: host,
-      masterPort: porta,
-      pinAtual: pin,
-      eventIdAtual: eventId,
-    }));
-    setMostrarConectar(false);
+    try {
+      const response = await joinAsClient({
+        host,
+        port: porta,
+        pin,
+        eventId,
+        deviceId,
+        deviceName: navigator?.userAgent || "Cliente",
+      });
+      const snapshot = response?.snapshot || null;
+      if (snapshot?.itensEvento && typeof setProdutos === "function") {
+        setProdutos(Array.isArray(snapshot.itensEvento) ? snapshot.itensEvento : []);
+      }
+      if (snapshot?.caixaState && typeof setCaixa === "function") {
+        setCaixa(snapshot.caixaState);
+      }
+      if (snapshot?.relatorioState?.vendas && typeof setVendas === "function") {
+        setVendas(Array.isArray(snapshot.relatorioState.vendas) ? snapshot.relatorioState.vendas : []);
+      }
+      if (snapshot?.evento?.nome && typeof setEvento === "function") {
+        setEvento((prev) => ({
+          ...(prev || {}),
+          nome: snapshot.evento.nome,
+          abertoEm: snapshot.evento.abertoEm || prev?.abertoEm,
+          produtos: Array.isArray(snapshot.itensEvento) ? snapshot.itensEvento : prev?.produtos || [],
+          modo: "client",
+        }));
+      }
+
+      setStatusConexao("Conectado");
+      setLastSyncAt(snapshot?.serverTime || new Date().toISOString());
+      updateConfig((prev) => ({
+        ...prev,
+        modoMulti: "client",
+        masterHost: host,
+        masterPort: porta,
+        pinAtual: pin,
+        eventIdAtual: eventId,
+      }));
+      setMostrarConectar(false);
+    } catch (error) {
+      setStatusConexao("Falha ao conectar");
+      setServerErro(error?.message || "Não foi possível conectar.");
+    }
+  }
+
+  async function iniciarServidor() {
+    const porta = String(config?.masterPort || portaPlaceholder || "5179");
+    if (!eventoPin || !eventoIdCurto) {
+      setServerErro("PIN ou evento inválido.");
+      return;
+    }
+    setServerErro("");
+    try {
+      await startMasterServer({
+        port: Number(porta),
+        pin: eventoPin,
+        eventId: eventoIdCurto,
+        onClientJoin: () => {
+          setClientsConnected((prev) => prev + 1);
+          const snapshot = getEventoSnapshot();
+          return { snapshot };
+        },
+        onSale: ({ sale }) => {
+          const result = persistSale({ sale, setVendas });
+          const vendasLista = loadJSON(LS_KEYS.vendas, []);
+          const vendasEvento = Array.isArray(vendasLista)
+            ? vendasLista.filter(
+                (v) => String(v?.eventoNome || "").trim() === String(evento?.nome || "").trim()
+              )
+            : [];
+          return {
+            applied: result.added,
+            totals: buildTotals(vendasEvento.length ? vendasEvento : [result.venda]),
+            serverSaleId: result.venda.id,
+          };
+        },
+        onSyncRequest: ({ since }) => {
+          return getSnapshotDelta({ since });
+        },
+      });
+      const ip = await getLocalIp();
+      setServerIp(ip || "");
+      setServerAtivo(true);
+      setStatusConexao("Servidor ATIVO");
+    } catch (error) {
+      setServerAtivo(false);
+      setStatusConexao("Servidor inativo");
+      setServerErro(error?.message || "Não foi possível iniciar o servidor.");
+    }
+  }
+
+  async function pararServidor() {
+    try {
+      await stopMasterServer();
+    } finally {
+      setServerAtivo(false);
+      setStatusConexao("Servidor inativo");
+    }
+  }
+
+  async function sincronizarCliente() {
+    const host = String(config?.masterHost || "").trim();
+    const porta = String(config?.masterPort || "").trim();
+    const pin = String(config?.pinAtual || "").trim();
+    const eventId = String(config?.eventIdAtual || "").trim();
+    if (!host || !porta || !pin || !eventId) return;
+    setStatusConexao("Sincronizando...");
+    try {
+      const response = await syncFromMaster({
+        host,
+        port: porta,
+        pin,
+        eventId,
+        deviceId,
+        since: lastSyncAt,
+      });
+      const delta = response?.snapshotDelta || null;
+      if (delta?.sales && typeof setVendas === "function") {
+        delta.sales.forEach((sale) => persistSale({ sale, setVendas }));
+      }
+      setLastSyncAt(delta?.updatedAt || new Date().toISOString());
+      setStatusConexao("Conectado");
+    } catch (error) {
+      setStatusConexao("Falha ao sincronizar");
+      setServerErro(error?.message || "Não foi possível sincronizar.");
+    }
   }
 
   function copiarTexto(texto) {
@@ -469,7 +636,7 @@ export default function Evento({
     const id = modoConectividade === "client" ? clienteEventId || "-" : eventoIdCurto || "-";
     const pin = modoConectividade === "client" ? clientePin || "-" : eventoPin || "-";
     const ip = modoConectividade === "client" ? clienteHost : "";
-    const porta = modoConectividade === "client" ? clientePorta || portaPlaceholder : portaPlaceholder;
+    const porta = modoConectividade === "client" ? clientePorta || portaPlaceholder : config?.masterPort || portaPlaceholder;
     return `ID: ${id} | PIN: ${pin}${ip ? ` | IP: ${ip}` : ""} | Porta: ${porta}`;
   })();
 
@@ -594,10 +761,64 @@ export default function Evento({
                 Conectividade: ATIVA
               </div>
 
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <button
+                  style={{
+                    ...btn(modoConectividade === "master" ? "dark" : "soft"),
+                    height: 28,
+                    padding: "0 10px",
+                    fontSize: 12,
+                  }}
+                  onClick={() => trocarModoConectividade("master")}
+                >
+                  Mestre
+                </button>
+                <button
+                  style={{
+                    ...btn(modoConectividade === "client" ? "dark" : "soft"),
+                    height: 28,
+                    padding: "0 10px",
+                    fontSize: 12,
+                  }}
+                  onClick={() => trocarModoConectividade("client")}
+                >
+                  Cliente
+                </button>
+              </div>
+
               {modoConectividade === "master" ? (
                 <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                   <div>
                     <strong style={{ color: "#111827" }}>Modo:</strong> MESTRE
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <strong style={{ color: "#111827" }}>Porta:</strong>
+                    <input
+                      value={config?.masterPort || portaPlaceholder}
+                      onChange={(e) =>
+                        updateConfig((prev) => ({
+                          ...prev,
+                          masterPort: String(e.target.value || portaPlaceholder),
+                        }))
+                      }
+                      placeholder={portaPlaceholder}
+                      style={{
+                        width: 80,
+                        height: 28,
+                        borderRadius: 8,
+                        border: "1px solid #d1d5db",
+                        padding: "0 6px",
+                        fontSize: 12,
+                      }}
+                      inputMode="numeric"
+                      disabled={serverAtivo}
+                    />
+                    <button
+                      style={{ ...btn("soft"), height: 28, padding: "0 10px", fontSize: 12 }}
+                      onClick={serverAtivo ? pararServidor : iniciarServidor}
+                    >
+                      {serverAtivo ? "Parar servidor" : "Iniciar servidor"}
+                    </button>
                   </div>
                   <div>
                     <strong style={{ color: "#111827" }}>ID do evento:</strong>{" "}
@@ -607,11 +828,19 @@ export default function Evento({
                     <strong style={{ color: "#111827" }}>PIN:</strong> {eventoPin || "-"}
                   </div>
                   <div>
-                    <strong style={{ color: "#111827" }}>Porta:</strong> {portaPlaceholder}
+                    <strong style={{ color: "#111827" }}>Endereço:</strong>{" "}
+                    {serverIp ? `http://${serverIp}:${config?.masterPort || portaPlaceholder}` : "-"}
                   </div>
                   <div>
                     <strong style={{ color: "#111827" }}>Status:</strong> {statusConexao}
                   </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>Clientes conectados:</strong>{" "}
+                    {clientsConnected}
+                  </div>
+                  {serverErro && (
+                    <div style={{ color: "#ef4444", fontWeight: 700 }}>{serverErro}</div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
@@ -635,6 +864,19 @@ export default function Evento({
                   <div>
                     <strong style={{ color: "#111827" }}>Status:</strong> {statusConexao}
                   </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>Fila offline:</strong>{" "}
+                    {pendingCount} venda(s)
+                  </div>
+                  <button
+                    style={{ ...btn("soft"), height: 28, padding: "0 10px", fontSize: 12 }}
+                    onClick={sincronizarCliente}
+                  >
+                    Sincronizar agora
+                  </button>
+                  {serverErro && (
+                    <div style={{ color: "#ef4444", fontWeight: 700 }}>{serverErro}</div>
+                  )}
                 </div>
               )}
             </div>

@@ -7,4 +7,6 @@ export const LS_KEYS = {
   ajustes: "pvd_ajustes_v1",
   config: "pvd_config_v1",
   eventosMeta: "pvd_eventos_meta",
+  pendingSales: "pvd_pending_sales_v1",
+  deviceId: "pvd_device_id_v1",
 };

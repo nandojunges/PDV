@@ -15,9 +15,18 @@ import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
 import { getFlowState } from "../domain/eventoFlow";
-import { stopPdvServer } from "../net/pdvServer";
+import { stopMasterServer, postSaleToMaster } from "../net/connectivity";
+import { useConfig } from "../config/ConfigProvider";
+import {
+  getOrCreateDeviceId,
+  readPendingSales,
+  removePendingSaleById,
+} from "../state/pdvStore";
 
 export default function App() {
+  const { config, permitirMultiDispositivo } = useConfig();
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+
   useEffect(() => {
     ensureMigrations();
   }, []);
@@ -112,12 +121,10 @@ export default function App() {
   }
 
   async function encerrarEventoAtual() {
-    if (evento?.modo === "mestre") {
-      try {
-        await stopPdvServer();
-      } catch (error) {
-        console.warn("Não foi possível encerrar o servidor local.", error);
-      }
+    try {
+      await stopMasterServer();
+    } catch (error) {
+      console.warn("Não foi possível encerrar o servidor local.", error);
     }
 
     setEvento(null);
@@ -164,6 +171,52 @@ export default function App() {
     void encerrarEventoAtual();
   }
 
+  useEffect(() => {
+    if (!permitirMultiDispositivo) return undefined;
+    if (config?.modoMulti !== "client") return undefined;
+    if (!evento?.nome) return undefined;
+
+    const host = String(config?.masterHost || "").trim();
+    const port = String(config?.masterPort || "").trim();
+    const pin = String(config?.pinAtual || "").trim();
+    const eventId = String(config?.eventIdAtual || "").trim();
+
+    if (!host || !port || !pin || !eventId) return undefined;
+
+    const interval = setInterval(async () => {
+      const pendentes = readPendingSales();
+      if (pendentes.length === 0) return;
+      for (const item of pendentes) {
+        const sale = item?.sale;
+        if (!sale) continue;
+        try {
+          await postSaleToMaster({
+            host,
+            port,
+            pin,
+            eventId,
+            deviceId,
+            sale,
+          });
+          removePendingSaleById(sale.id);
+        } catch {
+          break;
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [
+    permitirMultiDispositivo,
+    config?.modoMulti,
+    config?.masterHost,
+    config?.masterPort,
+    config?.pinAtual,
+    config?.eventIdAtual,
+    evento?.nome,
+    deviceId,
+  ]);
+
   return (
     <div style={{ minHeight: "100vh", background: "#f5f6f8" }}>
       <TopBar
@@ -183,8 +236,10 @@ export default function App() {
             vendas={vendas}
             caixa={caixa}
             flowState={flowState}
+            setEvento={setEvento}
             setCaixa={setCaixa}
             setVendas={setVendas}
+            setProdutos={setProdutos}
           />
         )}
 
