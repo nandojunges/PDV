@@ -177,6 +177,7 @@ export default function App() {
             produtos={produtos}
             vendas={vendas}
             setVendas={setVendas}
+            setTab={setTab}
             ajustes={ajustes}
           />
         )}

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { fmtBRL, toBRDateTime, uid } from "../domain/math";
+import { fmtBRL, uid } from "../domain/math";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
@@ -93,108 +93,167 @@ function expandirItensParaTickets(itens = []) {
 }
 
 function printTickets({ eventoNome, dataISO, tickets, mensagemRodape }) {
-  const janela = window.open("", "_blank", "width=420,height=700");
-  if (!janela) return;
+  const html = buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape });
 
-  const safeText = (text) =>
-    String(text || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
+  // 1) Tenta popup (melhor experiência: não altera a página principal)
+  let w = null;
+  try {
+    w = window.open("", "_blank", "width=420,height=720");
+  } catch (e) {
+    w = null;
+  }
 
-  const dataTexto = dataISO ? toBRDateTime(dataISO) : toBRDateTime(new Date().toISOString());
-  const tituloEvento = safeText(eventoNome || "");
-  const rodape = safeText(mensagemRodape || "Obrigado pela preferência!");
-  const lista = Array.isArray(tickets) ? tickets : [];
+  if (w && w.document) {
+    const cleanup = () => {
+      try {
+        w.close();
+      } catch {}
+    };
 
-  const conteudoTickets = lista
-    .map((ticket) => {
-      const titulo = safeText(ticket.linhaTitulo);
-      const sub = safeText(ticket.linhaSub || "");
-      const valor = fmtBRL(Number(ticket.valorUnit || 0));
+    // fecha ao terminar/cancelar
+    w.addEventListener?.("afterprint", cleanup);
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+
+    // imprime após renderizar
+    setTimeout(() => {
+      try {
+        w.print();
+      } catch {}
+      // fallback extra: fecha mesmo se afterprint não disparar
+      setTimeout(cleanup, 1200);
+    }, 250);
+
+    return;
+  }
+
+  // 2) Fallback: iframe invisível (funciona em browsers que bloqueiam popup)
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!doc) {
+    document.body.removeChild(iframe);
+    alert("Não foi possível abrir a impressão neste dispositivo.");
+    return;
+  }
+
+  const cleanupIframe = () => {
+    try {
+      document.body.removeChild(iframe);
+    } catch {}
+  };
+
+  // alguns browsers disparam afterprint no window principal, então use ambos
+  const onAfter = () => cleanupIframe();
+  window.addEventListener("afterprint", onAfter, { once: true });
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch {}
+    // segurança: limpa mesmo se afterprint não disparar
+    setTimeout(() => {
+      window.removeEventListener("afterprint", onAfter);
+      cleanupIframe();
+    }, 1500);
+  }, 250);
+}
+
+// helper: gera HTML completo (não usa DOM da tela)
+function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape }) {
+  const dt = new Date(dataISO || Date.now());
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const dataBR = `${pad2(dt.getDate())}/${pad2(dt.getMonth() + 1)}/${dt.getFullYear()}`;
+
+  const esc = (s) =>
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const fmt = (n) => {
+    const v = Number(n || 0) || 0;
+    return v.toFixed(2).replace(".", ",");
+  };
+
+  const cards = (Array.isArray(tickets) ? tickets : [])
+    .map((t) => {
       return `
-        <div class="ticket">
-          <div class="ticket-header">
-            <div class="ticket-title">${tituloEvento}</div>
-            <div class="ticket-date">${safeText(dataTexto)}</div>
-          </div>
-          <div class="ticket-line">
-            <div class="ticket-left">
-              <div class="ticket-main">${titulo}</div>
-              ${sub ? `<div class="ticket-sub">${sub}</div>` : ""}
-            </div>
-            <div class="ticket-price">${valor}</div>
-          </div>
-          <div class="ticket-footer">${rodape}</div>
-          <div class="cut">CORTE AQUI</div>
+      <div class="ticket">
+        <div class="title">${esc(eventoNome || "Evento")}</div>
+        <div class="date">${esc(dataBR)}</div>
+        <div class="sep"></div>
+
+        <div class="row">
+          <div class="left">${esc(t.linhaTitulo || "")}</div>
+          <div class="right">R$ ${fmt(t.valorUnit)}</div>
         </div>
-      `;
+
+        ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
+
+        <div class="sep"></div>
+        <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
+        <div class="cut">CORTE AQUI</div>
+      </div>
+    `;
     })
     .join("");
 
-  const html = `
-    <!doctype html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Tickets</title>
-        <style>
-          body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
-          .ticket {
-            width: 80mm;
-            max-width: 80mm;
-            border: 1px dashed #bbb;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 10px auto;
-            box-sizing: border-box;
-          }
-          .ticket-header { text-align: center; margin-bottom: 8px; }
-          .ticket-title { font-weight: 700; font-size: 16px; }
-          .ticket-date { font-size: 11px; color: #555; }
-          .ticket-line {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: baseline;
-            margin: 8px 0 10px;
-          }
-          .ticket-left { flex: 1 1 auto; min-width: 0; }
-          .ticket-main { font-weight: 700; font-size: 14px; word-break: break-word; }
-          .ticket-sub { font-size: 11px; color: #666; margin-top: 2px; }
-          .ticket-price { font-weight: 700; font-size: 14px; white-space: nowrap; }
-          .ticket-footer { text-align: center; font-size: 12px; font-weight: 700; }
-          .cut {
-            border-top: 1px dashed #bbb;
-            margin-top: 10px;
-            padding-top: 6px;
-            text-align: center;
-            font-size: 11px;
-            color: #444;
-          }
-          @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .ticket { page-break-inside: avoid; }
-          }
-          @page { size: auto; margin: 6mm; }
-        </style>
-      </head>
-      <body>
-        ${conteudoTickets || "<div class=\"ticket\">Sem tickets para imprimir.</div>"}
-      </body>
-    </html>
-  `;
+  return `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Impressão</title>
+<style>
+  body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
+  .ticket {
+    width: 80mm; max-width: 80mm;
+    margin: 10px auto;
+    padding: 12px;
+    border: 1px dashed #bbb;
+    border-radius: 12px;
+  }
+  .title { font-size: 18px; font-weight: 900; text-align: center; }
+  .date { font-size: 14px; font-weight: 800; text-align: center; margin-top: 4px; }
+  .sep { border-top: 1px dashed #cbd5e1; margin: 10px 0; }
+  .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .left { font-size: 16px; font-weight: 900; }
+  .right { font-size: 16px; font-weight: 900; white-space: nowrap; }
+  .sub { font-size: 12px; color: #6b7280; margin-top: 4px; font-weight: 700; }
+  .thanks { text-align: center; font-size: 14px; font-weight: 900; margin-top: 6px; }
+  .cut { text-align: center; font-size: 11px; font-weight: 800; color:#6b7280; margin-top: 8px; border-top: 1px dashed #bbb; padding-top: 6px; }
 
-  janela.document.open();
-  janela.document.write(html);
-  janela.document.close();
-  janela.focus();
-  setTimeout(() => {
-    janela.print();
-  }, 250);
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .ticket { page-break-inside: avoid; }
+    @page { margin: 6mm; }
+  }
+</style>
+</head>
+<body>
+  ${cards || `<div style="padding:16px;font-weight:900">Nenhum ticket para imprimir.</div>`}
+</body>
+</html>
+  `;
 }
 
 export default function Venda({
@@ -202,6 +261,7 @@ export default function Venda({
   produtos = [],
   vendas = [],
   setVendas = () => {},
+  setTab = () => {},
   ajustes = {},
 }) {
   const produtosAtivos = useMemo(() => {
@@ -418,6 +478,9 @@ export default function Venda({
     setVendaDraft(null);
     limpar();
     const tickets = expandirItensParaTickets(vendaFinal.itens);
+    if (typeof setTab === "function") {
+      setTab("caixa");
+    }
     printTickets({
       eventoNome: ajustes?.nomeOrganizacao || vendaFinal.eventoNome,
       dataISO: vendaFinal.createdAt || new Date().toISOString(),
