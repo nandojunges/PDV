@@ -4,10 +4,7 @@ import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
 import { getFlowState } from "../domain/eventoFlow";
 import { useConfig } from "../config/ConfigProvider";
-import { PDV_PORT, gerarPin } from "../net/pdvNetConfig";
-import { getLocalIpHint } from "../net/pdvLocalIp";
-import { startPdvServer } from "../net/pdvServer";
-import { pingMaster, fetchSnapshot } from "../net/pdvClient";
+import { getOrCreateEventoKey, getOrCreateEventoPin, shortId } from "../rede/eventIdentity";
 
 const SENHA_EXCLUIR = "123456";
 
@@ -87,69 +84,6 @@ const btn = (variant = "soft") => {
   return { ...base, background: "#f8fafc" };
 };
 
-function EventoRedeInfo({ evento, ipHint }) {
-  if (evento?.modo !== "mestre") return null;
-
-  const rede = evento?.rede || {};
-  const clientes = Number(
-    rede?.clientesConectados ?? rede?.clientes ?? rede?.clientesAtivos ?? rede?.clients
-  );
-  const mostrarClientes = Number.isFinite(clientes);
-
-  return (
-    <div
-      style={{
-        marginTop: 10,
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 12,
-        padding: 10,
-        boxShadow: "0 3px 8px rgba(0,0,0,0.04)",
-        fontSize: 12,
-        color: "#4b5563",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 8,
-            background: "#f3f4f6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 14,
-          }}
-        >
-          🌐
-        </div>
-        <div style={{ fontWeight: 800, fontSize: 12, color: "#111827" }}>EventoRedeInfo</div>
-      </div>
-
-      <div style={{ display: "grid", gap: 4 }}>
-        <div>
-          <strong style={{ color: "#111827" }}>IP:</strong> {rede?.ip || "Indisponível"}
-        </div>
-        <div>
-          <strong style={{ color: "#111827" }}>Porta:</strong> {rede?.porta || "-"}
-        </div>
-        <div>
-          <strong style={{ color: "#111827" }}>PIN:</strong> {rede?.pin || "-"}
-        </div>
-        {mostrarClientes && (
-          <div>
-            <strong style={{ color: "#111827" }}>Clientes:</strong> {clientes}
-          </div>
-        )}
-        {(["localhost", "127.0.0.1"].includes(String(rede?.ip || "")) || !rede?.ip) && ipHint ? (
-          <div style={{ fontSize: 11, color: "#9ca3af" }}>{ipHint}</div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 export default function Evento({
   evento,
   abrirEvento,
@@ -170,15 +104,12 @@ export default function Evento({
   // modal resumo
   const [evResumo, setEvResumo] = useState(null);
 
-  // modal multi-dispositivo
-  const [evMulti, setEvMulti] = useState(false);
-  const [multiStep, setMultiStep] = useState("opcoes");
-  const [clienteIp, setClienteIp] = useState("");
-  const [clientePorta, setClientePorta] = useState(String(PDV_PORT));
-  const [clientePin, setClientePin] = useState("");
-  const [clienteErro, setClienteErro] = useState("");
-  const [clienteLoading, setClienteLoading] = useState(false);
-  const [ipHint, setIpHint] = useState("");
+  // conectividade (mock)
+  const [modoConectividade, setModoConectividade] = useState("mestre");
+  const [ip, setIp] = useState("");
+  const [porta, setPorta] = useState("8787");
+  const [pin, setPin] = useState("");
+  const [statusConexao, setStatusConexao] = useState("Aguardando conexões");
 
   // modal excluir
   const [evExcluir, setEvExcluir] = useState(null);
@@ -287,21 +218,34 @@ export default function Evento({
     flowState || getFlowState({ evento, produtos: produtosEvento, caixa, vendas });
   const eventoBloqueado = estadoFluxo === "PRONTO_PARA_VENDER" || estadoFluxo === "VENDENDO";
   const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
+  const portaPlaceholder = "8787";
+
+  const eventoKey = useMemo(() => {
+    if (!permitirMultiDispositivo || !eventoAberto) return "";
+    const idBase = evento?.id || evento?.nome;
+    return getOrCreateEventoKey(idBase);
+  }, [permitirMultiDispositivo, eventoAberto, evento?.id, evento?.nome]);
+
+  const eventoPin = useMemo(() => {
+    if (!eventoKey) return "";
+    return getOrCreateEventoPin(eventoKey);
+  }, [eventoKey]);
+
+  const eventoIdCurto = eventoKey ? shortId(eventoKey) : "";
 
   useEffect(() => {
-    let active = true;
-    if (evento?.modo === "mestre") {
-      getLocalIpHint().then((info) => {
-        if (!active) return;
-        setIpHint(info?.hint || "");
-      });
-    } else {
-      setIpHint("");
+    if (!eventoAberto || !permitirMultiDispositivo) {
+      setModoConectividade("mestre");
+      setIp("");
+      setPorta("8787");
+      setPin("");
+      setStatusConexao("Aguardando conexões");
+      return;
     }
-    return () => {
-      active = false;
-    };
-  }, [evento?.modo]);
+
+    setModoConectividade("mestre");
+    setStatusConexao("Aguardando conexões");
+  }, [eventoAberto, permitirMultiDispositivo, evento?.nome]);
 
   function alertEventoBloqueado() {
     alert("Evento em andamento. Finalize o caixa para editar/excluir.");
@@ -314,82 +258,35 @@ export default function Evento({
     setNome("");
   }
 
-  function abrirComMulti() {
-    const nm = String(nome || "").trim();
-    if (!nm) return alert("Informe o nome do evento.");
-    setEvMulti(true);
-    setMultiStep("opcoes");
-    setClienteIp("");
-    setClientePorta(String(PDV_PORT));
-    setClientePin("");
-    setClienteErro("");
-    setClienteLoading(false);
+  function trocarModoConectividade(next) {
+    setModoConectividade(next);
+    setStatusConexao(next === "cliente" ? "Desconectado" : "Aguardando conexões");
   }
 
-  function resolverIpLocal() {
-    return String(window?.location?.hostname || "").trim();
+  function conectarMock() {
+    setStatusConexao("Conectado (mock)");
   }
 
-  async function abrirComoMestre() {
-    const nm = String(nome || "").trim();
-    if (!nm) return alert("Informe o nome do evento.");
-
-    const ip = resolverIpLocal();
-    const pin = gerarPin();
-    const rede = { ip, porta: PDV_PORT, pin, ativo: true };
-    const produtos = Array.isArray(evento?.produtos) ? evento.produtos : [];
-
-    try {
-      await startPdvServer({
-        getState: () => ({
-          caixaId: evento?.id || null,
-          pin,
-          produtos,
-        }),
-      });
-    } catch (error) {
-      alert(error?.message || "Não foi possível abrir o servidor local.");
+  function copiarTexto(texto) {
+    if (!texto) return;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(texto).then(
+        () => alert("Dados copiados!"),
+        () => alert("Não foi possível copiar.")
+      );
       return;
     }
 
-    abrirEvento(nm, { modo: "mestre", rede });
-    setNome("");
-    setEvMulti(false);
-  }
-
-  async function conectarComoCliente() {
-    const nm = String(nome || "").trim();
-    if (!nm) return alert("Informe o nome do evento.");
-
-    setClienteErro("");
-    setClienteLoading(true);
-
-    const ip = String(clienteIp || "").trim();
-    const porta = String(clientePorta || "").trim();
-    const pin = String(clientePin || "").trim();
-    const baseUrl = `http://${ip}:${porta}`;
-
-    const ping = await pingMaster(baseUrl);
-    if (!ping.ok) {
-      setClienteErro(ping.error || "Não foi possível contatar o mestre.");
-      setClienteLoading(false);
-      return;
-    }
-
-    const snapshot = await fetchSnapshot(baseUrl, pin);
-    if (!snapshot.ok) {
-      setClienteErro(snapshot.error || "Não foi possível conectar ao mestre.");
-      setClienteLoading(false);
-      return;
-    }
-
-    abrirEvento(nm, {
-      modo: "cliente",
-      rede: { ip, porta, pin, ativo: true },
-    });
-    setNome("");
-    setClienteLoading(false);
-    setEvMulti(false);
+    const textarea = document.createElement("textarea");
+    textarea.value = texto;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "absolute";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    alert(ok ? "Dados copiados!" : "Não foi possível copiar.");
   }
 
   function calcularCaixaDoEvento(nomeEv) {
@@ -506,6 +403,15 @@ export default function Evento({
     outline: "none",
   };
 
+  const ipPlaceholder = "IP do mestre";
+  const dadosMestre = `Evento: ${evento?.nome || "-"}\nID: ${eventoIdCurto || "-"}\nPIN: ${
+    eventoPin || "-"
+  }\nIP: ${ipPlaceholder}\nPorta: ${portaPlaceholder}`;
+  const dadosCliente = `IP: ${ip || "-"}\nPorta: ${porta || portaPlaceholder}\nPIN: ${
+    pin || "-"
+  }`;
+  const textoCopiar = modoConectividade === "mestre" ? dadosMestre : dadosCliente;
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", paddingBottom: 12 }}>
       <div
@@ -541,10 +447,6 @@ export default function Evento({
                   alertEventoBloqueado();
                   return;
                 }
-                if (permitirMultiDispositivo) {
-                  abrirComMulti();
-                  return;
-                }
                 abrirLocal();
               }}
             >
@@ -577,10 +479,160 @@ export default function Evento({
               )}
             </div>
           </div>
+
+          {eventoAberto && permitirMultiDispositivo && (
+            <div
+              style={{
+                marginTop: 4,
+                background: "#f8fafc",
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                padding: 10,
+                fontSize: 12,
+                color: "#4b5563",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: 12, color: "#111827" }}>
+                  Conectividade
+                </div>
+                <button
+                  style={{ ...btn("soft"), height: 28, padding: "0 10px", fontSize: 12 }}
+                  onClick={() => copiarTexto(textoCopiar)}
+                >
+                  Copiar
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <button
+                  style={{
+                    ...btn(modoConectividade === "mestre" ? "dark" : "soft"),
+                    height: 28,
+                    padding: "0 10px",
+                    fontSize: 12,
+                  }}
+                  onClick={() => trocarModoConectividade("mestre")}
+                >
+                  Abrir como mestre
+                </button>
+                <button
+                  style={{
+                    ...btn(modoConectividade === "cliente" ? "dark" : "soft"),
+                    height: 28,
+                    padding: "0 10px",
+                    fontSize: 12,
+                  }}
+                  onClick={() => trocarModoConectividade("cliente")}
+                >
+                  Conectar-se a um evento
+                </button>
+              </div>
+
+              {modoConectividade === "mestre" ? (
+                <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                  <div>
+                    <strong style={{ color: "#111827" }}>ID do evento:</strong>{" "}
+                    {eventoIdCurto || "-"}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>PIN:</strong> {eventoPin || "-"}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>IP:</strong> {ipPlaceholder}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>Porta:</strong> {portaPlaceholder}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>Status:</strong> {statusConexao}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#111827" }}>Clientes conectados:</strong> 0
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                    <button
+                      style={{ ...btn("soft"), height: 30, padding: "0 10px", fontSize: 12 }}
+                      onClick={() => copiarTexto(dadosMestre)}
+                    >
+                      Copiar dados
+                    </button>
+                    <button
+                      style={{ ...btn("soft"), height: 30, padding: "0 10px", fontSize: 12 }}
+                      onClick={() => copiarTexto(eventoPin)}
+                    >
+                      Copiar apenas PIN
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                  <div>
+                    <div
+                      style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", marginBottom: 4 }}
+                    >
+                      IP do mestre
+                    </div>
+                    <input
+                      value={ip}
+                      onChange={(e) => setIp(e.target.value)}
+                      placeholder="Ex: 192.168.0.10"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div>
+                    <div
+                      style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", marginBottom: 4 }}
+                    >
+                      Porta
+                    </div>
+                    <input
+                      value={porta}
+                      onChange={(e) => setPorta(e.target.value)}
+                      placeholder={portaPlaceholder}
+                      style={inputStyle}
+                      inputMode="numeric"
+                    />
+                  </div>
+
+                  <div>
+                    <div
+                      style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", marginBottom: 4 }}
+                    >
+                      PIN
+                    </div>
+                    <input
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      placeholder="PIN (6 dígitos)"
+                      style={inputStyle}
+                      inputMode="numeric"
+                    />
+                  </div>
+
+                  <div>
+                    <strong style={{ color: "#111827" }}>Status:</strong> {statusConexao}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button style={btn("primary")} onClick={conectarMock}>
+                      Conectar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
-
-      <EventoRedeInfo evento={evento} ipHint={ipHint} />
 
       <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10, color: "#111827" }}>
@@ -790,104 +842,6 @@ export default function Evento({
                   Fechar
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {evMulti && (
-        <div style={overlay} onClick={() => setEvMulti(false)}>
-          <div style={modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={modalHead}>Multi-dispositivo</div>
-            <div style={modalBody}>
-              {multiStep === "opcoes" ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ color: "#6b7280", fontSize: 14 }}>
-                    Escolha como deseja abrir o evento.
-                  </div>
-                  <button style={btn("primary")} onClick={abrirComoMestre}>
-                    Criar Evento (Mestre)
-                  </button>
-                  <button
-                    style={btn("soft")}
-                    onClick={() => {
-                      setMultiStep("cliente");
-                      setClienteErro("");
-                    }}
-                  >
-                    Conectar a Evento Existente
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ color: "#6b7280", fontSize: 14 }}>
-                    Informe os dados do mestre.
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", marginBottom: 6 }}>
-                      IP
-                    </div>
-                    <input
-                      value={clienteIp}
-                      onChange={(e) => setClienteIp(e.target.value)}
-                      placeholder="Ex: 192.168.0.10"
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", marginBottom: 6 }}>
-                      Porta
-                    </div>
-                    <input
-                      value={clientePorta}
-                      onChange={(e) => setClientePorta(e.target.value)}
-                      placeholder={String(PDV_PORT)}
-                      style={inputStyle}
-                      inputMode="numeric"
-                    />
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", marginBottom: 6 }}>
-                      PIN
-                    </div>
-                    <input
-                      value={clientePin}
-                      onChange={(e) => setClientePin(e.target.value)}
-                      placeholder="PIN"
-                      style={inputStyle}
-                      inputMode="numeric"
-                    />
-                  </div>
-
-                  {clienteErro && (
-                    <div style={{ color: "#ef4444", fontSize: 13, fontWeight: 800 }}>
-                      {clienteErro}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                    <button
-                      style={btn("soft")}
-                      onClick={() => {
-                        setMultiStep("opcoes");
-                        setClienteErro("");
-                      }}
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      style={btn("primary")}
-                      onClick={conectarComoCliente}
-                      disabled={clienteLoading}
-                    >
-                      {clienteLoading ? "Conectando..." : "Conectar"}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
