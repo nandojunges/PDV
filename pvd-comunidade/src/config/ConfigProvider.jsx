@@ -47,6 +47,16 @@ export function ConfigProvider({ children }) {
       );
     };
 
+    const updateConfig = (patch) => {
+      setConfigState((prev) => {
+        const nextPatch = typeof patch === "function" ? patch(prev) : patch;
+        return normalizeConfig({
+          ...prev,
+          ...(nextPatch && typeof nextPatch === "object" ? nextPatch : {}),
+        });
+      });
+    };
+
     const setPermitirMultiDispositivo = (next) => {
       setConfigState((prev) => ({
         ...prev,
@@ -60,6 +70,7 @@ export function ConfigProvider({ children }) {
     return {
       config,
       setConfig,
+      updateConfig,
       permitirMultiDispositivo: config.permitirMultiDispositivo,
       setPermitirMultiDispositivo,
     };
@@ -75,6 +86,7 @@ export function useConfig() {
     return {
       config: DEFAULT_CONFIG,
       setConfig: () => {},
+      updateConfig: () => {},
       permitirMultiDispositivo: DEFAULT_CONFIG.permitirMultiDispositivo,
       setPermitirMultiDispositivo: () => {},
     };
