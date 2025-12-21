@@ -23,9 +23,18 @@ export default function App() {
 
   const [tab, setTab] = useState("evento");
 
-  const [evento, setEvento] = useState(() =>
-    loadJSON(LS_KEYS.evento, { nome: "", abertoEm: null, produtos: [] })
-  );
+  const [evento, setEvento] = useState(() => {
+    const raw = loadJSON(LS_KEYS.evento, null);
+    const fallback = { nome: "", abertoEm: null, produtos: [], modo: "local", rede: null };
+    if (!raw || typeof raw !== "object") return fallback;
+    return {
+      ...fallback,
+      ...raw,
+      modo: raw?.modo || "local",
+      rede: raw?.rede || null,
+      produtos: Array.isArray(raw?.produtos) ? raw.produtos : [],
+    };
+  });
 
   const [produtos, setProdutos] = useState(() =>
     loadJSON(LS_KEYS.produtos, [])
@@ -77,13 +86,15 @@ export default function App() {
     [evento, produtos, caixa, vendas]
   );
 
-  function abrirEvento(nome) {
+  function abrirEvento(nome, options = {}) {
     const nm = String(nome || "").trim();
     if (!nm) return alert("Informe o nome do evento.");
 
     const abertoEm = new Date().toISOString();
+    const modo = options?.modo || "local";
+    const rede = options?.rede || null;
 
-    setEvento({ nome: nm, abertoEm, produtos: [] });
+    setEvento({ nome: nm, abertoEm, produtos: [], modo, rede });
     setProdutos([]);
     setCaixa({
       abertura: null,
@@ -98,7 +109,7 @@ export default function App() {
   function zerarTudo() {
     if (!confirm("Zerar TODOS os dados?")) return;
 
-    setEvento({ nome: "", abertoEm: null, produtos: [] });
+    setEvento({ nome: "", abertoEm: null, produtos: [], modo: "local", rede: null });
     setProdutos([]);
     setVendas([]);
     setCaixa({ abertoEm: null, abertura: null, movimentos: [] });
@@ -134,7 +145,7 @@ export default function App() {
   }
 
   function finalizarCaixaEvento() {
-    setEvento({ nome: "", abertoEm: null, produtos: [] });
+    setEvento({ nome: "", abertoEm: null, produtos: [], modo: "local", rede: null });
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
     setTab("evento");

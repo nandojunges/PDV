@@ -3,6 +3,11 @@ import React, { useMemo, useState, useEffect } from "react";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
 import { getFlowState } from "../domain/eventoFlow";
+import { useConfig } from "../config/useConfig";
+import { PDV_PORT, gerarPin } from "../net/pdvNetConfig";
+import { getLocalIpHint } from "../net/pdvLocalIp";
+import { startPdvServer } from "../net/pdvServer";
+import { pingMaster, fetchSnapshot } from "../net/pdvClient";
 
 const SENHA_EXCLUIR = "123456";
 
@@ -91,6 +96,7 @@ export default function Evento({
   setCaixa,
   setVendas,
 }) {
+  const { permitirMultiDispositivo } = useConfig();
   const [nome, setNome] = useState(evento?.nome || "");
 
   // ✅ se mudar o evento ativo (abrir/zerar), reflete no input
@@ -100,6 +106,16 @@ export default function Evento({
 
   // modal resumo
   const [evResumo, setEvResumo] = useState(null);
+
+  // modal multi-dispositivo
+  const [evMulti, setEvMulti] = useState(false);
+  const [multiStep, setMultiStep] = useState("opcoes");
+  const [clienteIp, setClienteIp] = useState("");
+  const [clientePorta, setClientePorta] = useState(String(PDV_PORT));
+  const [clientePin, setClientePin] = useState("");
+  const [clienteErro, setClienteErro] = useState("");
+  const [clienteLoading, setClienteLoading] = useState(false);
+  const [ipHint, setIpHint] = useState("");
 
   // modal excluir
   const [evExcluir, setEvExcluir] = useState(null);
@@ -209,15 +225,108 @@ export default function Evento({
   const eventoBloqueado = estadoFluxo === "PRONTO_PARA_VENDER" || estadoFluxo === "VENDENDO";
   const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
 
+  useEffect(() => {
+    let active = true;
+    if (evento?.modo === "mestre") {
+      getLocalIpHint().then((info) => {
+        if (!active) return;
+        setIpHint(info?.hint || "");
+      });
+    } else {
+      setIpHint("");
+    }
+    return () => {
+      active = false;
+    };
+  }, [evento?.modo]);
+
   function alertEventoBloqueado() {
     alert("Evento em andamento. Finalize o caixa para editar/excluir.");
   }
 
-  function abrir() {
+  function abrirLocal() {
     const nm = String(nome || "").trim();
     if (!nm) return alert("Informe o nome do evento.");
-    abrirEvento(nm);
+    abrirEvento(nm, { modo: "local", rede: null });
     setNome("");
+  }
+
+  function abrirComMulti() {
+    const nm = String(nome || "").trim();
+    if (!nm) return alert("Informe o nome do evento.");
+    setEvMulti(true);
+    setMultiStep("opcoes");
+    setClienteIp("");
+    setClientePorta(String(PDV_PORT));
+    setClientePin("");
+    setClienteErro("");
+    setClienteLoading(false);
+  }
+
+  function resolverIpLocal() {
+    return String(window?.location?.hostname || "").trim();
+  }
+
+  async function abrirComoMestre() {
+    const nm = String(nome || "").trim();
+    if (!nm) return alert("Informe o nome do evento.");
+
+    const ip = resolverIpLocal();
+    const pin = gerarPin();
+    const rede = { ip, porta: PDV_PORT, pin, ativo: true };
+    const produtos = Array.isArray(evento?.produtos) ? evento.produtos : [];
+
+    try {
+      await startPdvServer({
+        getState: () => ({
+          caixaId: evento?.id || null,
+          pin,
+          produtos,
+        }),
+      });
+    } catch (error) {
+      alert(error?.message || "Não foi possível abrir o servidor local.");
+      return;
+    }
+
+    abrirEvento(nm, { modo: "mestre", rede });
+    setNome("");
+    setEvMulti(false);
+  }
+
+  async function conectarComoCliente() {
+    const nm = String(nome || "").trim();
+    if (!nm) return alert("Informe o nome do evento.");
+
+    setClienteErro("");
+    setClienteLoading(true);
+
+    const ip = String(clienteIp || "").trim();
+    const porta = String(clientePorta || "").trim();
+    const pin = String(clientePin || "").trim();
+    const baseUrl = `http://${ip}:${porta}`;
+
+    const ping = await pingMaster(baseUrl);
+    if (!ping.ok) {
+      setClienteErro(ping.error || "Não foi possível contatar o mestre.");
+      setClienteLoading(false);
+      return;
+    }
+
+    const snapshot = await fetchSnapshot(baseUrl, pin);
+    if (!snapshot.ok) {
+      setClienteErro(snapshot.error || "Não foi possível conectar ao mestre.");
+      setClienteLoading(false);
+      return;
+    }
+
+    abrirEvento(nm, {
+      modo: "cliente",
+      rede: { ip, porta, pin, ativo: true },
+    });
+    setNome("");
+    setClienteLoading(false);
+    setEvMulti(false);
   }
 
   function calcularCaixaDoEvento(nomeEv) {
@@ -334,6 +443,13 @@ export default function Evento({
     outline: "none",
   };
 
+  const campoRede = {
+    display: "grid",
+    gap: 6,
+    fontSize: 13,
+    color: "#6b7280",
+  };
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", paddingBottom: 12 }}>
       <div
@@ -369,7 +485,11 @@ export default function Evento({
                   alertEventoBloqueado();
                   return;
                 }
-                abrir();
+                if (permitirMultiDispositivo) {
+                  abrirComMulti();
+                  return;
+                }
+                abrirLocal();
               }}
             >
               Abrir evento
@@ -403,6 +523,40 @@ export default function Evento({
           </div>
         </div>
       </div>
+
+      {evento?.modo === "mestre" && evento?.rede?.ativo && (
+        <div
+          style={{
+            marginTop: 12,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            padding: 12,
+            boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 6, color: "#111827" }}>
+            Informações de rede (mestre)
+          </div>
+          <div style={campoRede}>
+            <div>
+              <strong style={{ color: "#111827" }}>IP:</strong>{" "}
+              {evento?.rede?.ip || "Indisponível"}
+            </div>
+            <div>
+              <strong style={{ color: "#111827" }}>Porta:</strong> {evento?.rede?.porta}
+            </div>
+            <div>
+              <strong style={{ color: "#111827" }}>PIN:</strong> {evento?.rede?.pin}
+            </div>
+            {(["localhost", "127.0.0.1"].includes(String(evento?.rede?.ip || "")) ||
+              !evento?.rede?.ip) &&
+            ipHint ? (
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>{ipHint}</div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10, color: "#111827" }}>
@@ -612,6 +766,104 @@ export default function Evento({
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {evMulti && (
+        <div style={overlay} onClick={() => setEvMulti(false)}>
+          <div style={modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={modalHead}>Multi-dispositivo</div>
+            <div style={modalBody}>
+              {multiStep === "opcoes" ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>
+                    Escolha como deseja abrir o evento.
+                  </div>
+                  <button style={btn("primary")} onClick={abrirComoMestre}>
+                    Criar Evento (Mestre)
+                  </button>
+                  <button
+                    style={btn("soft")}
+                    onClick={() => {
+                      setMultiStep("cliente");
+                      setClienteErro("");
+                    }}
+                  >
+                    Conectar a Evento Existente
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>
+                    Informe os dados do mestre.
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", marginBottom: 6 }}>
+                      IP
+                    </div>
+                    <input
+                      value={clienteIp}
+                      onChange={(e) => setClienteIp(e.target.value)}
+                      placeholder="Ex: 192.168.0.10"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", marginBottom: 6 }}>
+                      Porta
+                    </div>
+                    <input
+                      value={clientePorta}
+                      onChange={(e) => setClientePorta(e.target.value)}
+                      placeholder={String(PDV_PORT)}
+                      style={inputStyle}
+                      inputMode="numeric"
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", marginBottom: 6 }}>
+                      PIN
+                    </div>
+                    <input
+                      value={clientePin}
+                      onChange={(e) => setClientePin(e.target.value)}
+                      placeholder="PIN"
+                      style={inputStyle}
+                      inputMode="numeric"
+                    />
+                  </div>
+
+                  {clienteErro && (
+                    <div style={{ color: "#ef4444", fontSize: 13, fontWeight: 800 }}>
+                      {clienteErro}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button
+                      style={btn("soft")}
+                      onClick={() => {
+                        setMultiStep("opcoes");
+                        setClienteErro("");
+                      }}
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      style={btn("primary")}
+                      onClick={conectarComoCliente}
+                      disabled={clienteLoading}
+                    >
+                      {clienteLoading ? "Conectando..." : "Conectar"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
