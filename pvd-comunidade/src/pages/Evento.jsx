@@ -87,6 +87,69 @@ const btn = (variant = "soft") => {
   return { ...base, background: "#f8fafc" };
 };
 
+function EventoRedeInfo({ evento, ipHint }) {
+  if (evento?.modo !== "mestre") return null;
+
+  const rede = evento?.rede || {};
+  const clientes = Number(
+    rede?.clientesConectados ?? rede?.clientes ?? rede?.clientesAtivos ?? rede?.clients
+  );
+  const mostrarClientes = Number.isFinite(clientes);
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        background: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        padding: 10,
+        boxShadow: "0 3px 8px rgba(0,0,0,0.04)",
+        fontSize: 12,
+        color: "#4b5563",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 8,
+            background: "#f3f4f6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+          }}
+        >
+          🌐
+        </div>
+        <div style={{ fontWeight: 800, fontSize: 12, color: "#111827" }}>EventoRedeInfo</div>
+      </div>
+
+      <div style={{ display: "grid", gap: 4 }}>
+        <div>
+          <strong style={{ color: "#111827" }}>IP:</strong> {rede?.ip || "Indisponível"}
+        </div>
+        <div>
+          <strong style={{ color: "#111827" }}>Porta:</strong> {rede?.porta || "-"}
+        </div>
+        <div>
+          <strong style={{ color: "#111827" }}>PIN:</strong> {rede?.pin || "-"}
+        </div>
+        {mostrarClientes && (
+          <div>
+            <strong style={{ color: "#111827" }}>Clientes:</strong> {clientes}
+          </div>
+        )}
+        {(["localhost", "127.0.0.1"].includes(String(rede?.ip || "")) || !rede?.ip) && ipHint ? (
+          <div style={{ fontSize: 11, color: "#9ca3af" }}>{ipHint}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function Evento({
   evento,
   abrirEvento,
@@ -443,13 +506,6 @@ export default function Evento({
     outline: "none",
   };
 
-  const campoRede = {
-    display: "grid",
-    gap: 6,
-    fontSize: 13,
-    color: "#6b7280",
-  };
-
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", paddingBottom: 12 }}>
       <div
@@ -524,39 +580,7 @@ export default function Evento({
         </div>
       </div>
 
-      {evento?.modo === "mestre" && evento?.rede?.ativo && (
-        <div
-          style={{
-            marginTop: 12,
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 14,
-            padding: 12,
-            boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 6, color: "#111827" }}>
-            Informações de rede (mestre)
-          </div>
-          <div style={campoRede}>
-            <div>
-              <strong style={{ color: "#111827" }}>IP:</strong>{" "}
-              {evento?.rede?.ip || "Indisponível"}
-            </div>
-            <div>
-              <strong style={{ color: "#111827" }}>Porta:</strong> {evento?.rede?.porta}
-            </div>
-            <div>
-              <strong style={{ color: "#111827" }}>PIN:</strong> {evento?.rede?.pin}
-            </div>
-            {(["localhost", "127.0.0.1"].includes(String(evento?.rede?.ip || "")) ||
-              !evento?.rede?.ip) &&
-            ipHint ? (
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>{ipHint}</div>
-            ) : null}
-          </div>
-        </div>
-      )}
+      <EventoRedeInfo evento={evento} ipHint={ipHint} />
 
       <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10, color: "#111827" }}>
