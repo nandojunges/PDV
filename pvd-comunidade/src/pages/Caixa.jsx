@@ -35,6 +35,8 @@ export default function Caixa({
   caixa,
   setCaixa = () => {},
   resumoEvento,
+  vendas = [],
+  flowState,
   onAbrirCaixaOk,
   onZerarCaixa,
   onFinalizarCaixa,
@@ -49,10 +51,10 @@ export default function Caixa({
   const eventoNome = String(evento?.nome || "").trim();
   const eventoAberto = Boolean(eventoNome);
 
-  const vendas = loadJSON(LS_KEYS.vendas, []);
+  const vendasLista = Array.isArray(vendas) ? vendas : loadJSON(LS_KEYS.vendas, []);
   const eventoCache = loadJSON(LS_KEYS.evento, null);
 
-  const vendasEvento = vendas.filter((v) => {
+  const vendasEvento = vendasLista.filter((v) => {
     if (eventoCache?.id && v?.eventoId) return v.eventoId === eventoCache.id;
     return (
       String(v?.eventoNome).toLowerCase() === String(eventoCache?.nome).toLowerCase()
@@ -137,10 +139,18 @@ export default function Caixa({
     });
     saveEventosMeta(semEsse);
 
+    setCaixa((prev) => ({
+      ...(prev && typeof prev === "object" ? prev : {}),
+      encerradoEm: fecharAgora,
+    }));
+
     // ✅ o "zerar relatório" é o pai limpar o evento atual.
     // Aqui só disparamos o callback.
     if (typeof onFinalizarCaixa === "function") onFinalizarCaixa(fechamento);
   }
+
+  const bloqueiaZerarCaixa =
+    vendasEvento.length > 0 || flowState === "VENDENDO";
 
   return (
     <div className="split">
@@ -148,7 +158,11 @@ export default function Caixa({
         title="Caixa"
         subtitle="Abertura e encerramento do evento"
         right={
-          <Button variant="danger" onClick={onZerarCaixa} disabled={disabled}>
+          <Button
+            variant="danger"
+            onClick={onZerarCaixa}
+            disabled={disabled || bloqueiaZerarCaixa}
+          >
             Zerar caixa
           </Button>
         }

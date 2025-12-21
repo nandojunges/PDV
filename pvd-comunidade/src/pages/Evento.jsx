@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
+import { getFlowState } from "../domain/eventoFlow";
 
 const SENHA_EXCLUIR = "123456";
 
@@ -86,6 +87,7 @@ export default function Evento({
   abrirEvento,
   vendas = [],
   caixa,
+  flowState,
   setCaixa,
   setVendas,
 }) {
@@ -201,6 +203,15 @@ export default function Evento({
   }, [vendas, evento, encerradosMap]);
 
   const eventoAberto = Boolean(String(evento?.nome || "").trim());
+  const produtosEvento = Array.isArray(evento?.produtos) ? evento.produtos : [];
+  const estadoFluxo =
+    flowState || getFlowState({ evento, produtos: produtosEvento, caixa, vendas });
+  const eventoBloqueado = estadoFluxo === "PRONTO_PARA_VENDER" || estadoFluxo === "VENDENDO";
+  const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
+
+  function alertEventoBloqueado() {
+    alert("Evento em andamento. Finalize o caixa para editar/excluir.");
+  }
 
   function abrir() {
     const nm = String(nome || "").trim();
@@ -346,11 +357,21 @@ export default function Evento({
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Almoço dos Sócios"
               style={inputStyle}
+              disabled={eventoBloqueado}
             />
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button style={btn("primary")} onClick={abrir}>
+            <button
+              style={{ ...btn("primary"), ...bloqueioStyle }}
+              onClick={() => {
+                if (eventoBloqueado) {
+                  alertEventoBloqueado();
+                  return;
+                }
+                abrir();
+              }}
+            >
               Abrir evento
             </button>
 
@@ -494,8 +515,14 @@ export default function Evento({
 
                       {/* ✅ Excluir permitido mesmo se ENCERRADO */}
                       <button
-                        style={{ ...btn("danger"), padding: "0 10px", height: 34 }}
-                        onClick={() => pedirExcluir(ev)}
+                        style={{ ...btn("danger"), padding: "0 10px", height: 34, ...bloqueioStyle }}
+                        onClick={() => {
+                          if (eventoBloqueado) {
+                            alertEventoBloqueado();
+                            return;
+                          }
+                          pedirExcluir(ev);
+                        }}
                       >
                         Excluir
                       </button>
