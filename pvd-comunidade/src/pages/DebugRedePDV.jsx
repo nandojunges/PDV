@@ -83,6 +83,30 @@ export default function DebugRedePDV() {
     <div style={{ display: "grid", gap: 16 }}>
       <Card title="Debug Rede PDV" subtitle="Conexão Mestre/Cliente via HTTP">
         <div style={{ display: "grid", gap: 16 }}>
+          <section
+            style={{
+              padding: 12,
+              border: "1px solid #94a3b8",
+              borderRadius: 12,
+              background: "#f8fafc",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontWeight: 700 }}>
+              Emulador não é obrigatório. Use 2 celulares na mesma rede.
+            </div>
+            <div className="muted" style={{ fontWeight: 600 }}>
+              Checklist rápido
+            </div>
+            <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+              <li>Mestre abre servidor.</li>
+              <li>Anotar IP exibido.</li>
+              <li>Cliente conecta.</li>
+            </ol>
+            <div className="muted">Exemplo de destino: http://IP:8787</div>
+          </section>
+
           <section style={{ padding: 12, border: "1px dashed #cbd5e1", borderRadius: 12 }}>
             <div style={{ fontWeight: 900, marginBottom: 8 }}>MODO MESTRE</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
