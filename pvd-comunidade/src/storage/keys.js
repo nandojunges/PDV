@@ -12,4 +12,5 @@ export const LS_KEYS = {
   produtosUpdatedAt: "pvd_produtos_updated_at_v1",
   produtosSyncAt: "pvd_produtos_sync_at_v1",
   saleSummaries: "pvd_sale_summaries_v1",
+  flowStep: "pvd_flow_step_v1",
 };

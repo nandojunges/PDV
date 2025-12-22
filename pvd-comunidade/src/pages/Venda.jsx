@@ -423,7 +423,10 @@ export default function Venda({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [vendaDraft, setVendaDraft] = useState(null);
   const [aviso, setAviso] = useState("");
-  const [ultimasOpen, setUltimasOpen] = useState(false);
+  const [maxUltimas, setMaxUltimas] = useState(() => {
+    if (typeof window === "undefined") return 5;
+    return window.innerWidth < 720 ? 3 : 5;
+  });
 
   const itensCarrinho = useMemo(
     () => (Array.isArray(carrinho) ? carrinho : []),
@@ -439,12 +442,26 @@ export default function Venda({
     return Math.max(0, valorRecebidoNum - total);
   }, [pagamento, valorRecebidoNum, total]);
 
+  useEffect(() => {
+    function onResize() {
+      if (typeof window === "undefined") return;
+      setMaxUltimas(window.innerWidth < 720 ? 3 : 5);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const vendasEvento = useMemo(() => {
     const nomeEvento = String(evento?.nome || "").trim();
-    if (!nomeEvento) return [];
+    const eventoId = evento?.id ?? null;
+    if (!nomeEvento && !eventoId) return [];
     const lista = Array.isArray(vendas) ? vendas : [];
-    return lista.filter((v) => String(v?.eventoNome || "").trim() === nomeEvento);
-  }, [evento?.nome, vendas]);
+    return lista.filter((v) => {
+      const matchId = eventoId && v?.eventoId && v.eventoId === eventoId;
+      const matchNome = nomeEvento && String(v?.eventoNome || "").trim() === nomeEvento;
+      return matchId || matchNome;
+    });
+  }, [evento?.id, evento?.nome, vendas]);
 
   const ultimasVendas = useMemo(() => {
     const lista = [...vendasEvento];
@@ -453,8 +470,8 @@ export default function Venda({
       const db = new Date(b?.criadoEm || b?.createdAt || b?.data || 0).getTime();
       return db - da;
     });
-    return lista.slice(0, 5);
-  }, [vendasEvento]);
+    return lista.slice(0, maxUltimas);
+  }, [vendasEvento, maxUltimas]);
 
   const overlayStyle = {
     position: "fixed",
@@ -720,9 +737,6 @@ export default function Venda({
   return (
     <div className="split">
       <Card title="Produtos" subtitle="Toque para adicionar">
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-          <Button onClick={() => setUltimasOpen(true)}>Últimas vendas</Button>
-        </div>
         {precisaEventoAberto() && (
           <div style={{ marginBottom: 10 }}>
             <span className="badge">Abra um evento antes de vender</span>
@@ -920,6 +934,35 @@ export default function Venda({
         </div>
       </Card>
 
+      <Card title="Últimas vendas" subtitle="Reimprima rapidamente se necessário.">
+        {ultimasVendas.length === 0 ? (
+          <div className="muted">Nenhuma venda ainda.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {ultimasVendas.map((venda, index) => (
+              <div
+                key={venda?.id || `${venda?.createdAt}-${venda?.total}-${index}`}
+                className="row space"
+                style={{
+                  paddingBottom: 10,
+                  borderBottom: "1px solid #e5e7eb",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ fontWeight: 900 }}>{formatarDataHora(venda)}</div>
+                  <div className="muted" style={{ textTransform: "capitalize" }}>
+                    {fmtBRL(venda?.total || 0)} • {venda?.pagamento || "—"}
+                  </div>
+                </div>
+                <Button small onClick={() => reimprimirVenda(venda)}>
+                  Reimprimir
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
       {confirmOpen && vendaDraft && (
         <div
           style={overlayStyle}
@@ -1033,57 +1076,6 @@ export default function Venda({
         </div>
       )}
 
-      {ultimasOpen && (
-        <div
-          style={overlayStyle}
-          onClick={() => setUltimasOpen(false)}
-          role="presentation"
-        >
-          <div
-            style={modalCardStyle}
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Últimas vendas"
-          >
-            <div className="row space" style={{ marginBottom: 12 }}>
-              <div style={{ fontWeight: 900, fontSize: 18 }}>Últimas vendas</div>
-              <Button onClick={() => setUltimasOpen(false)}>Fechar</Button>
-            </div>
-
-            {ultimasVendas.length === 0 ? (
-              <div className="muted">Nenhuma venda registrada neste evento.</div>
-            ) : (
-              <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", paddingBottom: 8 }}>Data/Hora</th>
-                    <th style={{ textAlign: "right", paddingBottom: 8 }}>Total</th>
-                    <th style={{ textAlign: "center", paddingBottom: 8 }}>Pagamento</th>
-                    <th style={{ textAlign: "right", paddingBottom: 8 }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ultimasVendas.map((venda) => (
-                    <tr key={venda?.id || `${venda?.createdAt}-${venda?.total}`}>
-                      <td style={{ padding: "6px 0" }}>{formatarDataHora(venda)}</td>
-                      <td style={{ textAlign: "right" }}>{fmtBRL(venda?.total || 0)}</td>
-                      <td style={{ textAlign: "center", textTransform: "capitalize" }}>
-                        {venda?.pagamento || "—"}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <Button small onClick={() => reimprimirVenda(venda)}>
-                          Reimprimir
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

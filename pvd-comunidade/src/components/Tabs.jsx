@@ -1,24 +1,35 @@
 import React, { useEffect, useMemo } from "react";
 import { ROUTES } from "../app/routes";
 
-function isTabVisible(key, flowState) {
-  if (key === "produtos") return flowState === "ITENS_NAO_FINALIZADOS";
+function isTabVisible(key, step) {
+  if (key === "produtos") return step === "produtos";
   if (key === "ajustes")
-    return flowState === "SEM_EVENTO" || flowState === "ITENS_NAO_FINALIZADOS";
+    return step === "ajustes" || step === "caixa" || step === "rodando" || step === "sem_evento";
+  if (key === "caixa") return step === "caixa" || step === "rodando";
+  if (key === "venda") return step === "rodando";
+  if (key === "relatorio") return step === "rodando";
   return true;
 }
 
-export default function Tabs({ tab, setTab, flowState }) {
+function getDefaultTab(step) {
+  if (step === "produtos") return "produtos";
+  if (step === "ajustes") return "ajustes";
+  if (step === "caixa") return "caixa";
+  if (step === "rodando") return "venda";
+  return "evento";
+}
+
+export default function Tabs({ tab, setTab, step }) {
   const routes = useMemo(
-    () => ROUTES.filter((route) => isTabVisible(route.key, flowState)),
-    [flowState]
+    () => ROUTES.filter((route) => isTabVisible(route.key, step)),
+    [step]
   );
 
   useEffect(() => {
-    if (!isTabVisible(tab, flowState)) {
-      setTab("caixa");
+    if (!isTabVisible(tab, step)) {
+      setTab(getDefaultTab(step));
     }
-  }, [tab, flowState, setTab]);
+  }, [tab, step, setTab]);
 
   return (
     <div className="tabs">
@@ -27,8 +38,8 @@ export default function Tabs({ tab, setTab, flowState }) {
           key={r.key}
           className={"tab " + (tab === r.key ? "active" : "")}
           onClick={() => {
-            if (r.key === "caixa" && flowState === "ITENS_NAO_FINALIZADOS") {
-              alert("Finalize os itens do evento antes de abrir o caixa.");
+            if (r.key === "caixa" && step !== "caixa" && step !== "rodando") {
+              alert("Salve os ajustes do ticket antes de abrir o caixa.");
               return;
             }
             setTab(r.key);

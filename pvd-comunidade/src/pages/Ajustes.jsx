@@ -5,7 +5,13 @@ import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
 import { useConfig } from "../config/ConfigProvider";
 
-export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
+export default function Ajustes({
+  ajustes,
+  setAjustes,
+  hasEventoAberto,
+  readOnly = false,
+  onSalvar,
+}) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
   const [logoAreaMm, setLogoAreaMm] = useState(
@@ -34,6 +40,9 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       textoRodape: rodape,
       logoAreaMm,
     }));
+    if (hasEventoAberto && typeof onSalvar === "function") {
+      onSalvar();
+    }
     alert("Ajustes salvos!");
   }
 
@@ -219,9 +228,9 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       <div className="hr" />
 
       <div style={s.wrap}>
-        {hasEventoAberto ? (
+        {readOnly ? (
           <div className="muted" style={{ fontWeight: 800, marginBottom: 10 }}>
-            Evento aberto — modelo do ticket bloqueado
+            Evento em andamento — ajustes bloqueados
           </div>
         ) : null}
         <div style={isWide ? s.gridWide : s.grid}>
@@ -236,7 +245,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 value={nomeOrg}
                 onChange={(e) => setNomeOrg(e.target.value)}
                 placeholder="Ex: Festa da Linguiça"
-                disabled={hasEventoAberto}
+                disabled={readOnly}
               />
             </div>
 
@@ -249,7 +258,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 value={rodape}
                 onChange={(e) => setRodape(e.target.value)}
                 placeholder="Ex: Obrigado pela preferência!"
-                disabled={hasEventoAberto}
+                disabled={readOnly}
               />
             </div>
 
@@ -264,7 +273,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 accept="image/*"
                 style={{ display: "none" }}
                 onChange={(e) => pickLogo(e.target.files?.[0])}
-                disabled={hasEventoAberto}
+                disabled={readOnly}
               />
 
               <div style={s.filePill}>
@@ -276,7 +285,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                   variant="primary"
                   small
                   onClick={() => fileRef.current?.click()}
-                  disabled={hasEventoAberto}
+                  disabled={readOnly}
                 >
                   Escolher arquivo
                 </Button>
@@ -286,7 +295,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                     variant="danger"
                     small
                     onClick={removerLogo}
-                    disabled={hasEventoAberto}
+                    disabled={readOnly}
                   >
                     Remover
                   </Button>
@@ -310,7 +319,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                     setLogoAreaMm(next);
                     setAjustes((p) => ({ ...(p || {}), logoAreaMm: next }));
                   }}
-                  disabled={hasEventoAberto}
+                  disabled={readOnly}
                   style={{ flex: 1 }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
@@ -320,7 +329,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
             </div>
 
             <div className="formActions">
-              <Button variant="primary" onClick={salvar} disabled={hasEventoAberto}>
+              <Button variant="primary" onClick={salvar} disabled={readOnly}>
                 Salvar
               </Button>
             </div>
@@ -341,7 +350,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                   type="checkbox"
                   checked={Boolean(permitirMultiDispositivo)}
                   onChange={(e) => setPermitirMultiDispositivo(e.target.checked)}
-                  disabled={hasEventoAberto}
+                  disabled={readOnly}
                 />
                 Habilitar uso do PDV em mais de um dispositivo
               </label>
