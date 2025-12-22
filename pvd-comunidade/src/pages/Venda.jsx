@@ -197,7 +197,14 @@ export function printTickets({
 }
 
 // helper: gera HTML completo (não usa DOM da tela)
-function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape, logoDataUrl, logoScale }) {
+function buildTicketsHTML({
+  eventoNome,
+  dataISO,
+  tickets,
+  mensagemRodape,
+  logoDataUrl,
+  logoScale,
+}) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
   const dataBR = `${pad2(dt.getDate())}/${pad2(dt.getMonth() + 1)}/${dt.getFullYear()}`;
@@ -220,17 +227,12 @@ function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape, logoDa
     return v.toFixed(2).replace(".", ",");
   };
 
-  const scaleNum = Number(logoScale ?? 1.2);
-  const safeScale = Number.isFinite(scaleNum) ? Math.min(2.2, Math.max(0.6, scaleNum)) : 1.2;
+  const scaleNum = Number(logoScale ?? 1);
+  const safeScale = Number.isFinite(scaleNum) ? Math.min(2.2, Math.max(0.6, scaleNum)) : 1;
   const logoHtml = logoDataUrl
     ? `
         <div class="logoWrap">
-          <img
-            class="logoImg"
-            src="${escAttr(logoDataUrl)}"
-            alt="logo"
-            style="transform: scale(${safeScale}); transform-origin: center top;"
-          />
+          <img class="logo" src="${escAttr(logoDataUrl)}" alt="logo" />
         </div>
       `
     : "";
@@ -239,22 +241,24 @@ function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape, logoDa
     .map((t) => {
       return `
       <div class="ticket">
-        <div class="title">${esc(eventoNome || "Evento")}</div>
-        <div class="date">${esc(dataBR)}</div>
-        <div class="sep"></div>
+        <div class="inner">
+          <div class="title">${esc(eventoNome || "Evento")}</div>
+          <div class="date">${esc(dataBR)}</div>
+          <div class="sep"></div>
 
-        ${logoHtml}
+          ${logoHtml}
 
-        <div class="row">
-          <div class="left">${esc(t.linhaTitulo || "")}</div>
-          <div class="right">R$ ${fmt(t.valorUnit)}</div>
+          <div class="row">
+            <div class="left">${esc(t.linhaTitulo || "")}</div>
+            <div class="right">R$ ${fmt(t.valorUnit)}</div>
+          </div>
+
+          ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
+
+          <div class="sep"></div>
+          <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
+          <div class="cut">CORTE AQUI</div>
         </div>
-
-        ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
-
-        <div class="sep"></div>
-        <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
-        <div class="cut">CORTE AQUI</div>
       </div>
     `;
     })
@@ -268,41 +272,70 @@ function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape, logoDa
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Impressão</title>
 <style>
-  body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
-  .ticket {
-    width: 80mm; max-width: 80mm;
-    margin: 12px auto;
-    padding: 18px 16px;
-    border: 1px dashed #bbb;
-    border-radius: 12px;
+  @page { size: 58mm auto; margin: 0; }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: #fff;
+    line-height: 1.4;
   }
+  .ticket {
+    width: 58mm;
+    max-width: 58mm;
+    margin: 0;
+    padding: 4mm 3mm;
+    border: 0;
+    border-radius: 0;
+    page-break-inside: avoid;
+  }
+  .inner { width: 52mm; margin: 0 auto; }
   .title { font-size: 18px; font-weight: 900; text-align: center; }
-  .date { font-size: 16px; font-weight: 800; text-align: center; margin-top: 6px; margin-bottom: 6px; }
+  .date {
+    font-size: 15px;
+    font-weight: 900;
+    text-align: center;
+    margin-top: 6px;
+    margin-bottom: 6px;
+  }
   .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
   .logoWrap {
     display: flex;
     justify-content: center;
     align-items: flex-start;
     padding: 8px 0 6px;
-    min-height: 70px;
     overflow: visible;
   }
-  .logoImg { max-width: 100%; max-height: 120px; object-fit: contain; }
-  .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; line-height: 1.5; }
+  .logo {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    transform: scale(var(--logoScale, 1));
+    transform-origin: center top;
+  }
+  .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; line-height: 1.5; margin-top: 4px; }
   .left { font-size: 16px; font-weight: 900; }
   .right { font-size: 16px; font-weight: 900; white-space: nowrap; }
   .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
   .thanks { text-align: center; font-size: 14px; font-weight: 900; margin-top: 10px; }
-  .cut { text-align: center; font-size: 11px; font-weight: 800; color:#6b7280; margin-top: 12px; border-top: 1px dashed #bbb; padding-top: 8px; }
+  .cut {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    color:#6b7280;
+    margin-top: 14px;
+    border-top: 1px dashed #bbb;
+    padding-top: 10px;
+  }
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .ticket { page-break-inside: avoid; }
-    @page { margin: 6mm; }
+    .ticket { border: 0; }
   }
 </style>
 </head>
-<body>
+<body style="--logoScale: ${safeScale};">
   ${cards || `<div style="padding:16px;font-weight:900">Nenhum ticket para imprimir.</div>`}
 </body>
 </html>
@@ -529,7 +562,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoScale: ajustes?.logoScale ?? 1.2,
+      logoScale: Number(ajustes?.logoScale || 1),
     });
   }
 
@@ -593,7 +626,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoScale: ajustes?.logoScale ?? 1.2,
+      logoScale: Number(ajustes?.logoScale || 1),
     });
     limpar();
 

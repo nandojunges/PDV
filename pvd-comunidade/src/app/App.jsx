@@ -81,7 +81,7 @@ export default function App() {
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
-      logoScale: 1.2,
+      logoScale: 1,
     })
   );
 

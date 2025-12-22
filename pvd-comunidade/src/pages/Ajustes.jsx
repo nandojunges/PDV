@@ -11,7 +11,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [logoScale, setLogoScale] = useState(
     Number.isFinite(Number(ajustes?.logoScale))
       ? Number(ajustes?.logoScale)
-      : 1.2
+      : 1
   );
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
@@ -52,7 +52,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoScale]);
 
   const s = {
     // ===== Layout mobile-first =====
@@ -128,7 +128,6 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
 
     logoBox: {
-      minHeight: 90,
       borderRadius: 12,
       border: "1px dashed #cbd5e1",
       background: "#f8fafc",
@@ -139,8 +138,8 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       padding: 10,
     },
     logoImg: {
-      maxHeight: 80,
       maxWidth: "100%",
+      height: "auto",
       objectFit: "contain",
     },
 
@@ -212,6 +211,11 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       <div className="hr" />
 
       <div style={s.wrap}>
+        {hasEventoAberto ? (
+          <div className="muted" style={{ fontWeight: 800, marginBottom: 10 }}>
+            Evento aberto — modelo do ticket bloqueado
+          </div>
+        ) : null}
         <div style={isWide ? s.gridWide : s.grid}>
           {/* ===================== FORM ===================== */}
           <div className="formGrid">
@@ -224,6 +228,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 value={nomeOrg}
                 onChange={(e) => setNomeOrg(e.target.value)}
                 placeholder="Ex: Festa da Linguiça"
+                disabled={hasEventoAberto}
               />
             </div>
 
@@ -236,6 +241,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 value={rodape}
                 onChange={(e) => setRodape(e.target.value)}
                 placeholder="Ex: Obrigado pela preferência!"
+                disabled={hasEventoAberto}
               />
             </div>
 
@@ -250,6 +256,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 accept="image/*"
                 style={{ display: "none" }}
                 onChange={(e) => pickLogo(e.target.files?.[0])}
+                disabled={hasEventoAberto}
               />
 
               <div style={s.filePill}>
@@ -257,12 +264,22 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                   {preview.logo ? "Logo selecionada" : "Nenhuma logo"}
                 </div>
 
-                <Button variant="primary" small onClick={() => fileRef.current?.click()}>
+                <Button
+                  variant="primary"
+                  small
+                  onClick={() => fileRef.current?.click()}
+                  disabled={hasEventoAberto}
+                >
                   Escolher arquivo
                 </Button>
 
                 {preview.logo ? (
-                  <Button variant="danger" small onClick={removerLogo}>
+                  <Button
+                    variant="danger"
+                    small
+                    onClick={removerLogo}
+                    disabled={hasEventoAberto}
+                  >
                     Remover
                   </Button>
                 ) : null}
@@ -314,42 +331,35 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                   {Number(logoScale).toFixed(2)}x
                 </div>
               </div>
-              {hasEventoAberto ? (
-                <div className="muted" style={{ marginTop: 6 }}>
-                  Feche o evento para ajustar o tamanho da logo.
-                </div>
-              ) : null}
             </div>
 
             <div className="formActions">
-              <Button variant="primary" onClick={salvar}>
+              <Button variant="primary" onClick={salvar} disabled={hasEventoAberto}>
                 Salvar
               </Button>
             </div>
 
-            {!hasEventoAberto ? (
-              <div className="fullRow" style={{ marginTop: 8 }}>
-                <div className="muted" style={{ marginBottom: 6 }}>
-                  Permitir multi-dispositivo
-                </div>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(permitirMultiDispositivo)}
-                    onChange={(e) => setPermitirMultiDispositivo(e.target.checked)}
-                    disabled={hasEventoAberto}
-                  />
-                  Habilitar uso do PDV em mais de um dispositivo
-                </label>
+            <div className="fullRow" style={{ marginTop: 8 }}>
+              <div className="muted" style={{ marginBottom: 6 }}>
+                Permitir multi-dispositivo
               </div>
-            ) : null}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontWeight: 700,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(permitirMultiDispositivo)}
+                  onChange={(e) => setPermitirMultiDispositivo(e.target.checked)}
+                  disabled={hasEventoAberto}
+                />
+                Habilitar uso do PDV em mais de um dispositivo
+              </label>
+            </div>
 
             <div className="muted" style={{ marginTop: 4 }}>
               No celular, a pré-visualização fica abaixo para não desconfigurar.
@@ -380,7 +390,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                     alt="logo"
                     style={{
                       ...s.logoImg,
-                      transform: `scale(${preview.logoScale})`,
+                      transform: `scale(${Number.isFinite(logoScale) ? logoScale : 1})`,
                       transformOrigin: "center top",
                     }}
                   />
