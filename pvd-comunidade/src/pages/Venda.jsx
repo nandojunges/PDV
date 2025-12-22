@@ -104,8 +104,7 @@ export function printTickets({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoMaxHeightMm,
-  ticketMinHeightMm,
+  logoZoom,
 }) {
   const html = buildTicketsHTML({
     eventoNome,
@@ -113,8 +112,7 @@ export function printTickets({
     tickets,
     mensagemRodape,
     logoDataUrl,
-    logoMaxHeightMm,
-    ticketMinHeightMm,
+    logoZoom,
   });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -205,8 +203,7 @@ function buildTicketsHTML({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoMaxHeightMm,
-  ticketMinHeightMm,
+  logoZoom,
 }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -230,40 +227,42 @@ function buildTicketsHTML({
     return v.toFixed(2).replace(".", ",");
   };
 
-  const logoMaxNum = Number(logoMaxHeightMm ?? 18);
-  const safeLogoMax = Number.isFinite(logoMaxNum) ? Math.min(20, Math.max(8, logoMaxNum)) : 18;
-  const ticketMinNum = Number(ticketMinHeightMm ?? 120);
-  const safeTicketMin = Number.isFinite(ticketMinNum) ? Math.max(120, ticketMinNum) : 120;
-  const logoHtml = logoDataUrl
-    ? `
-        <div class="logoWrap">
-          <img class="logo" src="${escAttr(logoDataUrl)}" alt="logo" />
-        </div>
-      `
-    : "";
+  const logoZoomNum = Number(logoZoom ?? 1);
+  const safeLogoZoom = Number.isFinite(logoZoomNum) ? Math.min(1.8, Math.max(0.8, logoZoomNum)) : 1;
 
   const cards = (Array.isArray(tickets) ? tickets : [])
     .map((t) => {
       return `
-      <div class="ticket" style="--logoMaxH: ${safeLogoMax}mm; --ticketMinH: ${safeTicketMin}mm;">
+      <div class="ticket" style="--logoZoom: ${safeLogoZoom};">
         <div class="inner">
-          <div class="title">${esc(eventoNome || "Evento")}</div>
-          <div class="date">${esc(dataBR)}</div>
-          <div class="sep"></div>
+          <div class="content">
+            <div class="title">${esc(eventoNome || "Evento")}</div>
+            <div class="date">${esc(dataBR)}</div>
+            <div class="sep"></div>
 
-          ${logoHtml}
+            <div class="logoBox">
+              ${
+                logoDataUrl
+                  ? `<img src="${escAttr(logoDataUrl)}" alt="logo" />`
+                  : ""
+              }
+            </div>
+            <div class="sep"></div>
 
-          <div class="row">
-            <div class="left">${esc(t.linhaTitulo || "")}</div>
-            <div class="right">R$ ${fmt(t.valorUnit)}</div>
+            <div class="row">
+              <div class="itemName">${esc(t.linhaTitulo || "")}</div>
+              <div class="price">R$ ${fmt(t.valorUnit)}</div>
+            </div>
+
+            ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
+
+            <div class="sep"></div>
           </div>
-
-          ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
-
-          <div class="sep"></div>
-          <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
-          <div class="cut">CORTE AQUI</div>
-          <div class="spacer"></div>
+          <div class="push"></div>
+          <div class="footer">
+            <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
+            <div class="cut">CORTE AQUI</div>
+          </div>
         </div>
       </div>
     `;
@@ -278,7 +277,7 @@ function buildTicketsHTML({
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Impressão</title>
 <style>
-  @page { size: 58mm auto; margin: 0; }
+  @page { size: 58mm 80mm; margin: 0; }
   html, body {
     margin: 0;
     padding: 0;
@@ -288,15 +287,21 @@ function buildTicketsHTML({
   }
   .ticket {
     width: 58mm;
+    height: 80mm;
     margin: 0;
     padding: 4mm 3mm;
     border: 0;
     border-radius: 0;
     box-sizing: border-box;
     page-break-inside: avoid;
-    min-height: var(--ticketMinH, 120mm);
   }
-  .inner { width: 52mm; margin: 0 auto; }
+  .inner {
+    width: 52mm;
+    margin: 0 auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
   .title { font-size: 18px; font-weight: 900; text-align: center; }
   .date {
     font-size: 16px;
@@ -306,31 +311,39 @@ function buildTicketsHTML({
     margin-bottom: 6px;
   }
   .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
-  .logoWrap {
-    margin: 2mm 0 3mm 0;
+  .logoBox {
+    height: 40mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 1mm 0 2mm 0;
   }
-  .logo {
-    display: block;
-    width: 100%;
+  .logoBox img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
     height: auto;
-    max-height: var(--logoMaxH, 18mm);
+    transform: scale(var(--logoZoom, 1));
+    transform-origin: center center;
     object-fit: contain;
   }
-  .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; line-height: 1.5; margin-top: 4px; }
-  .left { font-size: 16px; font-weight: 900; }
-  .right { font-size: 16px; font-weight: 900; white-space: nowrap; }
-  .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
-  .thanks { text-align: center; font-size: 14px; font-weight: 900; margin-top: 10px; }
-  .cut {
-    text-align: center;
-    font-size: 11px;
-    font-weight: 800;
-    color:#6b7280;
-    margin-top: 14px;
-    border-top: 1px dashed #bbb;
-    padding-top: 10px;
+  .row { display: flex; align-items: flex-start; gap: 2mm; line-height: 1.5; margin-top: 4px; }
+  .itemName {
+    font-size: 16px;
+    font-weight: 900;
+    flex: 1;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
   }
-  .spacer { height: 10mm; }
+  .price { font-size: 16px; font-weight: 900; white-space: nowrap; }
+  .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
+  .push { flex: 1; }
+  .thanks { text-align: center; font-size: 14px; font-weight: 900; }
+  .footer { text-align: center; font-weight: 700; }
+  .cut { margin-top: 2mm; font-weight: 700; letter-spacing: 1px; }
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -565,8 +578,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoMaxHeightMm: Number(ajustes?.logoMaxHeightMm || 18),
-      ticketMinHeightMm: Number(ajustes?.ticketMinHeightMm || 120),
+      logoZoom: Number(ajustes?.logoZoom || 1),
     });
   }
 
@@ -630,8 +642,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoMaxHeightMm: Number(ajustes?.logoMaxHeightMm || 18),
-      ticketMinHeightMm: Number(ajustes?.ticketMinHeightMm || 120),
+      logoZoom: Number(ajustes?.logoZoom || 1),
     });
     limpar();
 
