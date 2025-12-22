@@ -3,13 +3,13 @@ import React from "react";
 import Tabs from "./Tabs";
 import { toBRDateTime } from "../domain/math";
 
-export default function TopBar({ evento, tab, setTab, step }) {
+export default function TopBar({ evento, tab, setTab, flowState }) {
   return (
     <div className="topbar">
       <div className="row space topbarRow">
         <div className="topbarLeft">
           <div className="topTitle">
-            PVD Comunidade
+            PVD São Lourenço
             <span className="topDeveloper">Desenvolvido por Fernando Junges</span>
           </div>
 
@@ -28,7 +28,7 @@ export default function TopBar({ evento, tab, setTab, step }) {
         </div>
 
         <div className="topbarRight">
-          <Tabs tab={tab} setTab={setTab} step={step} />
+          <Tabs tab={tab} setTab={setTab} flowState={flowState} />
         </div>
       </div>
     </div>
