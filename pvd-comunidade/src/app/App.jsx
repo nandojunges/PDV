@@ -36,7 +36,34 @@ export default function App() {
     ensureMigrations();
   }, []);
 
+  function deriveStep({ evento: eventoAtual, caixa: caixaAtual }) {
+    const nomeEvento = String(eventoAtual?.nome || "").trim();
+    if (!nomeEvento) return "sem_evento";
+
+    const produtosConfirmados = Boolean(
+      eventoAtual?.produtosConfirmados || eventoAtual?.itensFinalizados
+    );
+    const ajustesSalvos = Boolean(eventoAtual?.ajustesSalvos);
+    const caixaAberto = Boolean(eventoAtual?.caixaAberto || caixaAtual?.abertura);
+
+    if (caixaAberto) return "vendas";
+    if (produtosConfirmados && ajustesSalvos && !caixaAberto) return "caixa";
+    if (produtosConfirmados && !ajustesSalvos) return "ajustes";
+    if (!produtosConfirmados) return "produtos";
+
+    return "sem_evento";
+  }
+
+  function stepToTab(stepValue) {
+    if (stepValue === "produtos") return "produtos";
+    if (stepValue === "ajustes") return "ajustes";
+    if (stepValue === "caixa") return "caixa";
+    if (stepValue === "vendas") return "venda";
+    return "evento";
+  }
+
   const [tab, setTab] = useState("evento");
+  const [step, setStep] = useState(() => loadJSON(LS_KEYS.flowStep, "sem_evento"));
 
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
@@ -48,6 +75,9 @@ export default function App() {
       modo: "local",
       rede: null,
       itensFinalizados: false,
+      produtosConfirmados: false,
+      ajustesSalvos: false,
+      caixaAberto: false,
     };
     if (!raw || typeof raw !== "object") return fallback;
     return {
@@ -56,6 +86,9 @@ export default function App() {
       modo: raw?.modo || "local",
       rede: raw?.rede || null,
       itensFinalizados: Boolean(raw?.itensFinalizados),
+      produtosConfirmados: Boolean(raw?.produtosConfirmados ?? raw?.itensFinalizados),
+      ajustesSalvos: Boolean(raw?.ajustesSalvos),
+      caixaAberto: Boolean(raw?.caixaAberto),
       produtos: Array.isArray(raw?.produtos) ? raw.produtos : [],
     };
   });
@@ -97,6 +130,7 @@ export default function App() {
   useEffect(() => saveJSON(LS_KEYS.vendas, vendas), [vendas]);
   useEffect(() => saveJSON(LS_KEYS.caixa, caixa), [caixa]);
   useEffect(() => saveJSON(LS_KEYS.ajustes, ajustes), [ajustes]);
+  useEffect(() => saveJSON(LS_KEYS.flowStep, step), [step]);
   useEffect(() => {
     setEvento((prev) => {
       if (!prev) return prev;
@@ -106,6 +140,20 @@ export default function App() {
       };
     });
   }, [produtos]);
+
+  useEffect(() => {
+    const expected = deriveStep({ evento, caixa });
+    if (expected !== step) {
+      setStep(expected);
+    }
+  }, [evento, caixa, step]);
+
+  useEffect(() => {
+    const nextTab = stepToTab(step);
+    if (nextTab !== tab) {
+      setTab(nextTab);
+    }
+  }, [step, tab]);
 
   const resumoEvento = useMemo(() => {
     const nomeEv = (evento?.nome || "").trim();
@@ -129,7 +177,17 @@ export default function App() {
     const modo = options?.modo || "local";
     const rede = options?.rede || null;
 
-    setEvento({ nome: nm, abertoEm, produtos: [], modo, rede, itensFinalizados: false });
+    setEvento({
+      nome: nm,
+      abertoEm,
+      produtos: [],
+      modo,
+      rede,
+      itensFinalizados: false,
+      produtosConfirmados: false,
+      ajustesSalvos: false,
+      caixaAberto: false,
+    });
     setProdutos([]);
     setCaixa({
       abertura: null,
@@ -138,6 +196,7 @@ export default function App() {
     });
 
     // ao abrir, vai para PRODUTOS
+    setStep("produtos");
     setTab("produtos");
   }
 
@@ -151,6 +210,7 @@ export default function App() {
     setEvento(null);
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
+    setStep("sem_evento");
     setTab("evento");
   }
 
@@ -186,6 +246,14 @@ export default function App() {
       abertura: null,
       movimentos: [],
     }));
+    setEvento((prev) =>
+      prev
+        ? {
+            ...prev,
+            caixaAberto: false,
+          }
+        : prev
+    );
   }
 
   function finalizarCaixaEvento() {
@@ -306,7 +374,7 @@ export default function App() {
         setTab={setTab}
         evento={evento}
         resumo={resumoEvento}
-        flowState={flowState}
+        step={step}
         onZerarTudo={zerarTudo}
       />
 
@@ -332,15 +400,23 @@ export default function App() {
             produtos={produtos}
             setProdutos={setProdutos}
             setTab={setTab}
-            readOnly={permitirMultiDispositivo && config?.modoMulti === "client"}
+            readOnly={
+              step !== "produtos" ||
+              (permitirMultiDispositivo && config?.modoMulti === "client")
+            }
             itensFinalizados={Boolean(evento?.itensFinalizados)}
             onSalvarOfertaDoEvento={(novosProdutos) =>
               setEvento((prev) => ({
                 ...prev,
                 produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
                 itensFinalizados: true,
+                produtosConfirmados: true,
               }))
             }
+            onFinalizarItens={() => {
+              setStep("ajustes");
+              setTab("ajustes");
+            }}
           />
         )}
 
@@ -365,7 +441,18 @@ export default function App() {
             flowState={flowState}
             disabled={!hasEventoAberto}
             onZerarCaixa={zerarCaixaEvento}
-            onAbrirCaixaOk={() => setTab("venda")}
+            onAbrirCaixaOk={() => {
+              setEvento((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      caixaAberto: true,
+                    }
+                  : prev
+              );
+              setStep("vendas");
+              setTab("venda");
+            }}
             onFinalizarCaixa={finalizarCaixaEvento}
           />
         )}
@@ -388,6 +475,19 @@ export default function App() {
             ajustes={ajustes}
             setAjustes={setAjustes}
             hasEventoAberto={hasEventoAberto}
+            readOnly={step === "caixa" || step === "vendas"}
+            onSalvar={() => {
+              setEvento((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      ajustesSalvos: true,
+                    }
+                  : prev
+              );
+              setStep("caixa");
+              setTab("caixa");
+            }}
           />
         )}
       </main>
