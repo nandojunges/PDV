@@ -248,53 +248,49 @@ export default function Produtos({
   const precoRef = useRef(null);
 
   function scrollTopoEFocusPreco() {
-    // Queremos: subir sempre o suficiente, mas sem "chacoalhão".
-    // Estratégia:
-    // 1) Um scroll smooth calculado (1 só).
-    // 2) Depois, um ajuste "auto" (sem animação) se ainda faltou.
-    // 3) Só então foca o preço.
-    const HEADER_OFFSET = 110; // 👈 aumente/diminua se tiver topo fixo diferente (90–140)
-    const el = topoRef.current;
-    if (!el || !el.getBoundingClientRect) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    const HEADER_OFFSET = 120; // ajuste fino se necessário (ex: 110–140)
+    const priceEl = precoRef.current;
+
+    // fallback simples
+    if (!priceEl || !priceEl.getBoundingClientRect) {
+      window.scrollTo({ top: 0, behavior: "auto" });
       setTimeout(() => {
         try {
           precoRef.current?.focus?.();
           precoRef.current?.select?.();
         } catch (_) {}
-      }, 280);
+      }, 60);
       return;
     }
 
-    const calcTargetTop = () => {
-      const rect = el.getBoundingClientRect();
-      return Math.max(0, window.scrollY + rect.top - HEADER_OFFSET);
-    };
+    // calcula alvo garantindo que o campo de preço fique abaixo do header
+    const rect = priceEl.getBoundingClientRect();
+    const absoluteTop = window.scrollY + rect.top;
+    const targetTop = Math.max(0, absoluteTop - HEADER_OFFSET - 12); // 12px de folga
 
-    // 1) scroll principal (uma vez)
-    const targetTop = calcTargetTop();
-    window.scrollTo({ top: targetTop, behavior: "smooth" });
+    // 1 único scroll estável (instantâneo) para evitar chacoalhão
+    window.scrollTo({ top: targetTop, behavior: "auto" });
 
-    // 2) correção sem animação (evita "tremer")
-    setTimeout(() => {
+    // se a altura mudou (fonts/layout), revalida 1x no próximo frame
+    requestAnimationFrame(() => {
       try {
-        const afterTop = calcTargetTop();
-        const delta = afterTop - window.scrollY;
-
-        // se ainda está longe do ponto certo (faltou subir), ajusta no seco
-        if (Math.abs(delta) > 6) {
-          window.scrollTo({ top: afterTop, behavior: "auto" });
+        const r2 = priceEl.getBoundingClientRect();
+        // se ainda ficou escondido atrás do header, corrige 1x
+        if (r2.top < HEADER_OFFSET + 6) {
+          const absoluteTop2 = window.scrollY + r2.top;
+          const targetTop2 = Math.max(0, absoluteTop2 - HEADER_OFFSET - 12);
+          window.scrollTo({ top: targetTop2, behavior: "auto" });
         }
       } catch (_) {}
-    }, 420);
+    });
 
-    // 3) foco depois de estabilizar
+    // foco depois da rolagem estabilizar
     setTimeout(() => {
       try {
         precoRef.current?.focus?.();
         precoRef.current?.select?.();
       } catch (_) {}
-    }, 520);
+    }, 80);
   }
 
   function limparTopo() {
