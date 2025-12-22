@@ -206,6 +206,57 @@ function IconImg({ iconKey, size = 42 }) {
   );
 }
 
+function getScrollParent(el) {
+  if (!el) return window;
+  let parent = el.parentElement;
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    const overflow = `${style.overflow} ${style.overflowY}`;
+    if (/(auto|scroll|overlay)/i.test(overflow)) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return window;
+}
+
+function getSafeAreaInsetTop() {
+  if (typeof document === "undefined") return 0;
+  const probe = document.createElement("div");
+  probe.style.position = "absolute";
+  probe.style.top = "0";
+  probe.style.height = "0";
+  probe.style.paddingTop = "env(safe-area-inset-top)";
+  document.body.appendChild(probe);
+  const value = parseFloat(window.getComputedStyle(probe).paddingTop || "0") || 0;
+  document.body.removeChild(probe);
+  return value;
+}
+
+function getScrollTop(scrollParent) {
+  if (scrollParent === window) {
+    return window.scrollY || document.documentElement.scrollTop || 0;
+  }
+  return scrollParent.scrollTop || 0;
+}
+
+function getElementTop(el, scrollParent) {
+  const rect = el.getBoundingClientRect();
+  if (scrollParent === window) {
+    return rect.top + getScrollTop(scrollParent);
+  }
+  const parentRect = scrollParent.getBoundingClientRect();
+  return rect.top - parentRect.top + getScrollTop(scrollParent);
+}
+
+function scrollToPosition(scrollParent, top, behavior) {
+  if (scrollParent === window) {
+    window.scrollTo({ top, behavior });
+    return;
+  }
+  scrollParent.scrollTo({ top, behavior });
+}
+
 /* ===================== componente ===================== */
 export default function Produtos({
   produtos = [],
@@ -253,9 +304,8 @@ export default function Produtos({
     // 1) Um scroll smooth calculado (1 só).
     // 2) Depois, um ajuste "auto" (sem animação) se ainda faltou.
     // 3) Só então foca o preço.
-    const HEADER_OFFSET = 110; // 👈 aumente/diminua se tiver topo fixo diferente (90–140)
-    const el = topoRef.current;
-    if (!el || !el.getBoundingClientRect) {
+    const anchorEl = topoRef.current || precoRef.current;
+    if (!anchorEl || !anchorEl.getBoundingClientRect) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       setTimeout(() => {
         try {
@@ -266,24 +316,54 @@ export default function Produtos({
       return;
     }
 
+    const scrollParent = getScrollParent(anchorEl);
+    const headerEl = document.querySelector(".topbar");
+    const headerHeight = headerEl?.getBoundingClientRect().height || 0;
+    const safeAreaTop = getSafeAreaInsetTop();
+    const extraGap = Math.max(
+      12,
+      Math.round((precoRef.current?.getBoundingClientRect().height || 0) * 0.25)
+    );
+    const headerOffset = headerHeight + safeAreaTop + extraGap;
+
     const calcTargetTop = () => {
-      const rect = el.getBoundingClientRect();
-      return Math.max(0, window.scrollY + rect.top - HEADER_OFFSET);
+      const anchorTop = getElementTop(anchorEl, scrollParent);
+      return Math.max(0, anchorTop - headerOffset);
+    };
+
+    const ensurePrecoVisible = () => {
+      const priceEl = precoRef.current;
+      if (!priceEl) return null;
+
+      const priceRect = priceEl.getBoundingClientRect();
+      const currentScrollTop = getScrollTop(scrollParent);
+      const viewportHeight =
+        scrollParent === window ? window.innerHeight : scrollParent.clientHeight;
+      const parentRect =
+        scrollParent === window
+          ? { top: 0, bottom: viewportHeight }
+          : scrollParent.getBoundingClientRect();
+      const topBound = parentRect.top + headerOffset;
+      const bottomBound = parentRect.bottom - extraGap;
+
+      if (priceRect.bottom > bottomBound) {
+        return Math.max(0, currentScrollTop + (priceRect.bottom - bottomBound));
+      }
+      if (priceRect.top < topBound) {
+        return Math.max(0, currentScrollTop - (topBound - priceRect.top));
+      }
+      return null;
     };
 
     // 1) scroll principal (uma vez)
-    const targetTop = calcTargetTop();
-    window.scrollTo({ top: targetTop, behavior: "smooth" });
+    scrollToPosition(scrollParent, calcTargetTop(), "smooth");
 
     // 2) correção sem animação (evita "tremer")
     setTimeout(() => {
       try {
-        const afterTop = calcTargetTop();
-        const delta = afterTop - window.scrollY;
-
-        // se ainda está longe do ponto certo (faltou subir), ajusta no seco
-        if (Math.abs(delta) > 6) {
-          window.scrollTo({ top: afterTop, behavior: "auto" });
+        const correctedTop = ensurePrecoVisible();
+        if (typeof correctedTop === "number") {
+          scrollToPosition(scrollParent, correctedTop, "auto");
         }
       } catch (_) {}
     }, 420);
