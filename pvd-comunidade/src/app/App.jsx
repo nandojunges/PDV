@@ -37,9 +37,6 @@ export default function App() {
   }, []);
 
   const [tab, setTab] = useState("evento");
-  const [step, setStep] = useState(() =>
-    loadJSON(LS_KEYS.flowStep, "sem_evento")
-  );
 
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
@@ -100,7 +97,6 @@ export default function App() {
   useEffect(() => saveJSON(LS_KEYS.vendas, vendas), [vendas]);
   useEffect(() => saveJSON(LS_KEYS.caixa, caixa), [caixa]);
   useEffect(() => saveJSON(LS_KEYS.ajustes, ajustes), [ajustes]);
-  useEffect(() => saveJSON(LS_KEYS.flowStep, step), [step]);
   useEffect(() => {
     setEvento((prev) => {
       if (!prev) return prev;
@@ -125,17 +121,6 @@ export default function App() {
     [evento, produtos, caixa, vendas]
   );
 
-  useEffect(() => {
-    const nomeEvento = String(evento?.nome || "").trim();
-    if (!nomeEvento && step !== "sem_evento") {
-      setStep("sem_evento");
-      return;
-    }
-    if (nomeEvento && step === "sem_evento") {
-      setStep("produtos");
-    }
-  }, [evento?.nome, step]);
-
   function abrirEvento(nome, options = {}) {
     const nm = String(nome || "").trim();
     if (!nm) return alert("Informe o nome do evento.");
@@ -153,7 +138,6 @@ export default function App() {
     });
 
     // ao abrir, vai para PRODUTOS
-    setStep("produtos");
     setTab("produtos");
   }
 
@@ -167,7 +151,6 @@ export default function App() {
     setEvento(null);
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
-    setStep("sem_evento");
     setTab("evento");
   }
 
@@ -323,16 +306,16 @@ export default function App() {
         setTab={setTab}
         evento={evento}
         resumo={resumoEvento}
-        step={step}
+        flowState={flowState}
         onZerarTudo={zerarTudo}
       />
 
       <main style={{ padding: 16 }}>
         {tab === "evento" && (
-        <Evento
-          evento={evento}
-          abrirEvento={abrirEvento}
-          vendas={vendas}
+          <Evento
+            evento={evento}
+            abrirEvento={abrirEvento}
+            vendas={vendas}
             caixa={caixa}
             flowState={flowState}
             setEvento={setEvento}
@@ -348,6 +331,7 @@ export default function App() {
           <Produtos
             produtos={produtos}
             setProdutos={setProdutos}
+            setTab={setTab}
             readOnly={permitirMultiDispositivo && config?.modoMulti === "client"}
             itensFinalizados={Boolean(evento?.itensFinalizados)}
             onSalvarOfertaDoEvento={(novosProdutos) =>
@@ -357,10 +341,6 @@ export default function App() {
                 itensFinalizados: true,
               }))
             }
-            onFinalizarItens={() => {
-              setStep("ajustes");
-              setTab("ajustes");
-            }}
           />
         )}
 
@@ -385,10 +365,7 @@ export default function App() {
             flowState={flowState}
             disabled={!hasEventoAberto}
             onZerarCaixa={zerarCaixaEvento}
-            onAbrirCaixaOk={() => {
-              setStep("rodando");
-              setTab("venda");
-            }}
+            onAbrirCaixaOk={() => setTab("venda")}
             onFinalizarCaixa={finalizarCaixaEvento}
           />
         )}
@@ -410,11 +387,6 @@ export default function App() {
           <Ajustes
             ajustes={ajustes}
             setAjustes={setAjustes}
-            readOnly={step === "rodando"}
-            onSalvar={() => {
-              setStep("caixa");
-              setTab("caixa");
-            }}
             hasEventoAberto={hasEventoAberto}
           />
         )}
