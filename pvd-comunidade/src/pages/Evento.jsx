@@ -588,7 +588,9 @@ export default function Evento({
               nomeOrganizacao: ajustes?.nomeOrganizacao,
               textoRodape: ajustes?.textoRodape,
               logoDataUrl: ajustes?.logoDataUrl,
-              logoScale: ajustes?.logoScale,
+              logoMaxHeightMm: ajustes?.logoMaxHeightMm,
+              ticketMinHeightMm: ajustes?.ticketMinHeightMm,
+              ticketMaxHeightMm: ajustes?.ticketMaxHeightMm,
             },
           };
         },
@@ -629,7 +631,9 @@ export default function Evento({
               nomeOrganizacao: ajustes?.nomeOrganizacao,
               textoRodape: ajustes?.textoRodape,
               logoDataUrl: ajustes?.logoDataUrl,
-              logoScale: ajustes?.logoScale,
+              logoMaxHeightMm: ajustes?.logoMaxHeightMm,
+              ticketMinHeightMm: ajustes?.ticketMinHeightMm,
+              ticketMaxHeightMm: ajustes?.ticketMaxHeightMm,
             },
           };
         },

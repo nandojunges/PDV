@@ -8,10 +8,20 @@ import { useConfig } from "../config/ConfigProvider";
 export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
-  const [logoScale, setLogoScale] = useState(
-    Number.isFinite(Number(ajustes?.logoScale))
-      ? Number(ajustes?.logoScale)
-      : 1
+  const [logoMaxHeightMm, setLogoMaxHeightMm] = useState(
+    Number.isFinite(Number(ajustes?.logoMaxHeightMm))
+      ? Number(ajustes?.logoMaxHeightMm)
+      : 18
+  );
+  const [ticketMinHeightMm, setTicketMinHeightMm] = useState(
+    Number.isFinite(Number(ajustes?.ticketMinHeightMm))
+      ? Number(ajustes?.ticketMinHeightMm)
+      : 120
+  );
+  const [ticketMaxHeightMm] = useState(
+    Number.isFinite(Number(ajustes?.ticketMaxHeightMm))
+      ? Number(ajustes?.ticketMaxHeightMm)
+      : 150
   );
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
@@ -34,7 +44,9 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       ...(p || {}),
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
-      logoScale,
+      logoMaxHeightMm,
+      ticketMinHeightMm,
+      ticketMaxHeightMm,
     }));
     alert("Ajustes salvos!");
   }
@@ -45,14 +57,16 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       data: new Date().toLocaleDateString("pt-BR"),
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
-      logoScale,
+      logoMaxHeightMm,
+      ticketMinHeightMm,
+      ticketMaxHeightMm,
       // exemplo do item (apenas preview)
       iconeProduto: "🥤",
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoScale]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoMaxHeightMm, ticketMinHeightMm, ticketMaxHeightMm]);
 
   const s = {
     // ===== Layout mobile-first =====
@@ -95,8 +109,8 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     },
 
     ticket: {
-      width: "100%",
-      maxWidth: 360,
+      width: "58mm",
+      maxWidth: "100%",
       margin: "0 auto",
       background: "#fff",
       border: "1px solid #e5e7eb",
@@ -106,6 +120,10 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
     },
 
+    inner: {
+      width: "52mm",
+      margin: "0 auto",
+    },
     title: {
       fontWeight: 900,
       fontSize: 18,
@@ -128,18 +146,14 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
 
     logoBox: {
-      borderRadius: 12,
-      border: "1px dashed #cbd5e1",
-      background: "#f8fafc",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "visible",
-      padding: 10,
+      margin: "4px 0 6px",
     },
     logoImg: {
+      display: "block",
+      width: "100%",
       maxWidth: "100%",
       height: "auto",
+      maxHeight: "18mm",
       objectFit: "contain",
     },
 
@@ -288,47 +302,25 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
 
             <div className="fullRow">
               <div className="muted" style={{ marginBottom: 6 }}>
-                Tamanho da logo
+                Altura da logo (mm)
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Button
-                  small
-                  onClick={() => {
-                    const next = Math.max(0.6, Number((logoScale - 0.05).toFixed(2)));
-                    setLogoScale(next);
-                    setAjustes((p) => ({ ...(p || {}), logoScale: next }));
-                  }}
-                  disabled={hasEventoAberto}
-                >
-                  -
-                </Button>
                 <input
                   type="range"
-                  min="0.6"
-                  max="2.2"
-                  step="0.05"
-                  value={logoScale}
+                  min="8"
+                  max="20"
+                  step="1"
+                  value={logoMaxHeightMm}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setLogoScale(next);
-                    setAjustes((p) => ({ ...(p || {}), logoScale: next }));
+                    setLogoMaxHeightMm(next);
+                    setAjustes((p) => ({ ...(p || {}), logoMaxHeightMm: next }));
                   }}
                   disabled={hasEventoAberto}
                   style={{ flex: 1 }}
                 />
-                <Button
-                  small
-                  onClick={() => {
-                    const next = Math.min(2.2, Number((logoScale + 0.05).toFixed(2)));
-                    setLogoScale(next);
-                    setAjustes((p) => ({ ...(p || {}), logoScale: next }));
-                  }}
-                  disabled={hasEventoAberto}
-                >
-                  +
-                </Button>
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {Number(logoScale).toFixed(2)}x
+                  {Number(logoMaxHeightMm)}mm
                 </div>
               </div>
             </div>
@@ -372,64 +364,72 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
               Pré-visualização do ticket
             </div>
 
-            <div style={s.ticket}>
-              {/* Cabeçalho */}
-              <div style={s.title}>{preview.nome}</div>
+            <div
+              style={{
+                ...s.ticket,
+                minHeight: `${Math.max(120, Number(preview.ticketMinHeightMm || 120))}mm`,
+              }}
+            >
+              <div style={s.inner}>
+                {/* Cabeçalho */}
+                <div style={s.title}>{preview.nome}</div>
 
-              <div style={s.meta}>
-                <div>{preview.data}</div>
-              </div>
-
-              <div style={s.dash} />
-
-              {/* Logo */}
-              <div style={s.logoBox}>
-                {preview.logo ? (
-                  <img
-                    src={preview.logo}
-                    alt="logo"
-                    style={{
-                      ...s.logoImg,
-                      transform: `scale(${Number.isFinite(logoScale) ? logoScale : 1})`,
-                      transformOrigin: "center top",
-                    }}
-                  />
-                ) : (
-                  <div className="muted" style={{ fontWeight: 800 }}>
-                    Sua logo aqui
-                  </div>
-                )}
-              </div>
-
-              <div style={s.dash} />
-
-              {/* Item (layout de ticket: esquerda item / direita preço) */}
-              <div style={s.linhaItem}>
-                <div style={s.itemLeft}>
-                  <span aria-hidden="true">{preview.iconeProduto}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
-                      <div style={s.qtd}>{preview.qtd}x</div>
-                      <div style={s.nomeItem}>{preview.produto}</div>
-                    </div>
-                    <div style={s.subLinha}>Exemplo de item (prévia)</div>
-                  </div>
+                <div style={s.meta}>
+                  <div>{preview.data}</div>
                 </div>
 
-                <div style={s.preco}>{fmtBRL(preview.valor)}</div>
+                {preview.logo ? (
+                  <>
+                    <div style={s.dash} />
+                    <div style={s.logoBox}>
+                      <img
+                        src={preview.logo}
+                        alt="logo"
+                        style={{
+                          ...s.logoImg,
+                          maxHeight: `${preview.logoMaxHeightMm || 18}mm`,
+                        }}
+                      />
+                    </div>
+                    <div style={s.dash} />
+                  </>
+                ) : (
+                  <div style={s.dash} />
+                )}
+
+                {/* Item (layout de ticket: esquerda item / direita preço) */}
+                <div style={s.linhaItem}>
+                  <div style={s.itemLeft}>
+                    <span aria-hidden="true">{preview.iconeProduto}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+                        <div style={s.qtd}>{preview.qtd}x</div>
+                        <div style={s.nomeItem}>{preview.produto}</div>
+                      </div>
+                      <div style={s.subLinha}>Exemplo de item (prévia)</div>
+                    </div>
+                  </div>
+
+                  <div style={s.preco}>{fmtBRL(preview.valor)}</div>
+                </div>
+
+                <div style={s.dash} />
+
+                {/* Rodapé */}
+                <div style={s.rodape}>{preview.rodape}</div>
+
+                {/* Corte */}
+                <div style={s.corte}>
+                  <div style={s.corteLine} />
+                  CORTE AQUI
+                  <div style={s.corteLine} />
+                </div>
+
+                <div style={{ height: "10mm" }} />
               </div>
-
-              <div style={s.dash} />
-
-              {/* Rodapé */}
-              <div style={s.rodape}>{preview.rodape}</div>
-
-              {/* Corte */}
-              <div style={s.corte}>
-                <div style={s.corteLine} />
-                CORTE AQUI
-                <div style={s.corteLine} />
-              </div>
+            </div>
+            <div className="muted" style={{ marginTop: 8, fontWeight: 700 }}>
+              Máx recomendado: {preview.ticketMaxHeightMm || 150}mm
             </div>
           </div>
         </div>
