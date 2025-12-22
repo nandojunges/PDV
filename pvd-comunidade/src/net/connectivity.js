@@ -159,9 +159,7 @@ export async function startMasterServer({
 
   const adapter = resolveServerAdapter();
   if (!adapter || !isNativePlatform()) {
-    throw new Error(
-      "Servidor LAN só funciona no APK. No Vite, use apenas UI."
-    );
+    throw new Error("Servidor LAN indisponível.");
   }
 
   const rateLimit = makeRateLimiter();

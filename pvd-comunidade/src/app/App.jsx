@@ -37,13 +37,21 @@ export default function App() {
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
     if (raw === null) return null;
-    const fallback = { nome: "", abertoEm: null, produtos: [], modo: "local", rede: null };
+    const fallback = {
+      nome: "",
+      abertoEm: null,
+      produtos: [],
+      modo: "local",
+      rede: null,
+      itensFinalizados: false,
+    };
     if (!raw || typeof raw !== "object") return fallback;
     return {
       ...fallback,
       ...raw,
       modo: raw?.modo || "local",
       rede: raw?.rede || null,
+      itensFinalizados: Boolean(raw?.itensFinalizados),
       produtos: Array.isArray(raw?.produtos) ? raw.produtos : [],
     };
   });
@@ -113,7 +121,7 @@ export default function App() {
     const modo = options?.modo || "local";
     const rede = options?.rede || null;
 
-    setEvento({ nome: nm, abertoEm, produtos: [], modo, rede });
+    setEvento({ nome: nm, abertoEm, produtos: [], modo, rede, itensFinalizados: false });
     setProdutos([]);
     setCaixa({
       abertura: null,
@@ -310,10 +318,12 @@ export default function App() {
             setProdutos={setProdutos}
             setTab={setTab}
             readOnly={permitirMultiDispositivo && config?.modoMulti === "client"}
+            itensFinalizados={Boolean(evento?.itensFinalizados)}
             onSalvarOfertaDoEvento={(novosProdutos) =>
               setEvento((prev) => ({
                 ...prev,
                 produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
+                itensFinalizados: true,
               }))
             }
           />

@@ -287,7 +287,7 @@ export default function Evento({
   const qrUrl = useMemo(() => {
     if (!qrPayload) return "";
     const encoded = encodeURIComponent(qrPayload);
-    return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encoded}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encoded}`;
   }, [qrPayload]);
 
   useEffect(() => {
@@ -944,11 +944,6 @@ export default function Evento({
                       Fila offline: {pendingCount} venda(s)
                     </div>
                   )}
-                  {!isNative && (
-                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                      Servidor LAN e leitura de QR funcionam apenas no APK
-                    </div>
-                  )}
                   {serverErro && (
                     <div style={{ fontSize: 12, color: "#9ca3af" }}>{serverErro}</div>
                   )}
@@ -956,17 +951,30 @@ export default function Evento({
 
                 <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
                   {qrUrl ? (
-                    <img
-                      src={qrUrl}
-                      alt="QR Code do evento"
+                    <div
                       style={{
-                        width: 160,
-                        height: 160,
-                        borderRadius: 12,
+                        width: 220,
+                        height: 220,
+                        maxWidth: "80vw",
+                        maxHeight: "80vw",
+                        padding: 8,
+                        borderRadius: 0,
                         border: "1px solid #e5e7eb",
                         background: "#fff",
+                        boxSizing: "border-box",
                       }}
-                    />
+                    >
+                      <img
+                        src={qrUrl}
+                        alt="QR Code do evento"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "block",
+                          objectFit: "contain",
+                        }}
+                      />
+                    </div>
                   ) : (
                     <div style={{ fontSize: 12, color: "#9ca3af" }}>
                       QR disponível após gerar ID e PIN.
