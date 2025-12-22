@@ -8,6 +8,9 @@
 
 body { margin: 0; }
 
+/* ===== Correção de scroll com topo sticky (iPhone/Safari) ===== */
+html { scroll-padding-top: var(--sticky-offset, 140px); }
+
 .wrap {
   max-width: 980px;
   margin: 0 auto;
