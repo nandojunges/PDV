@@ -1225,12 +1225,17 @@ export default function Evento({
                 >
                   Digitar dados
                 </button>
-                <button
-                  style={{ ...btn(modoConectar === "qr" ? "dark" : "soft"), height: 32 }}
-                  onClick={() => setModoConectar("qr")}
-                >
-                  Ler QR Code
-                </button>
+                {modoConectar !== "qr" && (
+                  <button
+                    style={{ ...btn("soft"), height: 32 }}
+                    onClick={() => {
+                      setModoConectar("qr");
+                      void iniciarLeitorQr();
+                    }}
+                  >
+                    Ler QR Code
+                  </button>
+                )}
               </div>
 
               {modoConectar === "manual" ? (
@@ -1351,13 +1356,26 @@ export default function Evento({
                       </div>
                     )}
                   </div>
-                  {cameraErro && (
-                    <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                      <button style={btn("soft")} onClick={iniciarLeitorQr}>
-                        Tentar novamente
-                      </button>
-                    </div>
-                  )}
+                  <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 8 }}>
+                    <button
+                      style={btn("soft")}
+                      onClick={() => {
+                        pararLeitorQr();
+                        setModoConectar("manual");
+                      }}
+                    >
+                      Fechar leitor
+                    </button>
+                    <button
+                      style={btn("dark")}
+                      onClick={() => {
+                        pararLeitorQr();
+                        void iniciarLeitorQr();
+                      }}
+                    >
+                      Reiniciar leitura
+                    </button>
+                  </div>
                 </div>
               )}
               {erroConectar && (
