@@ -14,9 +14,9 @@ export default function Ajustes({
 }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
-  const [logoAreaMm, setLogoAreaMm] = useState(
-    Number.isFinite(Number(ajustes?.logoAreaMm)) ? Number(ajustes?.logoAreaMm) : 35
-  );
+  const logoAreaMm = Number.isFinite(Number(ajustes?.logoAreaMm))
+    ? Number(ajustes?.logoAreaMm)
+    : 22;
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
   const fileRef = useRef(null);
@@ -142,7 +142,7 @@ export default function Ajustes({
     dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
 
     logoBox: {
-      height: `${preview.logoAreaMm || 35}mm`,
+      height: `${logoAreaMm || 22}mm`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -311,19 +311,18 @@ export default function Ajustes({
                 <input
                   type="range"
                   min="10"
-                  max="40"
+                  max="30"
                   step="1"
                   value={logoAreaMm}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setLogoAreaMm(next);
                     setAjustes((p) => ({ ...(p || {}), logoAreaMm: next }));
                   }}
                   disabled={readOnly}
                   style={{ flex: 1 }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {Number(logoAreaMm || 35)}mm
+                  30mm
                 </div>
               </div>
             </div>
