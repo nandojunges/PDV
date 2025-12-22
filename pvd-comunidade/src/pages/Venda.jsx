@@ -746,7 +746,17 @@ export default function Venda({
     : [];
 
   return (
-    <div className="split">
+    <div
+      className="split vendaRoot"
+      style={{ transform: "none", zoom: 1, WebkitTextSizeAdjust: "100%" }}
+    >
+      <style>{`
+        .vendaRoot input,
+        .vendaRoot select,
+        .vendaRoot textarea {
+          font-size: 16px;
+        }
+      `}</style>
       <Card title="Produtos" subtitle="Toque para adicionar">
         {precisaEventoAberto() && (
           <div style={{ marginBottom: 10 }}>

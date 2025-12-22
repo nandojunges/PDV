@@ -202,7 +202,14 @@ export default function Caixa({
   }
 
   return (
-    <div className="split">
+    <div className="split caixaRoot">
+      <style>{`
+        .caixaRoot input,
+        .caixaRoot select,
+        .caixaRoot textarea {
+          font-size: 16px;
+        }
+      `}</style>
       <Card
         title="Caixa"
         subtitle="Abertura e encerramento do evento"
