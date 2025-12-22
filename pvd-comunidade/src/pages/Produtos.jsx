@@ -206,6 +206,31 @@ function IconImg({ iconKey, size = 42 }) {
   );
 }
 
+function getScrollParent(node) {
+  let parent = node?.parentElement;
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    const overflowY = style.overflowY || style.overflow;
+    if (
+      /(auto|scroll)/i.test(overflowY) &&
+      parent.scrollHeight > parent.clientHeight
+    ) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+}
+
+function getHeaderHeight() {
+  const header =
+    document.querySelector("header") ||
+    document.querySelector("[data-header]") ||
+    document.querySelector(".topbar") ||
+    document.querySelector(".header");
+  return header?.getBoundingClientRect?.().height || 0;
+}
+
 /* ===================== componente ===================== */
 export default function Produtos({
   produtos = [],
@@ -234,6 +259,7 @@ export default function Produtos({
   const [tipo, setTipo] = useState(TIPO_OPTIONS[0]);
   const [comboQtd, setComboQtd] = useState("4");
   const [atalhoKey, setAtalhoKey] = useState("");
+  const [pendingScroll, setPendingScroll] = useState(false);
 
   const precoBRL = digitsToBRL(precoDigits);
   const precoNum = brlToNumber(precoBRL);
@@ -244,31 +270,60 @@ export default function Produtos({
     (tipo?.value !== "combo" || (parseInt(comboQtd, 10) || 0) >= 2);
 
   // ✅ refs para rolar pro topo e focar o preço
+  const topoRef = useRef(null);
   const precoRef = useRef(null);
 
-  function atualizarStickyOffset() {
-    const topbar = document.querySelector(".topbar");
-    const tabs = document.querySelector(".tabs");
-
-    const hTop = topbar?.getBoundingClientRect?.().height || 0;
-    const hTabs = tabs?.getBoundingClientRect?.().height || 0;
-
-    const extra = 16;
-    const total = Math.round(hTop + hTabs + extra);
-
-    document.documentElement.style.setProperty(
-      "--sticky-offset",
-      `${total || 140}px`
-    );
-    return total || 140;
-  }
-
   useEffect(() => {
-    atualizarStickyOffset();
-    const onResize = () => atualizarStickyOffset();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    if (!pendingScroll) return undefined;
+    let raf1 = 0;
+    let raf2 = 0;
+    let focusTimer = 0;
+
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const topo = topoRef.current;
+        if (!topo?.getBoundingClientRect) {
+          setPendingScroll(false);
+          return;
+        }
+
+        const scroller =
+          getScrollParent(topo) ||
+          document.scrollingElement ||
+          document.documentElement;
+        const headerH = getHeaderHeight();
+        const EXTRA = 34;
+        const OFFSET = headerH + EXTRA;
+        const rect = topo.getBoundingClientRect();
+        const isDocScroller =
+          scroller === document.scrollingElement ||
+          scroller === document.documentElement ||
+          scroller === document.body;
+        const currentTop = isDocScroller ? window.scrollY : scroller.scrollTop;
+        const target = Math.max(0, currentTop + rect.top - OFFSET);
+
+        if (isDocScroller) {
+          window.scrollTo({ top: target, behavior: "smooth" });
+        } else {
+          scroller.scrollTo({ top: target, behavior: "smooth" });
+        }
+        setPendingScroll(false);
+
+        focusTimer = window.setTimeout(() => {
+          try {
+            precoRef.current?.focus?.();
+            precoRef.current?.select?.();
+          } catch (_) {}
+        }, 300);
+      });
+    });
+
+    return () => {
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+      if (focusTimer) clearTimeout(focusTimer);
+    };
+  }, [pendingScroll]);
 
   function limparTopo() {
     setNome("");
@@ -281,37 +336,7 @@ export default function Produtos({
   const bloqueadoEdicao = readOnly || itensFinalizados;
 
   function scrollTopoEFocusPreco() {
-    const input = precoRef.current;
-
-    // garante que o browser respeite topo sticky (topbar/tabs)
-    atualizarStickyOffset();
-
-    if (!input?.scrollIntoView) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => {
-        try {
-          precoRef.current?.focus?.();
-          precoRef.current?.select?.();
-        } catch (_) {}
-      }, 250);
-      return;
-    }
-
-    // sobe mirando diretamente o campo de preço
-    input.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    // foca sem causar novo scroll (evita chacoalhão no Safari)
-    setTimeout(() => {
-      try {
-        input.focus({ preventScroll: true });
-        input.select?.();
-      } catch (_) {
-        try {
-          input.focus?.();
-          input.select?.();
-        } catch (_) {}
-      }
-    }, 260);
+    setPendingScroll(true);
   }
 
   function escolherAtalho(it) {
@@ -404,6 +429,9 @@ export default function Produtos({
     <div style={{ display: "grid", gap: 12 }}>
       {/* ===== CADASTRO ===== */}
       <Card title="Produtos" subtitle="Selecione no atalho, digite o preço e adicione.">
+        {/* ✅ âncora para scroll (no topo real do formulário) */}
+        <div ref={topoRef} style={{ height: 1 }} />
+
         {readOnly && (
           <div className="badge" style={{ marginBottom: 10 }}>
             Produtos sincronizados pelo mestre (somente leitura).
