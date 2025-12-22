@@ -235,8 +235,8 @@ function getHeaderHeight() {
 export default function Produtos({
   produtos = [],
   setProdutos = () => {},
-  setTab = () => {},
   onSalvarOfertaDoEvento,
+  onFinalizarItens,
   readOnly = false,
   itensFinalizados = false,
 }) {
@@ -704,8 +704,8 @@ export default function Produtos({
                 if (typeof onSalvarOfertaDoEvento === "function") {
                   onSalvarOfertaDoEvento(itensEvento);
                 }
-                if (typeof setTab === "function") {
-                  setTab("caixa");
+                if (typeof onFinalizarItens === "function") {
+                  onFinalizarItens();
                 }
               }}
               style={btnPrimary}
