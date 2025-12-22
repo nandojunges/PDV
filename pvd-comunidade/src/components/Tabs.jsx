@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { ROUTES } from "../app/routes";
 
 function isTabVisible(key, step) {
@@ -10,25 +10,11 @@ function isTabVisible(key, step) {
   return true;
 }
 
-function tabForStep(step) {
-  if (step === "produtos") return "produtos";
-  if (step === "ajustes") return "ajustes";
-  if (step === "caixa") return "caixa";
-  if (step === "vendas") return "venda";
-  return "evento";
-}
-
-export default function Tabs({ tab, setTab, step }) {
+export default function Tabs({ tab, onTabClick, step }) {
   const routes = useMemo(
     () => ROUTES.filter((route) => isTabVisible(route.key, step)),
     [step]
   );
-
-  useEffect(() => {
-    if (!isTabVisible(tab, step)) {
-      setTab(tabForStep(step));
-    }
-  }, [tab, step, setTab]);
 
   return (
     <div className="tabs">
@@ -37,7 +23,7 @@ export default function Tabs({ tab, setTab, step }) {
           key={r.key}
           className={"tab " + (tab === r.key ? "active" : "")}
           onClick={() => {
-            setTab(r.key);
+            onTabClick(r.key);
           }}
           type="button"
         >

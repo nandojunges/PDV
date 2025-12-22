@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import TopBar from "../components/TopBar";
 
@@ -62,8 +62,11 @@ export default function App() {
     return "evento";
   }
 
-  const [tab, setTab] = useState("evento");
+  const [tab, setTab] = useState(() =>
+    stepToTab(loadJSON(LS_KEYS.flowStep, "sem_evento"))
+  );
   const [step, setStep] = useState(() => loadJSON(LS_KEYS.flowStep, "sem_evento"));
+  const [navigationMode, setNavigationMode] = useState("manual");
 
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
@@ -144,16 +147,50 @@ export default function App() {
   useEffect(() => {
     const expected = deriveStep({ evento, caixa });
     if (expected !== step) {
+      setNavigationMode("auto");
       setStep(expected);
     }
   }, [evento, caixa, step]);
 
   useEffect(() => {
+    if (navigationMode !== "auto") return;
     const nextTab = stepToTab(step);
     if (nextTab !== tab) {
       setTab(nextTab);
     }
-  }, [step, tab]);
+    setNavigationMode("manual");
+  }, [step, tab, navigationMode]);
+
+  const canNavigateTo = useCallback(
+    (targetTab) => {
+      if (step === "vendas") {
+        return targetTab !== "evento" && targetTab !== "produtos";
+      }
+      if (step === "caixa") {
+        return targetTab === "caixa" || targetTab === "ajustes";
+      }
+      if (step === "ajustes") {
+        return targetTab === "ajustes";
+      }
+      if (step === "produtos") {
+        return targetTab === "produtos";
+      }
+      if (step === "sem_evento") {
+        return targetTab === "evento";
+      }
+      return true;
+    },
+    [step]
+  );
+
+  const handleTabClick = useCallback(
+    (nextTab) => {
+      if (!canNavigateTo(nextTab)) return;
+      setNavigationMode("manual");
+      setTab(nextTab);
+    },
+    [canNavigateTo]
+  );
 
   const resumoEvento = useMemo(() => {
     const nomeEv = (evento?.nome || "").trim();
@@ -196,8 +233,8 @@ export default function App() {
     });
 
     // ao abrir, vai para PRODUTOS
+    setNavigationMode("auto");
     setStep("produtos");
-    setTab("produtos");
   }
 
   async function encerrarEventoAtual() {
@@ -210,8 +247,8 @@ export default function App() {
     setEvento(null);
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
+    setNavigationMode("auto");
     setStep("sem_evento");
-    setTab("evento");
   }
 
   function zerarTudo() {
@@ -371,7 +408,7 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#f5f6f8" }}>
       <TopBar
         tab={tab}
-        setTab={setTab}
+        onTabClick={handleTabClick}
         evento={evento}
         resumo={resumoEvento}
         step={step}
@@ -414,8 +451,8 @@ export default function App() {
               }))
             }
             onFinalizarItens={() => {
+              setNavigationMode("auto");
               setStep("ajustes");
-              setTab("ajustes");
             }}
           />
         )}
@@ -450,8 +487,8 @@ export default function App() {
                     }
                   : prev
               );
+              setNavigationMode("auto");
               setStep("vendas");
-              setTab("venda");
             }}
             onFinalizarCaixa={finalizarCaixaEvento}
           />
@@ -485,8 +522,8 @@ export default function App() {
                     }
                   : prev
               );
+              setNavigationMode("auto");
               setStep("caixa");
-              setTab("caixa");
             }}
           />
         )}
