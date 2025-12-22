@@ -231,10 +231,10 @@ function buildTicketsHTML({
     return v.toFixed(2).replace(".", ",");
   };
 
-  const logoAreaNum = Number(logoAreaMm ?? 35);
+  const logoAreaNum = Number(logoAreaMm ?? 22);
   const safeLogoAreaMm = Number.isFinite(logoAreaNum)
     ? Math.min(40, Math.max(10, logoAreaNum))
-    : 35;
+    : 22;
 
   const buildItemNameClass = (name) => {
     const size = String(name || "").length;
@@ -282,10 +282,9 @@ function buildTicketsHTML({
 
             <div class="sep"></div>
           </div>
-          <div class="push"></div>
           <div class="footer">
             <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
-            <div class="cut">CORTE AQUI</div>
+            <div class="cutline">CORTE AQUI</div>
           </div>
         </div>
       </div>
@@ -301,7 +300,6 @@ function buildTicketsHTML({
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Impressão</title>
 <style>
-  @page { size: 58mm 80mm; margin: 0; }
   html, body {
     margin: 0;
     padding: 0;
@@ -318,6 +316,7 @@ function buildTicketsHTML({
     border-radius: 0;
     box-sizing: border-box;
     page-break-inside: avoid;
+    overflow: hidden;
   }
   .inner {
     width: 52mm;
@@ -336,7 +335,7 @@ function buildTicketsHTML({
   }
   .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
   .logoBox {
-    height: var(--logoAreaH, 35mm);
+    height: var(--logoAreaH, 22mm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -380,12 +379,24 @@ function buildTicketsHTML({
   }
   .price { font-size: 16px; font-weight: 900; white-space: nowrap; }
   .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
-  .push { flex: 1; }
   .thanks { text-align: center; font-size: 14px; font-weight: 900; }
-  .footer { text-align: center; font-weight: 700; }
-  .cut { margin-top: 2mm; font-weight: 700; letter-spacing: 1px; }
+  .footer {
+    margin-top: auto;
+    text-align: center;
+    font-weight: 700;
+  }
+  .cutline {
+    margin-top: 2mm;
+    padding-top: 2mm;
+    border-top: 1px dashed #999;
+    font-weight: 800;
+    letter-spacing: 1px;
+    font-size: 12px;
+  }
 
   @media print {
+    @page { size: 58mm 80mm; margin: 0; }
+    html, body { margin: 0; padding: 0; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .ticket { border: 0; }
   }
