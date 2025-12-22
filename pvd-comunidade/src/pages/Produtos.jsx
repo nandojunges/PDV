@@ -210,6 +210,7 @@ export default function Produtos({
   setTab = () => {},
   onSalvarOfertaDoEvento,
   readOnly = false,
+  itensFinalizados = false,
 }) {
   const itensEvento = useMemo(() => (Array.isArray(produtos) ? produtos : []), [produtos]);
 
@@ -263,8 +264,10 @@ export default function Produtos({
     setAtalhoKey("");
   }
 
+  const bloqueadoEdicao = readOnly || itensFinalizados;
+
   function escolherAtalho(it) {
-    if (readOnly) return;
+    if (bloqueadoEdicao) return;
     setNome(it.nome);
     setAtalhoKey(it.key);
 
@@ -283,7 +286,7 @@ export default function Produtos({
   }
 
   function adicionarItemAoEvento() {
-    if (readOnly) return;
+    if (bloqueadoEdicao) return;
     if (!podeAdicionar) return;
 
     const nm = String(nome || "").trim();
@@ -320,24 +323,24 @@ export default function Produtos({
   }
 
   function removerItem(id) {
-    if (readOnly) return;
+    if (bloqueadoEdicao) return;
     setProdutos((prev) => (Array.isArray(prev) ? prev : []).filter((x) => x.id !== id));
   }
 
   function toggleAtivo(id) {
-    if (readOnly) return;
+    if (bloqueadoEdicao) return;
     setProdutos((prev) =>
       (Array.isArray(prev) ? prev : []).map((p) => (p.id === id ? { ...p, ativo: !p.ativo } : p))
     );
   }
 
   function limparItensEvento() {
-    if (readOnly) return;
+    if (bloqueadoEdicao) return;
     if (!confirm("Limpar todos os itens do evento?")) return;
     setProdutos([]);
   }
 
-  const podeFinalizar = itensEvento.length >= 1;
+  const podeFinalizar = itensEvento.length >= 1 && !itensFinalizados;
   const barrilAtual = isBarrilNome(nome);
 
   return (
@@ -350,6 +353,11 @@ export default function Produtos({
         {readOnly && (
           <div className="badge" style={{ marginBottom: 10 }}>
             Produtos sincronizados pelo mestre (somente leitura).
+          </div>
+        )}
+        {itensFinalizados && (
+          <div className="badge" style={{ marginBottom: 10 }}>
+            Itens do evento finalizados. Edição bloqueada.
           </div>
         )}
 
@@ -382,7 +390,7 @@ export default function Produtos({
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 style={{ fontSize: 16 }}
-                disabled={readOnly}
+                disabled={bloqueadoEdicao}
               />
             </div>
           </div>
@@ -393,7 +401,10 @@ export default function Produtos({
             </div>
 
             {/* ✅ react-select com proteção (sem tela branca) */}
-            <TipoSelectSafe value={tipo} onChange={readOnly ? () => {} : setTipo} />
+            <TipoSelectSafe
+              value={tipo}
+              onChange={bloqueadoEdicao ? () => {} : setTipo}
+            />
           </div>
 
           {tipo?.value === "combo" && (
@@ -408,7 +419,7 @@ export default function Produtos({
                 inputMode="numeric"
                 placeholder="Ex: 4"
                 style={{ fontSize: 16 }}
-                disabled={readOnly}
+                disabled={bloqueadoEdicao}
               />
             </div>
           )}
@@ -424,7 +435,7 @@ export default function Produtos({
               onChange={(e) => setPrecoDigits(String(e.target.value || "").replace(/\D/g, ""))}
               inputMode="numeric"
               style={{ fontSize: 18, fontWeight: 900 }}
-              disabled={readOnly}
+              disabled={bloqueadoEdicao}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
               {barrilAtual
@@ -440,17 +451,22 @@ export default function Produtos({
           <button
             type="button"
             onClick={adicionarItemAoEvento}
-            disabled={!podeAdicionar || readOnly}
+            disabled={!podeAdicionar || bloqueadoEdicao}
             style={{
-              ...(podeAdicionar && !readOnly ? btnPrimary : btnSoft),
-              opacity: podeAdicionar && !readOnly ? 1 : 0.55,
-              cursor: podeAdicionar && !readOnly ? "pointer" : "not-allowed",
+              ...(podeAdicionar && !bloqueadoEdicao ? btnPrimary : btnSoft),
+              opacity: podeAdicionar && !bloqueadoEdicao ? 1 : 0.55,
+              cursor: podeAdicionar && !bloqueadoEdicao ? "pointer" : "not-allowed",
             }}
           >
             Adicionar item ao evento
           </button>
 
-          <button type="button" onClick={limparTopo} style={btnSoft} disabled={readOnly}>
+          <button
+            type="button"
+            onClick={limparTopo}
+            style={btnSoft}
+            disabled={bloqueadoEdicao}
+          >
             Limpar
           </button>
         </div>
@@ -556,10 +572,20 @@ export default function Produtos({
                     justifyContent: "flex-end",
                   }}
                 >
-                  <button type="button" onClick={() => toggleAtivo(p.id)} style={btnSoft}>
+                  <button
+                    type="button"
+                    onClick={() => toggleAtivo(p.id)}
+                    style={btnSoft}
+                    disabled={bloqueadoEdicao}
+                  >
                     {p.ativo ? "Inativar" : "Ativar"}
                   </button>
-                  <button type="button" onClick={() => removerItem(p.id)} style={btnDanger}>
+                  <button
+                    type="button"
+                    onClick={() => removerItem(p.id)}
+                    style={btnDanger}
+                    disabled={bloqueadoEdicao}
+                  >
                     Remover
                   </button>
                 </div>
@@ -571,7 +597,12 @@ export default function Produtos({
         <div className="hr" />
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between" }}>
-          <button type="button" onClick={limparItensEvento} style={btnSoft} disabled={readOnly}>
+          <button
+            type="button"
+            onClick={limparItensEvento}
+            style={btnSoft}
+            disabled={bloqueadoEdicao}
+          >
             Limpar itens do evento
           </button>
 
@@ -588,7 +619,7 @@ export default function Produtos({
               }}
               style={btnPrimary}
             >
-              Finalizar produtos
+              Finalizar itens do evento
             </button>
           )}
         </div>
@@ -608,14 +639,14 @@ export default function Produtos({
               key={it.key}
               type="button"
               onClick={() => escolherAtalho(it)}
-              disabled={readOnly}
+              disabled={bloqueadoEdicao}
               style={{
                 border: "1px solid #e5e7eb",
                 borderRadius: 18,
                 background: "#fff",
                 padding: 12,
-                cursor: readOnly ? "not-allowed" : "pointer",
-                opacity: readOnly ? 0.6 : 1,
+                cursor: bloqueadoEdicao ? "not-allowed" : "pointer",
+                opacity: bloqueadoEdicao ? 0.6 : 1,
                 minHeight: 86,
                 display: "flex",
                 flexDirection: "column",

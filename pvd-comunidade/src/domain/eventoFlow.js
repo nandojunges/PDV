@@ -27,10 +27,13 @@ export function getFlowState({ evento, produtos, caixa, vendas }) {
 
   const produtosEvento = Array.isArray(produtos) ? produtos : [];
   const vendasEvento = getVendasEvento(vendas, nomeEvento);
+  const itensFinalizados = Boolean(evento?.itensFinalizados);
 
   const encerradoMeta = getEncerradoMeta(nomeEvento);
   const encerradoEm = caixa?.encerradoEm || encerradoMeta?.encerradoEm;
   if (encerradoEm) return "ENCERRADO";
+
+  if (!itensFinalizados) return "ITENS_NAO_FINALIZADOS";
 
   if (produtosEvento.length === 0) return "EVENTO_ABERTO_SEM_PRODUTOS";
 

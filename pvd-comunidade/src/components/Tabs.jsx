@@ -2,9 +2,9 @@ import React, { useEffect, useMemo } from "react";
 import { ROUTES } from "../app/routes";
 
 function isTabVisible(key, flowState) {
-  if (key === "produtos") return flowState === "EVENTO_ABERTO_SEM_PRODUTOS";
+  if (key === "produtos") return flowState === "ITENS_NAO_FINALIZADOS";
   if (key === "ajustes")
-    return flowState === "SEM_EVENTO" || flowState === "EVENTO_ABERTO_SEM_PRODUTOS";
+    return flowState === "SEM_EVENTO" || flowState === "ITENS_NAO_FINALIZADOS";
   return true;
 }
 
@@ -26,7 +26,13 @@ export default function Tabs({ tab, setTab, flowState }) {
         <button
           key={r.key}
           className={"tab " + (tab === r.key ? "active" : "")}
-          onClick={() => setTab(r.key)}
+          onClick={() => {
+            if (r.key === "caixa" && flowState === "ITENS_NAO_FINALIZADOS") {
+              alert("Finalize os itens do evento antes de abrir o caixa.");
+              return;
+            }
+            setTab(r.key);
+          }}
           type="button"
         >
           {r.label}
