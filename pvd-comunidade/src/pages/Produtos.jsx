@@ -52,8 +52,9 @@ const ICONS = {
   sorvete: "/Icons/sorvete.png",
   fichas: "/Icons/fichas.png",
   suco: "/Icons/suco.png",
-  // ✅ NOVO
+  // ✅ NOVOS
   almoco_socio: "/Icons/almocosocio.png",
+  prato_talher: "/Icons/pratotalher.png",
 };
 
 const LIB = [
@@ -77,8 +78,9 @@ const LIB = [
 
   { key: "suco", nome: "Suco" },
 
-  // ✅ NOVO
+  // ✅ NOVOS
   { key: "almoco_socio", nome: "Almoço do Sócio" },
+  { key: "prato_talher", nome: "Prato e Talher" },
 ];
 
 /* ===================== botões ===================== */
@@ -401,10 +403,7 @@ export default function Produtos({
             </div>
 
             {/* ✅ react-select com proteção (sem tela branca) */}
-            <TipoSelectSafe
-              value={tipo}
-              onChange={bloqueadoEdicao ? () => {} : setTipo}
-            />
+            <TipoSelectSafe value={tipo} onChange={bloqueadoEdicao ? () => {} : setTipo} />
           </div>
 
           {tipo?.value === "combo" && (
@@ -461,12 +460,7 @@ export default function Produtos({
             Adicionar item ao evento
           </button>
 
-          <button
-            type="button"
-            onClick={limparTopo}
-            style={btnSoft}
-            disabled={bloqueadoEdicao}
-          >
+          <button type="button" onClick={limparTopo} style={btnSoft} disabled={bloqueadoEdicao}>
             Limpar
           </button>
         </div>
