@@ -1,10 +1,12 @@
 // src/pages/Evento.jsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { BrowserQRCodeReader } from "@zxing/browser";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
 import { getFlowState } from "../domain/eventoFlow";
 import { useConfig } from "../config/ConfigProvider";
 import { getOrCreateEventoKey, getOrCreateEventoPin, shortId } from "../rede/eventIdentity";
+import { PDV_PORT } from "../net/pdvNetConfig";
 import {
   getLocalIp,
   joinAsClient,
@@ -111,8 +113,15 @@ export default function Evento({
   setProdutos,
 }) {
   const { permitirMultiDispositivo, config, updateConfig } = useConfig();
+  const PORTA_LAN = String(PDV_PORT || 8787);
   const [nome, setNome] = useState(evento?.nome || "");
   const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+
+  const normalizarPorta = (porta) => {
+    const valor = String(porta || "").trim();
+    if (!valor || valor === "5173" || valor === "5179") return PORTA_LAN;
+    return valor;
+  };
 
   // ✅ se mudar o evento ativo (abrir/zerar), reflete no input
   useEffect(() => {
@@ -124,7 +133,7 @@ export default function Evento({
 
   // conectividade
   const [clienteHost, setClienteHost] = useState(config?.masterHost || "");
-  const [clientePorta, setClientePorta] = useState(config?.masterPort || "5179");
+  const [clientePorta, setClientePorta] = useState(normalizarPorta(config?.masterPort));
   const [clientePin, setClientePin] = useState(config?.pinAtual || "");
   const [clienteEventId, setClienteEventId] = useState(config?.eventIdAtual || "");
   const [statusConexao, setStatusConexao] = useState("Aguardando conexões");
@@ -139,6 +148,11 @@ export default function Evento({
   const [clientsConnected, setClientsConnected] = useState(0);
   const [pendingCount, setPendingCount] = useState(countPendingSales());
   const [avisoConectar, setAvisoConectar] = useState("");
+  const [cameraErro, setCameraErro] = useState("");
+
+  const videoRef = useRef(null);
+  const qrControlsRef = useRef(null);
+  const qrReaderRef = useRef(null);
 
   // modal excluir
   const [evExcluir, setEvExcluir] = useState(null);
@@ -247,7 +261,7 @@ export default function Evento({
     flowState || getFlowState({ evento, produtos: produtosEvento, caixa, vendas });
   const eventoBloqueado = estadoFluxo === "PRONTO_PARA_VENDER" || estadoFluxo === "VENDENDO";
   const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
-  const portaPlaceholder = "5179";
+  const portaPlaceholder = PORTA_LAN;
 
   const eventoKey = useMemo(() => {
     if (!permitirMultiDispositivo || !eventoAberto) return "";
@@ -262,7 +276,7 @@ export default function Evento({
 
   const eventoIdCurto = eventoKey ? shortId(eventoKey) : "";
   const isCliente = config?.modoMulti === "client" || evento?.modo === "client";
-  const portaMaster = config?.masterPort || portaPlaceholder;
+  const portaMaster = normalizarPorta(config?.masterPort);
   const isNative = useMemo(() => {
     const cap = window?.Capacitor;
     if (!cap) return false;
@@ -275,19 +289,21 @@ export default function Evento({
   const eventoIdAtual = isCliente ? clienteEventId || config?.eventIdAtual || "" : eventoIdCurto;
   const eventoPinAtual = isCliente ? clientePin || config?.pinAtual || "" : eventoPin;
   const hostAtual = isCliente ? clienteHost || config?.masterHost || "" : serverIp || "";
-  const portaAtual = isCliente ? clientePorta || config?.masterPort || portaPlaceholder : portaMaster;
-  const hostParaQr = hostAtual || (isNative ? "" : window?.location?.hostname || "localhost");
+  const portaAtual = isCliente
+    ? normalizarPorta(clientePorta || config?.masterPort)
+    : portaMaster;
+  const hostParaQr = serverIp || (!isNative ? window?.location?.hostname || "" : "");
   const qrPayload = useMemo(() => {
     if (!eventoIdAtual || !eventoPinAtual) return "";
-    const host = hostParaQr || "0.0.0.0";
+    const host = hostParaQr || "";
     const port = portaAtual || portaPlaceholder;
-    return `PDV_EVENT|id=${eventoIdAtual}|pin=${eventoPinAtual}|host=${host}|port=${port}`;
+    return `PDV_EVENT|host=${host}|port=${port}|id=${eventoIdAtual}|pin=${eventoPinAtual}`;
   }, [eventoIdAtual, eventoPinAtual, hostParaQr, portaAtual, portaPlaceholder]);
 
   const qrUrl = useMemo(() => {
     if (!qrPayload) return "";
     const encoded = encodeURIComponent(qrPayload);
-    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encoded}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}`;
   }, [qrPayload]);
 
   useEffect(() => {
@@ -367,48 +383,89 @@ export default function Evento({
 
   function abrirModalConectar() {
     setClienteHost(config?.masterHost || "");
-    setClientePorta(config?.masterPort || portaPlaceholder);
+    setClientePorta(normalizarPorta(config?.masterPort));
     setClientePin(config?.pinAtual || "");
     setClienteEventId(config?.eventIdAtual || "");
     setModoConectar("manual");
     setQrInput("");
     setErroConectar("");
     setAvisoConectar("");
+    setCameraErro("");
     setMostrarConectar(true);
   }
 
-  async function lerQrCode() {
-    setErroConectar("");
-    setAvisoConectar("");
-    if (!isNative) {
-      setAvisoConectar("Disponível apenas no APK");
-      return;
-    }
-
-    const plugins = window?.Capacitor?.Plugins || {};
-    const scanner = plugins.BarcodeScanner || plugins.QRScanner;
-    if (!scanner?.scan) {
-      setErroConectar("Leitor de QR não disponível.");
-      return;
-    }
-
+  function salvarDadosLan(data) {
     try {
-      const result = await scanner.scan();
-      const content =
-        result?.content ||
-        result?.text ||
-        result?.data ||
-        result?.result?.content ||
-        "";
-      if (!content) {
-        setErroConectar("QR inválido.");
-        return;
-      }
-      setQrInput(String(content));
-    } catch (error) {
-      setErroConectar(error?.message || "Não foi possível ler o QR.");
+      localStorage.setItem("pdv:lan-draft", JSON.stringify(data));
+    } catch {
+      // ignore
     }
   }
+
+  function pararLeitorQr() {
+    if (qrControlsRef.current?.stop) {
+      qrControlsRef.current.stop();
+    }
+    if (qrReaderRef.current?.reset) {
+      qrReaderRef.current.reset();
+    }
+    qrControlsRef.current = null;
+    qrReaderRef.current = null;
+    if (videoRef.current?.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks?.() || [];
+      tracks.forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  async function iniciarLeitorQr() {
+    setErroConectar("");
+    setAvisoConectar("");
+    setCameraErro("");
+    if (!navigator?.mediaDevices?.getUserMedia || !videoRef.current) {
+      setCameraErro("Câmera não disponível ou permissão negada.");
+      return;
+    }
+    pararLeitorQr();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      const reader = new BrowserQRCodeReader();
+      qrReaderRef.current = reader;
+      const controls = await reader.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        (result, error, controlsInstance) => {
+          if (result) {
+            const texto =
+              typeof result?.getText === "function" ? result.getText() : String(result);
+            tratarQrLido(texto);
+            controlsInstance?.stop?.();
+          }
+          if (error?.name === "NotAllowedError" || error?.name === "NotFoundError") {
+            setCameraErro("Câmera não disponível ou permissão negada.");
+          }
+        }
+      );
+      qrControlsRef.current = controls;
+    } catch (error) {
+      setCameraErro("Câmera não disponível ou permissão negada.");
+    }
+  }
+
+  useEffect(() => {
+    if (modoConectar === "qr" && mostrarConectar) {
+      void iniciarLeitorQr();
+    } else {
+      pararLeitorQr();
+    }
+    return () => {
+      pararLeitorQr();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoConectar, mostrarConectar]);
 
   async function conectarCliente() {
     const dados =
@@ -416,7 +473,7 @@ export default function Evento({
         ? parseQrPayload(qrInput)
         : {
             host: String(clienteHost || "").trim(),
-            port: String(clientePorta || "").trim() || portaPlaceholder,
+            port: normalizarPorta(clientePorta || portaPlaceholder),
             pin: String(clientePin || "").trim(),
             eventId: String(clienteEventId || "").trim(),
           };
@@ -425,13 +482,25 @@ export default function Evento({
       return;
     }
     const { host, port: porta, pin, eventId } = dados;
-    if (!host || !porta || !pin || !eventId) {
-      setErroConectar("Preencha Host, Porta, ID e PIN.");
+    if (!host) {
+      setErroConectar("Informe o IP do mestre ou leia o QR Code");
+      return;
+    }
+    if (!porta || Number.isNaN(Number(porta))) {
+      setErroConectar("Porta inválida.");
+      return;
+    }
+    if (!eventId) {
+      setErroConectar("Informe o ID do evento.");
+      return;
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      setErroConectar("PIN deve ter 6 dígitos.");
       return;
     }
 
     setClienteHost(host);
-    setClientePorta(porta);
+    setClientePorta(normalizarPorta(porta));
     setClientePin(pin);
     setClienteEventId(eventId);
     setStatusConexao("Conectando...");
@@ -441,6 +510,11 @@ export default function Evento({
     }
 
     try {
+      if (typeof joinAsClient !== "function") {
+        salvarDadosLan({ host, port: porta, eventId, pin });
+        setErroConectar("Conexão LAN ainda não implementada");
+        return;
+      }
       const response = await joinAsClient({
         host,
         port: porta,
@@ -475,19 +549,20 @@ export default function Evento({
         ...prev,
         modoMulti: "client",
         masterHost: host,
-        masterPort: porta,
+        masterPort: normalizarPorta(porta),
         pinAtual: pin,
         eventIdAtual: eventId,
       }));
       setMostrarConectar(false);
+      alert("Conectado");
     } catch (error) {
       setStatusConexao("Falha ao conectar");
-      setServerErro(error?.message || "Não foi possível conectar.");
+      setErroConectar(error?.message || "Não foi possível conectar.");
     }
   }
 
   async function iniciarServidor() {
-    const porta = String(config?.masterPort || portaPlaceholder || "5179");
+    const porta = normalizarPorta(config?.masterPort || portaPlaceholder);
     if (!eventoPin || !eventoIdCurto) {
       setServerErro("PIN ou evento inválido.");
       return;
@@ -532,13 +607,13 @@ export default function Evento({
           return getProdutosSnapshotDelta({ since });
         },
       });
-      const ip = await getLocalIp();
+      const ip = (await getWifiIpAddress()) || (await getLocalIp());
       setServerIp(ip || "");
       setServerAtivo(true);
       setStatusConexao("Mestre ativo");
     } catch (error) {
       setServerAtivo(false);
-      setStatusConexao("Servidor inativo");
+      setStatusConexao("Não iniciado");
       setServerErro(error?.message || "Não foi possível iniciar o servidor.");
     }
   }
@@ -565,13 +640,52 @@ export default function Evento({
       }
       return acc;
     }, {});
-    if (!data.id || !data.pin || !data.port || !data.host) return null;
+    if (!data.id || !data.pin || !data.port || !("host" in data)) return null;
     return {
-      host: data.host,
-      port: data.port,
-      pin: data.pin,
+      host: data.host || "",
+      port: normalizarPorta(data.port),
+      pin: String(data.pin || ""),
       eventId: data.id,
     };
+  }
+
+  async function getWifiIpAddress() {
+    const networkInterface =
+      window?.networkinterface ||
+      window?.NetworkInterface ||
+      window?.Capacitor?.Plugins?.NetworkInterface;
+    if (!networkInterface?.getWiFiIPAddress) return null;
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const maybePromise = networkInterface.getWiFiIPAddress(
+          (res) => resolve(res),
+          (err) => reject(err)
+        );
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(resolve).catch(reject);
+        }
+      });
+      if (typeof result === "string") return result;
+      return result?.ip || result?.address || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function tratarQrLido(payload) {
+    setQrInput(payload);
+    const dados = parseQrPayload(payload);
+    if (!dados) {
+      setErroConectar("QR inválido.");
+      return;
+    }
+    pararLeitorQr();
+    setClienteHost(dados.host);
+    setClientePorta(dados.port);
+    setClienteEventId(dados.eventId);
+    setClientePin(dados.pin);
+    setModoConectar("manual");
+    setAvisoConectar("QR lido com sucesso.");
   }
 
   function calcularCaixaDoEvento(nomeEv) {
@@ -692,9 +806,13 @@ export default function Evento({
     ? clientsConnected > 0
       ? `${clientsConnected} cliente(s) conectado(s)`
       : "Aguardando conexões"
-    : "Servidor inativo";
+    : serverErro
+      ? "Erro ao iniciar"
+      : "Não iniciado";
   const statusAtual = isCliente ? statusConexao : statusMaster;
-  const ipMestreLabel = hostAtual ? hostAtual : "IP será exibido automaticamente no APK";
+  const ipMestreLabel = isCliente
+    ? clienteHost || config?.masterHost || "-"
+    : serverIp || "-";
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", paddingBottom: 12 }}>
@@ -944,24 +1062,22 @@ export default function Evento({
                       Fila offline: {pendingCount} venda(s)
                     </div>
                   )}
-                  {serverErro && (
-                    <div style={{ fontSize: 12, color: "#9ca3af" }}>{serverErro}</div>
-                  )}
                 </div>
 
                 <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
                   {qrUrl ? (
                     <div
                       style={{
-                        width: 220,
-                        height: 220,
+                        width: 260,
+                        height: 260,
                         maxWidth: "80vw",
                         maxHeight: "80vw",
-                        padding: 8,
+                        padding: 12,
                         borderRadius: 0,
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid #111827",
                         background: "#fff",
                         boxSizing: "border-box",
+                        overflow: "visible",
                       }}
                     >
                       <img
@@ -1187,14 +1303,6 @@ export default function Evento({
                 </div>
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                  <button style={btn("soft")} onClick={lerQrCode}>
-                    Ler QR Code
-                  </button>
-                  {!isNative && (
-                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                      Disponível apenas no APK
-                    </div>
-                  )}
                   {qrInput && (
                     <div
                       style={{
@@ -1216,6 +1324,56 @@ export default function Evento({
               {avisoConectar && (
                 <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>
                   {avisoConectar}
+                </div>
+              )}
+              {modoConectar === "qr" && (
+                <div style={{ marginTop: 8 }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 220,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#0f172a",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#fff",
+                      overflow: "hidden",
+                      position: "relative",
+                    }}
+                  >
+                    <video
+                      ref={videoRef}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      muted
+                      playsInline
+                    />
+                    {cameraErro && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 12,
+                          textAlign: "center",
+                          background: "rgba(15,23,42,0.85)",
+                          color: "#fff",
+                        }}
+                      >
+                        {cameraErro}
+                      </div>
+                    )}
+                  </div>
+                  {cameraErro && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                      <button style={btn("soft")} onClick={iniciarLeitorQr}>
+                        Tentar novamente
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               {erroConectar && (
