@@ -206,17 +206,29 @@ function IconImg({ iconKey, size = 42 }) {
   );
 }
 
-function findScrollableParent(el) {
-  let parent = el?.parentElement;
+function getScrollParent(node) {
+  let parent = node?.parentElement;
   while (parent) {
     const style = window.getComputedStyle(parent);
     const overflowY = style.overflowY || style.overflow;
-    if (/(auto|scroll)/i.test(overflowY) && parent.scrollHeight > parent.clientHeight) {
+    if (
+      /(auto|scroll)/i.test(overflowY) &&
+      parent.scrollHeight > parent.clientHeight
+    ) {
       return parent;
     }
     parent = parent.parentElement;
   }
-  return document.scrollingElement || document.documentElement;
+  return null;
+}
+
+function getHeaderHeight() {
+  const header =
+    document.querySelector("header") ||
+    document.querySelector("[data-header]") ||
+    document.querySelector(".topbar") ||
+    document.querySelector(".header");
+  return header?.getBoundingClientRect?.().height || 0;
 }
 
 /* ===================== componente ===================== */
@@ -275,18 +287,26 @@ export default function Produtos({
           return;
         }
 
-        const scroller = findScrollableParent(topo);
-        const header =
-          document.querySelector("header") || document.querySelector("[data-header]");
-        const headerH = header?.getBoundingClientRect?.().height || 0;
-        const EXTRA = 26;
+        const scroller =
+          getScrollParent(topo) ||
+          document.scrollingElement ||
+          document.documentElement;
+        const headerH = getHeaderHeight();
+        const EXTRA = 34;
         const OFFSET = headerH + EXTRA;
         const rect = topo.getBoundingClientRect();
-        const currentTop =
-          typeof scroller.scrollTop === "number" ? scroller.scrollTop : window.scrollY;
+        const isDocScroller =
+          scroller === document.scrollingElement ||
+          scroller === document.documentElement ||
+          scroller === document.body;
+        const currentTop = isDocScroller ? window.scrollY : scroller.scrollTop;
         const target = Math.max(0, currentTop + rect.top - OFFSET);
 
-        scroller.scrollTo({ top: target, behavior: "smooth" });
+        if (isDocScroller) {
+          window.scrollTo({ top: target, behavior: "smooth" });
+        } else {
+          scroller.scrollTo({ top: target, behavior: "smooth" });
+        }
         setPendingScroll(false);
 
         focusTimer = window.setTimeout(() => {
@@ -315,13 +335,17 @@ export default function Produtos({
 
   const bloqueadoEdicao = readOnly || itensFinalizados;
 
+  function scrollTopoEFocusPreco() {
+    setPendingScroll(true);
+  }
+
   function escolherAtalho(it) {
     if (bloqueadoEdicao) return;
     setNome(it.nome);
     setAtalhoKey(it.key);
 
     // ✅ sobe até o formulário e deixa o campo de preço visível
-    setPendingScroll(true);
+    scrollTopoEFocusPreco();
   }
 
   function getIconKeyForItem(nm) {
