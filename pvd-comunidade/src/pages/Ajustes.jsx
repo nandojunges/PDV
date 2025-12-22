@@ -1,5 +1,5 @@
 // src/pages/Ajustes.jsx
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
@@ -14,9 +14,6 @@ export default function Ajustes({
 }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
-  const [logoAreaMm, setLogoAreaMm] = useState(
-    Number.isFinite(Number(ajustes?.logoAreaMm)) ? Number(ajustes?.logoAreaMm) : 35
-  );
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
   const fileRef = useRef(null);
@@ -32,6 +29,16 @@ export default function Ajustes({
     setAjustes((p) => ({ ...(p || {}), logoDataUrl: "" }));
     if (fileRef.current) fileRef.current.value = "";
   }
+
+  const logoAreaMm = Number.isFinite(Number(ajustes?.logoAreaMm))
+    ? Number(ajustes?.logoAreaMm)
+    : 20;
+
+  useEffect(() => {
+    if (!Number.isFinite(Number(ajustes?.logoAreaMm))) {
+      setAjustes((p) => ({ ...(p || {}), logoAreaMm: 20 }));
+    }
+  }, [ajustes?.logoAreaMm, setAjustes]);
 
   function salvar() {
     setAjustes((p) => ({
@@ -109,6 +116,7 @@ export default function Ajustes({
       border: "1px solid #e5e7eb",
       borderRadius: 14,
       padding: "4mm 3mm",
+      boxSizing: "border-box",
       boxShadow: "0 10px 24px rgba(0,0,0,.10)",
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
     },
@@ -142,12 +150,12 @@ export default function Ajustes({
     dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
 
     logoBox: {
-      height: `${preview.logoAreaMm || 35}mm`,
+      height: `${preview.logoAreaMm || 20}mm`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       overflow: "hidden",
-      margin: "1mm 0 2mm",
+      margin: "1mm 0 2mm 0",
     },
     logoImg: {
       display: "block",
@@ -311,19 +319,18 @@ export default function Ajustes({
                 <input
                   type="range"
                   min="10"
-                  max="40"
-                  step="1"
-                  value={logoAreaMm}
+                  max="30"
+                  step="0.5"
+                  value={ajustes?.logoAreaMm ?? 20}
                   onChange={(e) => {
-                    const next = Number(e.target.value);
-                    setLogoAreaMm(next);
-                    setAjustes((p) => ({ ...(p || {}), logoAreaMm: next }));
+                    const v = Number(e.target.value);
+                    setAjustes((p) => ({ ...(p || {}), logoAreaMm: v }));
                   }}
                   disabled={readOnly}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, width: "100%", touchAction: "pan-x" }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {Number(logoAreaMm || 35)}mm
+                  {(ajustes?.logoAreaMm ?? 0).toFixed(1)}mm
                 </div>
               </div>
             </div>
