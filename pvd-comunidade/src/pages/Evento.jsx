@@ -111,6 +111,8 @@ export default function Evento({
   setCaixa,
   setVendas,
   setProdutos,
+  ajustes = {},
+  setAjustes,
 }) {
   const { permitirMultiDispositivo, config, updateConfig } = useConfig();
   const PORTA_LAN = String(PDV_PORT || 8787);
@@ -524,6 +526,10 @@ export default function Evento({
         deviceName: navigator?.userAgent || "Cliente",
       });
       const snapshot = response?.snapshot || null;
+      const ticketModel = response?.ticketModel || snapshot?.ticketModel || null;
+      if (ticketModel && typeof setAjustes === "function") {
+        setAjustes((prev) => ({ ...(prev || {}), ...ticketModel }));
+      }
       if (snapshot?.products && typeof setProdutos === "function") {
         setProdutos(Array.isArray(snapshot.products) ? snapshot.products : []);
         if (snapshot?.updatedAt) {
@@ -576,7 +582,15 @@ export default function Evento({
         onClientJoin: () => {
           setClientsConnected((prev) => prev + 1);
           const snapshot = getProdutosSnapshot();
-          return { snapshot };
+          return {
+            snapshot,
+            ticketModel: {
+              nomeOrganizacao: ajustes?.nomeOrganizacao,
+              textoRodape: ajustes?.textoRodape,
+              logoDataUrl: ajustes?.logoDataUrl,
+              logoScale: ajustes?.logoScale,
+            },
+          };
         },
         onSale: ({ sale, summary, deviceId, deviceName }) => {
           if (summary) {
@@ -609,7 +623,15 @@ export default function Evento({
           };
         },
         onSyncRequest: ({ since }) => {
-          return getProdutosSnapshotDelta({ since });
+          return {
+            snapshotDelta: getProdutosSnapshotDelta({ since }),
+            ticketModel: {
+              nomeOrganizacao: ajustes?.nomeOrganizacao,
+              textoRodape: ajustes?.textoRodape,
+              logoDataUrl: ajustes?.logoDataUrl,
+              logoScale: ajustes?.logoScale,
+            },
+          };
         },
       });
       const ip = await getLocalIp();
