@@ -98,8 +98,22 @@ export function expandirItensParaTickets(itens = []) {
   return tickets;
 }
 
-export function printTickets({ eventoNome, dataISO, tickets, mensagemRodape }) {
-  const html = buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape });
+export function printTickets({
+  eventoNome,
+  dataISO,
+  tickets,
+  mensagemRodape,
+  logoDataUrl,
+  logoScale,
+}) {
+  const html = buildTicketsHTML({
+    eventoNome,
+    dataISO,
+    tickets,
+    mensagemRodape,
+    logoDataUrl,
+    logoScale,
+  });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
   let w = null;
@@ -183,7 +197,7 @@ export function printTickets({ eventoNome, dataISO, tickets, mensagemRodape }) {
 }
 
 // helper: gera HTML completo (não usa DOM da tela)
-function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape }) {
+function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape, logoDataUrl, logoScale }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
   const dataBR = `${pad2(dt.getDate())}/${pad2(dt.getMonth() + 1)}/${dt.getFullYear()}`;
@@ -194,10 +208,32 @@ function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape }) {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
+  const escAttr = (s) =>
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
   const fmt = (n) => {
     const v = Number(n || 0) || 0;
     return v.toFixed(2).replace(".", ",");
   };
+
+  const scaleNum = Number(logoScale ?? 1.2);
+  const safeScale = Number.isFinite(scaleNum) ? Math.min(2.2, Math.max(0.6, scaleNum)) : 1.2;
+  const logoHtml = logoDataUrl
+    ? `
+        <div class="logoWrap">
+          <img
+            class="logoImg"
+            src="${escAttr(logoDataUrl)}"
+            alt="logo"
+            style="transform: scale(${safeScale}); transform-origin: center top;"
+          />
+        </div>
+      `
+    : "";
 
   const cards = (Array.isArray(tickets) ? tickets : [])
     .map((t) => {
@@ -206,6 +242,8 @@ function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape }) {
         <div class="title">${esc(eventoNome || "Evento")}</div>
         <div class="date">${esc(dataBR)}</div>
         <div class="sep"></div>
+
+        ${logoHtml}
 
         <div class="row">
           <div class="left">${esc(t.linhaTitulo || "")}</div>
@@ -233,20 +271,29 @@ function buildTicketsHTML({ eventoNome, dataISO, tickets, mensagemRodape }) {
   body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
   .ticket {
     width: 80mm; max-width: 80mm;
-    margin: 10px auto;
-    padding: 12px;
+    margin: 12px auto;
+    padding: 18px 16px;
     border: 1px dashed #bbb;
     border-radius: 12px;
   }
   .title { font-size: 18px; font-weight: 900; text-align: center; }
-  .date { font-size: 14px; font-weight: 800; text-align: center; margin-top: 4px; }
-  .sep { border-top: 1px dashed #cbd5e1; margin: 10px 0; }
-  .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .date { font-size: 16px; font-weight: 800; text-align: center; margin-top: 6px; margin-bottom: 6px; }
+  .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
+  .logoWrap {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 8px 0 6px;
+    min-height: 70px;
+    overflow: visible;
+  }
+  .logoImg { max-width: 100%; max-height: 120px; object-fit: contain; }
+  .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; line-height: 1.5; }
   .left { font-size: 16px; font-weight: 900; }
   .right { font-size: 16px; font-weight: 900; white-space: nowrap; }
-  .sub { font-size: 12px; color: #6b7280; margin-top: 4px; font-weight: 700; }
-  .thanks { text-align: center; font-size: 14px; font-weight: 900; margin-top: 6px; }
-  .cut { text-align: center; font-size: 11px; font-weight: 800; color:#6b7280; margin-top: 8px; border-top: 1px dashed #bbb; padding-top: 6px; }
+  .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
+  .thanks { text-align: center; font-size: 14px; font-weight: 900; margin-top: 10px; }
+  .cut { text-align: center; font-size: 11px; font-weight: 800; color:#6b7280; margin-top: 12px; border-top: 1px dashed #bbb; padding-top: 8px; }
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -272,6 +319,10 @@ export default function Venda({
 }) {
   const { permitirMultiDispositivo, config } = useConfig();
   const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+  const deviceName = useMemo(() => {
+    if (typeof navigator === "undefined") return "Cliente";
+    return navigator?.userAgent || "Cliente";
+  }, []);
 
   const produtosAtivos = useMemo(() => {
     return Array.isArray(produtos) ? produtos.filter((p) => p?.ativo) : [];
@@ -283,6 +334,7 @@ export default function Venda({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [vendaDraft, setVendaDraft] = useState(null);
   const [aviso, setAviso] = useState("");
+  const [ultimasOpen, setUltimasOpen] = useState(false);
 
   const itensCarrinho = useMemo(
     () => (Array.isArray(carrinho) ? carrinho : []),
@@ -297,6 +349,23 @@ export default function Venda({
     if (pagamento !== "dinheiro" || valorRecebidoNum <= 0) return null;
     return Math.max(0, valorRecebidoNum - total);
   }, [pagamento, valorRecebidoNum, total]);
+
+  const vendasEvento = useMemo(() => {
+    const nomeEvento = String(evento?.nome || "").trim();
+    if (!nomeEvento) return [];
+    const lista = Array.isArray(vendas) ? vendas : [];
+    return lista.filter((v) => String(v?.eventoNome || "").trim() === nomeEvento);
+  }, [evento?.nome, vendas]);
+
+  const ultimasVendas = useMemo(() => {
+    const lista = [...vendasEvento];
+    lista.sort((a, b) => {
+      const da = new Date(a?.criadoEm || a?.createdAt || a?.data || 0).getTime();
+      const db = new Date(b?.criadoEm || b?.createdAt || b?.data || 0).getTime();
+      return db - da;
+    });
+    return lista.slice(0, 5);
+  }, [vendasEvento]);
 
   const overlayStyle = {
     position: "fixed",
@@ -444,6 +513,26 @@ export default function Venda({
     setPagamento("dinheiro");
   }
 
+  function formatarDataHora(venda) {
+    const iso = venda?.criadoEm || venda?.createdAt || venda?.data || new Date().toISOString();
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "--";
+    return dt.toLocaleString("pt-BR");
+  }
+
+  function reimprimirVenda(venda) {
+    if (!venda?.itens?.length) return;
+    const tickets = expandirItensParaTickets(venda.itens);
+    printTickets({
+      eventoNome: ajustes?.nomeOrganizacao || venda.eventoNome,
+      dataISO: venda.createdAt || venda.criadoEm || new Date().toISOString(),
+      tickets,
+      mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
+      logoDataUrl: ajustes?.logoDataUrl || "",
+      logoScale: ajustes?.logoScale ?? 1.2,
+    });
+  }
+
   function finalizar() {
     if (precisaEventoAberto()) {
       setAviso("Abra um evento primeiro.");
@@ -491,28 +580,29 @@ export default function Venda({
       total: Number(vendaBase?.total ?? vendaDraft?.total ?? 0) || 0,
       pagamento: String(vendaBase?.pagamento || vendaDraft?.pagamento || "dinheiro"),
       itens: Array.isArray(vendaBase?.itens) ? vendaBase.itens : [],
+      deviceId,
+      deviceName,
     };
     persistSale({ sale: vendaFinal, setVendas });
     setConfirmOpen(false);
     setVendaDraft(null);
-    limpar();
     const tickets = expandirItensParaTickets(vendaFinal.itens);
-    if (typeof setTab === "function") {
-      setTab("caixa");
-    }
     printTickets({
       eventoNome: ajustes?.nomeOrganizacao || vendaFinal.eventoNome,
       dataISO: vendaFinal.createdAt || new Date().toISOString(),
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
+      logoDataUrl: ajustes?.logoDataUrl || "",
+      logoScale: ajustes?.logoScale ?? 1.2,
     });
+    limpar();
 
     if (permitirMultiDispositivo && config?.modoMulti === "client") {
       const host = String(config?.masterHost || "").trim();
       const port = String(config?.masterPort || "").trim();
       const pin = String(config?.pinAtual || "").trim();
       const eventId = String(config?.eventIdAtual || "").trim();
-      const summary = buildSaleSummaryFromSale({ sale: vendaFinal, deviceId });
+      const summary = buildSaleSummaryFromSale({ sale: vendaFinal, deviceId, deviceName });
       if (host && port && pin && eventId) {
         try {
           await postSaleToMaster({
@@ -521,7 +611,9 @@ export default function Venda({
             pin,
             eventId,
             deviceId,
+            deviceName,
             summary,
+            sale: vendaFinal,
           });
         } catch {
           enqueuePendingSale({ summary, sale: vendaFinal });
@@ -539,6 +631,9 @@ export default function Venda({
   return (
     <div className="split">
       <Card title="Produtos" subtitle="Toque para adicionar">
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <Button onClick={() => setUltimasOpen(true)}>Últimas vendas</Button>
+        </div>
         {precisaEventoAberto() && (
           <div style={{ marginBottom: 10 }}>
             <span className="badge">Abra um evento antes de vender</span>
@@ -845,6 +940,58 @@ export default function Venda({
                 Confirmar + Imprimir
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {ultimasOpen && (
+        <div
+          style={overlayStyle}
+          onClick={() => setUltimasOpen(false)}
+          role="presentation"
+        >
+          <div
+            style={modalCardStyle}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Últimas vendas"
+          >
+            <div className="row space" style={{ marginBottom: 12 }}>
+              <div style={{ fontWeight: 900, fontSize: 18 }}>Últimas vendas</div>
+              <Button onClick={() => setUltimasOpen(false)}>Fechar</Button>
+            </div>
+
+            {ultimasVendas.length === 0 ? (
+              <div className="muted">Nenhuma venda registrada neste evento.</div>
+            ) : (
+              <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", paddingBottom: 8 }}>Data/Hora</th>
+                    <th style={{ textAlign: "right", paddingBottom: 8 }}>Total</th>
+                    <th style={{ textAlign: "center", paddingBottom: 8 }}>Pagamento</th>
+                    <th style={{ textAlign: "right", paddingBottom: 8 }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ultimasVendas.map((venda) => (
+                    <tr key={venda?.id || `${venda?.createdAt}-${venda?.total}`}>
+                      <td style={{ padding: "6px 0" }}>{formatarDataHora(venda)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtBRL(venda?.total || 0)}</td>
+                      <td style={{ textAlign: "center", textTransform: "capitalize" }}>
+                        {venda?.pagamento || "—"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <Button small onClick={() => reimprimirVenda(venda)}>
+                          Reimprimir
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

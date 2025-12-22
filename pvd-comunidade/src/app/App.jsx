@@ -27,6 +27,10 @@ import {
 export default function App() {
   const { config, permitirMultiDispositivo } = useConfig();
   const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+  const deviceName = useMemo(() => {
+    if (typeof navigator === "undefined") return "Cliente";
+    return navigator?.userAgent || "Cliente";
+  }, []);
 
   useEffect(() => {
     ensureMigrations();
@@ -77,6 +81,7 @@ export default function App() {
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
+      logoScale: 1.2,
     })
   );
 
@@ -202,7 +207,9 @@ export default function App() {
       for (const item of pendentes) {
         const summary =
           item?.summary ||
-          (item?.sale ? buildSaleSummaryFromSale({ sale: item.sale, deviceId }) : null);
+          (item?.sale
+            ? buildSaleSummaryFromSale({ sale: item.sale, deviceId, deviceName })
+            : null);
         if (!summary) continue;
         try {
           await postSaleToMaster({
@@ -211,7 +218,9 @@ export default function App() {
             pin,
             eventId,
             deviceId,
+            deviceName,
             summary,
+            sale: item?.sale || null,
           });
           removePendingSaleById(summary.saleId || summary.id);
         } catch {
@@ -230,6 +239,7 @@ export default function App() {
     config?.eventIdAtual,
     evento?.nome,
     deviceId,
+    deviceName,
   ]);
 
   useEffect(() => {

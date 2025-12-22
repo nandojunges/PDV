@@ -54,6 +54,73 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
     return Array.isArray(raw) ? raw : [];
   }, [isMaster]);
 
+  const saleSummariesEvento = useMemo(() => {
+    if (!isMaster) return [];
+    const nomeAtual = String(evento?.nome || "").trim();
+    return saleSummaries.filter((summary) => {
+      const matchId = evento?.id && summary?.eventoId && summary.eventoId === evento.id;
+      const matchNome =
+        norm(summary?.eventoNome) &&
+        norm(evento?.nome) &&
+        norm(summary.eventoNome) === norm(evento.nome);
+      return (matchId || matchNome) && (!nomeAtual || norm(summary?.eventoNome) === norm(nomeAtual));
+    });
+  }, [evento?.id, evento?.nome, isMaster, saleSummaries]);
+
+  const breakdownPorDevice = useMemo(() => {
+    if (!isMaster) return [];
+    const mapaDevices = new Map();
+    saleSummariesEvento.forEach((summary) => {
+      const key = String(summary?.deviceId || "unknown");
+      const deviceName = String(summary?.deviceName || "Cliente");
+      const current =
+        mapaDevices.get(key) || {
+          deviceId: key,
+          deviceName,
+          total: 0,
+          vendas: 0,
+          itensMap: new Map(),
+        };
+      current.deviceName = deviceName || current.deviceName;
+      current.total += Number(summary?.total || 0) || 0;
+      current.vendas += 1;
+      extrairItensResumo(summary).forEach((it) => {
+        if (!it.nome) return;
+        const itemKey = it.barrilLitros ? `${it.nome}::${it.barrilLitros}` : it.nome;
+        const itemAtual = current.itensMap.get(itemKey) || {
+          nome: it.nome,
+          qtd: 0,
+          total: 0,
+          barrilLitros: it.barrilLitros,
+        };
+        itemAtual.qtd += it.qtd;
+        itemAtual.total += it.subtotal;
+        current.itensMap.set(itemKey, itemAtual);
+      });
+      mapaDevices.set(key, current);
+    });
+    return Array.from(mapaDevices.values())
+      .map((device) => {
+        const itens = Array.from(device.itensMap.values())
+          .map((it) => {
+            if (!it.barrilLitros) return it;
+            const litrosTag = `${it.barrilLitros}L`;
+            const jaTemLitros = new RegExp(`\\b${it.barrilLitros}\\s*L\\b`, "i").test(it.nome);
+            return {
+              ...it,
+              nome: jaTemLitros ? it.nome : `${it.nome} ${litrosTag}`,
+            };
+          })
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 5);
+        return {
+          ...device,
+          itens,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [isMaster, saleSummariesEvento]);
+
   const mapa = new Map();
 
   vendasEvento.forEach((v) => {
@@ -76,34 +143,24 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
   });
 
   if (isMaster) {
-    const nomeAtual = String(evento?.nome || "").trim();
-    saleSummaries
-      .filter((summary) => {
-        const matchId = evento?.id && summary?.eventoId && summary.eventoId === evento.id;
-        const matchNome =
-          norm(summary?.eventoNome) &&
-          norm(evento?.nome) &&
-          norm(summary.eventoNome) === norm(evento.nome);
-        return (matchId || matchNome) && (!nomeAtual || norm(summary?.eventoNome) === norm(nomeAtual));
-      })
-      .forEach((summary) => {
-        extrairItensResumo(summary).forEach((it) => {
-          if (!it.nome) return;
-          const nomeBase = it.nome;
-          const key = it.barrilLitros ? `${nomeBase}::${it.barrilLitros}` : nomeBase;
-          const cur = mapa.get(key) || {
-            nome: nomeBase,
-            qtd: 0,
-            unitario: it.unitario,
-            total: 0,
-            barrilLitros: it.barrilLitros,
-          };
-          cur.qtd += it.qtd;
-          cur.total += it.subtotal;
-          cur.unitario = it.unitario || cur.unitario;
-          mapa.set(key, cur);
-        });
+    saleSummariesEvento.forEach((summary) => {
+      extrairItensResumo(summary).forEach((it) => {
+        if (!it.nome) return;
+        const nomeBase = it.nome;
+        const key = it.barrilLitros ? `${nomeBase}::${it.barrilLitros}` : nomeBase;
+        const cur = mapa.get(key) || {
+          nome: nomeBase,
+          qtd: 0,
+          unitario: it.unitario,
+          total: 0,
+          barrilLitros: it.barrilLitros,
+        };
+        cur.qtd += it.qtd;
+        cur.total += it.subtotal;
+        cur.unitario = it.unitario || cur.unitario;
+        mapa.set(key, cur);
       });
+    });
   }
 
   const linhas = Array.from(mapa.values()).map((it) => {
@@ -147,6 +204,69 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
           </div>
 
           <div className="hr" />
+
+          {isMaster && (
+            <>
+              <div className="muted" style={{ fontWeight: 900, marginBottom: 8 }}>
+                Por maquininha
+              </div>
+
+              {breakdownPorDevice.length === 0 ? (
+                <div className="muted">Nenhuma venda recebida das maquininhas.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 16 }}>
+                  {breakdownPorDevice.map((device) => (
+                    <div key={device.deviceId} className="tableWrap" style={{ padding: 12 }}>
+                      <div style={{ fontWeight: 900, marginBottom: 6 }}>
+                        {device.deviceName || "Cliente"}
+                        <span className="muted" style={{ marginLeft: 6, fontWeight: 700 }}>
+                          ({device.deviceId})
+                        </span>
+                      </div>
+                      <div className="row" style={{ flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
+                        <div className="miniCard">
+                          <div className="muted">Total</div>
+                          <div className="big">{fmtBRL(device.total)}</div>
+                        </div>
+                        <div className="miniCard">
+                          <div className="muted">Vendas</div>
+                          <div className="big">{device.vendas}</div>
+                        </div>
+                      </div>
+
+                      <div className="muted" style={{ fontWeight: 900, marginBottom: 6 }}>
+                        Top 5 itens
+                      </div>
+                      {device.itens.length === 0 ? (
+                        <div className="muted">Nenhum item registrado.</div>
+                      ) : (
+                        <table className="table" style={{ width: "100%" }}>
+                          <thead>
+                            <tr>
+                              <th>Item</th>
+                              <th style={{ width: 90, textAlign: "right" }}>Qtd.</th>
+                              <th style={{ width: 120, textAlign: "right" }}>Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {device.itens.map((item) => (
+                              <tr key={`${device.deviceId}-${item.nome}`}>
+                                <td style={{ fontWeight: 800 }}>{item.nome}</td>
+                                <td style={{ textAlign: "right" }}>{item.qtd}</td>
+                                <td style={{ textAlign: "right" }}>{fmtBRL(item.total)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="hr" />
+            </>
+          )}
 
           <div className="muted" style={{ fontWeight: 900, marginBottom: 8 }}>
             Produtos do evento (quantidade vendida)
