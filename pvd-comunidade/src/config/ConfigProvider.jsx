@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 
 const STORAGE_KEY = "config";
 const LEGACY_KEY = "permitirMultiDispositivo";
@@ -25,9 +32,30 @@ function persistPermitirMultiDispositivo(value) {
   window.localStorage.setItem(LEGACY_KEY, value ? "true" : "false");
 }
 
+function normalizeConfig(raw) {
+  const permitir = raw?.permitirMultiDispositivo;
+  return {
+    ...DEFAULT_CONFIG,
+    ...(raw && typeof raw === "object" ? raw : {}),
+    permitirMultiDispositivo: Boolean(permitir),
+    modoMulti: raw?.modoMulti === "client" ? "client" : "master",
+    masterHost: typeof raw?.masterHost === "string" ? raw.masterHost : "",
+    masterPort:
+      typeof raw?.masterPort === "string" ? raw.masterPort : DEFAULT_CONFIG.masterPort,
+    pinAtual: typeof raw?.pinAtual === "string" ? raw.pinAtual : "",
+    eventIdAtual: typeof raw?.eventIdAtual === "string" ? raw.eventIdAtual : "",
+    autoStartMasterOnOpen:
+      typeof raw?.autoStartMasterOnOpen === "boolean"
+        ? raw.autoStartMasterOnOpen
+        : DEFAULT_CONFIG.autoStartMasterOnOpen,
+  };
+}
+
 function readConfig() {
   if (typeof window === "undefined") return DEFAULT_CONFIG;
   const raw = window.localStorage.getItem(STORAGE_KEY);
+
+  // se não existir config nova, migra do legado
   if (!raw) {
     return normalizeConfig({
       permitirMultiDispositivo: readPermitirMultiDispositivo(),
@@ -48,71 +76,80 @@ function persistConfig(config) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
-function normalizeConfig(raw) {
-  const permitir = raw?.permitirMultiDispositivo;
-  return {
-    ...DEFAULT_CONFIG,
-    ...(raw && typeof raw === "object" ? raw : {}),
-    permitirMultiDispositivo: Boolean(permitir),
-    modoMulti: raw?.modoMulti === "client" ? "client" : "master",
-    masterHost: typeof raw?.masterHost === "string" ? raw.masterHost : "",
-    masterPort: typeof raw?.masterPort === "string" ? raw.masterPort : DEFAULT_CONFIG.masterPort,
-    pinAtual: typeof raw?.pinAtual === "string" ? raw.pinAtual : "",
-    eventIdAtual: typeof raw?.eventIdAtual === "string" ? raw.eventIdAtual : "",
-    autoStartMasterOnOpen:
-      typeof raw?.autoStartMasterOnOpen === "boolean"
-        ? raw.autoStartMasterOnOpen
-        : DEFAULT_CONFIG.autoStartMasterOnOpen,
-  };
+// evita setState se o objeto final for igual (shallow)
+function shallowEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
 }
 
 const ConfigContext = createContext(null);
 
 export function ConfigProvider({ children }) {
-  const [config, setConfigState] = useState(() =>
-    normalizeConfig(readConfig())
-  );
+  const [config, setConfigState] = useState(() => normalizeConfig(readConfig()));
 
+  // persistência em localStorage
   useEffect(() => {
     persistConfig(config);
     persistPermitirMultiDispositivo(Boolean(config.permitirMultiDispositivo));
   }, [config]);
 
-  const value = useMemo(() => {
-    const setConfig = (next) => {
-      setConfigState((prev) =>
-        normalizeConfig(typeof next === "function" ? next(prev) : next)
-      );
-    };
+  // funções estáveis (não mudam a cada render)
+  const setConfig = useCallback((next) => {
+    setConfigState((prev) => {
+      const candidate = typeof next === "function" ? next(prev) : next;
+      const normalized = normalizeConfig(candidate);
+      return shallowEqual(prev, normalized) ? prev : normalized;
+    });
+  }, []);
 
-    const updateConfig = (patch) => {
-      setConfigState((prev) => {
-        const nextPatch = typeof patch === "function" ? patch(prev) : patch;
-        return normalizeConfig({
-          ...prev,
-          ...(nextPatch && typeof nextPatch === "object" ? nextPatch : {}),
-        });
-      });
-    };
-
-    const setPermitirMultiDispositivo = (next) => {
-      setConfigState((prev) => ({
+  const updateConfig = useCallback((patch) => {
+    setConfigState((prev) => {
+      const nextPatch = typeof patch === "function" ? patch(prev) : patch;
+      const normalized = normalizeConfig({
         ...prev,
-        permitirMultiDispositivo:
-          typeof next === "function"
-            ? Boolean(next(prev.permitirMultiDispositivo))
-            : Boolean(next),
-      }));
-    };
+        ...(nextPatch && typeof nextPatch === "object" ? nextPatch : {}),
+      });
+      return shallowEqual(prev, normalized) ? prev : normalized;
+    });
+  }, []);
 
-    return {
+  const setPermitirMultiDispositivo = useCallback((next) => {
+    setConfigState((prev) => {
+      const permitir =
+        typeof next === "function"
+          ? Boolean(next(prev.permitirMultiDispositivo))
+          : Boolean(next);
+
+      if (prev.permitirMultiDispositivo === permitir) return prev;
+
+      // mantém normalizeConfig para garantir consistência com o resto do schema
+      const normalized = normalizeConfig({
+        ...prev,
+        permitirMultiDispositivo: permitir,
+      });
+
+      return shallowEqual(prev, normalized) ? prev : normalized;
+    });
+  }, []);
+
+  // value memoizado, mas agora depende de funções estáveis
+  const value = useMemo(
+    () => ({
       config,
       setConfig,
       updateConfig,
       permitirMultiDispositivo: config.permitirMultiDispositivo,
       setPermitirMultiDispositivo,
-    };
-  }, [config]);
+    }),
+    [config, setConfig, updateConfig, setPermitirMultiDispositivo]
+  );
 
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;
 }
