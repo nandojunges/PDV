@@ -8,8 +8,8 @@ import { useConfig } from "../config/ConfigProvider";
 export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
-  const [logoZoom, setLogoZoom] = useState(
-    Number.isFinite(Number(ajustes?.logoZoom)) ? Number(ajustes?.logoZoom) : 1
+  const [logoAreaMm, setLogoAreaMm] = useState(
+    Number.isFinite(Number(ajustes?.logoAreaMm)) ? Number(ajustes?.logoAreaMm) : 35
   );
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
@@ -32,7 +32,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       ...(p || {}),
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
-      logoZoom,
+      logoAreaMm,
     }));
     alert("Ajustes salvos!");
   }
@@ -43,14 +43,13 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       data: new Date().toLocaleDateString("pt-BR"),
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
-      logoZoom,
+      logoAreaMm,
       // exemplo do item (apenas preview)
-      iconeProduto: "🥤",
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoZoom]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAreaMm]);
 
   const s = {
     // ===== Layout mobile-first =====
@@ -134,7 +133,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
 
     logoBox: {
-      height: "40mm",
+      height: `${preview.logoAreaMm || 35}mm`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -147,43 +146,42 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       maxHeight: "100%",
       width: "auto",
       height: "auto",
-      transform: `scale(${preview.logoZoom || 1})`,
-      transformOrigin: "center center",
       objectFit: "contain",
     },
 
     // ===== Linha do item (cara de ticket) =====
-    linhaItem: {
-      display: "flex",
-      gap: "2mm",
-      alignItems: "flex-start",
+    itemBlock: {
       padding: "6px 0",
-    },
-    itemLeft: {
       display: "flex",
-      alignItems: "flex-start",
+      flexDirection: "column",
+      gap: 4,
+    },
+    itemTop: {
+      display: "flex",
+      alignItems: "baseline",
       gap: 8,
       minWidth: 0,
-      flex: 1,
     },
     qtd: {
       fontWeight: 900,
       fontSize: 14,
       whiteSpace: "nowrap",
     },
-    nomeItem: {
+    itemName: {
       fontWeight: 900,
       fontSize: 15,
-      whiteSpace: "normal",
-      overflow: "visible",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
       textOverflow: "clip",
-      wordBreak: "break-word",
     },
-    preco: {
+    itemBottom: {
+      display: "flex",
+      justifyContent: "flex-end",
+    },
+    price: {
       fontWeight: 900,
       fontSize: 16,
       whiteSpace: "nowrap",
-      textAlign: "right",
     },
 
     // Sub-linha opcional (se quiser detalhar)
@@ -298,25 +296,25 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
 
             <div className="fullRow">
               <div className="muted" style={{ marginBottom: 6 }}>
-                Tamanho da logo
+                Altura da logo (mm)
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <input
                   type="range"
-                  min="0.8"
-                  max="1.8"
-                  step="0.05"
-                  value={logoZoom}
+                  min="10"
+                  max="40"
+                  step="1"
+                  value={logoAreaMm}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setLogoZoom(next);
-                    setAjustes((p) => ({ ...(p || {}), logoZoom: next }));
+                    setLogoAreaMm(next);
+                    setAjustes((p) => ({ ...(p || {}), logoAreaMm: next }));
                   }}
                   disabled={hasEventoAberto}
                   style={{ flex: 1 }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {Number(logoZoom || 1).toFixed(2)}x
+                  {Number(logoAreaMm || 35)}mm
                 </div>
               </div>
             </div>
@@ -381,20 +379,28 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 </div>
                 <div style={s.dash} />
 
-                {/* Item (layout de ticket: esquerda item / direita preço) */}
-                <div style={s.linhaItem}>
-                  <div style={s.itemLeft}>
-                    <span aria-hidden="true">{preview.iconeProduto}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
-                        <div style={s.qtd}>{preview.qtd}x</div>
-                        <div style={s.nomeItem}>{preview.produto}</div>
-                      </div>
-                      <div style={s.subLinha}>Exemplo de item (prévia)</div>
-                    </div>
+                {/* Item (layout de ticket: nome em uma linha, preço abaixo) */}
+                <div style={s.itemBlock}>
+                  <div style={s.itemTop}>
+                    <span style={s.qtd}>{preview.qtd}x</span>
+                    <span
+                      style={{
+                        ...s.itemName,
+                        fontSize:
+                          preview.produto.length > 26
+                            ? 12
+                            : preview.produto.length > 18
+                              ? 13
+                              : s.itemName.fontSize,
+                      }}
+                    >
+                      {preview.produto}
+                    </span>
                   </div>
-
-                  <div style={s.preco}>{fmtBRL(preview.valor)}</div>
+                  <div style={s.itemBottom}>
+                    <span style={s.price}>{fmtBRL(preview.valor)}</span>
+                  </div>
+                  <div style={s.subLinha}>Exemplo de item (prévia)</div>
                 </div>
 
                 <div style={s.dash} />

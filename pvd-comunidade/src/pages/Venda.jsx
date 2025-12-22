@@ -77,6 +77,8 @@ export function expandirItensParaTickets(itens = []) {
         tickets.push({
           linhaTitulo: `1x ${nome} (combo)`,
           linhaSub: "",
+          itemNome: `${nome} (combo)`,
+          qtyText: "1x",
           valorUnit: unitDiv,
           meta: { tipo: "combo", comboQtd: n },
         });
@@ -89,6 +91,8 @@ export function expandirItensParaTickets(itens = []) {
       tickets.push({
         linhaTitulo: `1x ${nome}`,
         linhaSub: "",
+        itemNome: nome,
+        qtyText: "1x",
         valorUnit,
         meta: { tipo: "unitario" },
       });
@@ -104,7 +108,7 @@ export function printTickets({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoZoom,
+  logoAreaMm,
 }) {
   const html = buildTicketsHTML({
     eventoNome,
@@ -112,7 +116,7 @@ export function printTickets({
     tickets,
     mensagemRodape,
     logoDataUrl,
-    logoZoom,
+    logoAreaMm,
   });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -203,7 +207,7 @@ function buildTicketsHTML({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoZoom,
+  logoAreaMm,
 }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -227,13 +231,28 @@ function buildTicketsHTML({
     return v.toFixed(2).replace(".", ",");
   };
 
-  const logoZoomNum = Number(logoZoom ?? 1);
-  const safeLogoZoom = Number.isFinite(logoZoomNum) ? Math.min(1.8, Math.max(0.8, logoZoomNum)) : 1;
+  const logoAreaNum = Number(logoAreaMm ?? 35);
+  const safeLogoAreaMm = Number.isFinite(logoAreaNum)
+    ? Math.min(40, Math.max(10, logoAreaNum))
+    : 35;
+
+  const buildItemNameClass = (name) => {
+    const size = String(name || "").length;
+    if (size > 26) return "itemName xlong";
+    if (size > 18) return "itemName long";
+    return "itemName";
+  };
 
   const cards = (Array.isArray(tickets) ? tickets : [])
     .map((t) => {
+      const fallbackTitle = String(t?.linhaTitulo || "").trim();
+      const fallbackName = fallbackTitle.replace(/^\d+\s*x\s*/i, "").trim();
+      const rawName = String(t?.itemNome || fallbackName || fallbackTitle || "").trim();
+      const qtyText =
+        String(t?.qtyText || "").trim() ||
+        (fallbackTitle.match(/^\d+\s*x/i)?.[0] || "1x").trim();
       return `
-      <div class="ticket" style="--logoZoom: ${safeLogoZoom};">
+      <div class="ticket" style="--logoAreaH: ${safeLogoAreaMm}mm;">
         <div class="inner">
           <div class="content">
             <div class="title">${esc(eventoNome || "Evento")}</div>
@@ -249,9 +268,14 @@ function buildTicketsHTML({
             </div>
             <div class="sep"></div>
 
-            <div class="row">
-              <div class="itemName">${esc(t.linhaTitulo || "")}</div>
-              <div class="price">R$ ${fmt(t.valorUnit)}</div>
+            <div class="itemBlock">
+              <div class="itemTop">
+                <span class="qty">${esc(qtyText)}</span>
+                <span class="${buildItemNameClass(rawName)}">${esc(rawName)}</span>
+              </div>
+              <div class="itemBottom">
+                <span class="price">R$ ${fmt(t.valorUnit)}</span>
+              </div>
             </div>
 
             ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
@@ -312,7 +336,7 @@ function buildTicketsHTML({
   }
   .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
   .logoBox {
-    height: 40mm;
+    height: var(--logoAreaH, 35mm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -324,19 +348,35 @@ function buildTicketsHTML({
     max-height: 100%;
     width: auto;
     height: auto;
-    transform: scale(var(--logoZoom, 1));
-    transform-origin: center center;
     object-fit: contain;
+    display: block;
   }
-  .row { display: flex; align-items: flex-start; gap: 2mm; line-height: 1.5; margin-top: 4px; }
+  .itemBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+  .itemTop {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  .qty { font-size: 14px; font-weight: 900; white-space: nowrap; }
   .itemName {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 900;
-    flex: 1;
-    white-space: normal;
-    overflow: visible;
+    white-space: nowrap;
+    overflow: hidden;
     text-overflow: clip;
-    word-break: break-word;
+  }
+  .itemName.long { font-size: 13px; }
+  .itemName.xlong { font-size: 12px; }
+  .itemBottom {
+    display: flex;
+    justify-content: flex-end;
   }
   .price { font-size: 16px; font-weight: 900; white-space: nowrap; }
   .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
@@ -578,7 +618,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoZoom: Number(ajustes?.logoZoom || 1),
+      logoAreaMm: Number(ajustes?.logoAreaMm || 35),
     });
   }
 
@@ -642,7 +682,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoZoom: Number(ajustes?.logoZoom || 1),
+      logoAreaMm: Number(ajustes?.logoAreaMm || 35),
     });
     limpar();
 

@@ -81,7 +81,7 @@ export default function App() {
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
-      logoZoom: 1,
+      logoAreaMm: 35,
       logoMaxHeightMm: 18,
       ticketMinHeightMm: 120,
       ticketMaxHeightMm: 150,
