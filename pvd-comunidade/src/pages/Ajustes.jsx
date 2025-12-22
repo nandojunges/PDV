@@ -8,20 +8,8 @@ import { useConfig } from "../config/ConfigProvider";
 export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
-  const [logoMaxHeightMm, setLogoMaxHeightMm] = useState(
-    Number.isFinite(Number(ajustes?.logoMaxHeightMm))
-      ? Number(ajustes?.logoMaxHeightMm)
-      : 18
-  );
-  const [ticketMinHeightMm, setTicketMinHeightMm] = useState(
-    Number.isFinite(Number(ajustes?.ticketMinHeightMm))
-      ? Number(ajustes?.ticketMinHeightMm)
-      : 120
-  );
-  const [ticketMaxHeightMm] = useState(
-    Number.isFinite(Number(ajustes?.ticketMaxHeightMm))
-      ? Number(ajustes?.ticketMaxHeightMm)
-      : 150
+  const [logoZoom, setLogoZoom] = useState(
+    Number.isFinite(Number(ajustes?.logoZoom)) ? Number(ajustes?.logoZoom) : 1
   );
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
@@ -44,9 +32,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       ...(p || {}),
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
-      logoMaxHeightMm,
-      ticketMinHeightMm,
-      ticketMaxHeightMm,
+      logoZoom,
     }));
     alert("Ajustes salvos!");
   }
@@ -57,16 +43,14 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       data: new Date().toLocaleDateString("pt-BR"),
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
-      logoMaxHeightMm,
-      ticketMinHeightMm,
-      ticketMaxHeightMm,
+      logoZoom,
       // exemplo do item (apenas preview)
       iconeProduto: "🥤",
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoMaxHeightMm, ticketMinHeightMm, ticketMaxHeightMm]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoZoom]);
 
   const s = {
     // ===== Layout mobile-first =====
@@ -111,11 +95,12 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     ticket: {
       width: "58mm",
       maxWidth: "100%",
+      height: "80mm",
       margin: "0 auto",
       background: "#fff",
       border: "1px solid #e5e7eb",
       borderRadius: 14,
-      padding: "16px 14px",
+      padding: "4mm 3mm",
       boxShadow: "0 10px 24px rgba(0,0,0,.10)",
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
     },
@@ -123,6 +108,9 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     inner: {
       width: "52mm",
       margin: "0 auto",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
     },
     title: {
       fontWeight: 900,
@@ -146,30 +134,37 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
 
     logoBox: {
-      margin: "4px 0 6px",
+      height: "40mm",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      margin: "1mm 0 2mm",
     },
     logoImg: {
       display: "block",
-      width: "100%",
       maxWidth: "100%",
+      maxHeight: "100%",
+      width: "auto",
       height: "auto",
-      maxHeight: "18mm",
+      transform: `scale(${preview.logoZoom || 1})`,
+      transformOrigin: "center center",
       objectFit: "contain",
     },
 
     // ===== Linha do item (cara de ticket) =====
     linhaItem: {
-      display: "grid",
-      gridTemplateColumns: "1fr auto",
-      gap: 10,
-      alignItems: "baseline",
+      display: "flex",
+      gap: "2mm",
+      alignItems: "flex-start",
       padding: "6px 0",
     },
     itemLeft: {
       display: "flex",
-      alignItems: "baseline",
+      alignItems: "flex-start",
       gap: 8,
       minWidth: 0,
+      flex: 1,
     },
     qtd: {
       fontWeight: 900,
@@ -179,9 +174,10 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
     nomeItem: {
       fontWeight: 900,
       fontSize: 15,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
+      whiteSpace: "normal",
+      overflow: "visible",
+      textOverflow: "clip",
+      wordBreak: "break-word",
     },
     preco: {
       fontWeight: 900,
@@ -198,24 +194,24 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       fontWeight: 700,
     },
 
+    push: {
+      flex: 1,
+    },
     rodape: {
       textAlign: "center",
       fontSize: 13,
       fontWeight: 800,
-      marginTop: 6,
       wordBreak: "break-word",
     },
 
     corte: {
-      marginTop: 12,
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
+      marginTop: "2mm",
+      fontWeight: 800,
+      letterSpacing: 1,
       fontSize: 10,
       color: "#64748b",
-      fontWeight: 800,
+      textAlign: "center",
     },
-    corteLine: { flex: 1, borderTop: "1px dashed #94a3b8" },
   };
 
   const isWide = typeof window !== "undefined" ? window.innerWidth >= 980 : false;
@@ -302,25 +298,25 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
 
             <div className="fullRow">
               <div className="muted" style={{ marginBottom: 6 }}>
-                Altura da logo (mm)
+                Tamanho da logo
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <input
                   type="range"
-                  min="8"
-                  max="20"
-                  step="1"
-                  value={logoMaxHeightMm}
+                  min="0.8"
+                  max="1.8"
+                  step="0.05"
+                  value={logoZoom}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setLogoMaxHeightMm(next);
-                    setAjustes((p) => ({ ...(p || {}), logoMaxHeightMm: next }));
+                    setLogoZoom(next);
+                    setAjustes((p) => ({ ...(p || {}), logoZoom: next }));
                   }}
                   disabled={hasEventoAberto}
                   style={{ flex: 1 }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {Number(logoMaxHeightMm)}mm
+                  {Number(logoZoom || 1).toFixed(2)}x
                 </div>
               </div>
             </div>
@@ -367,7 +363,6 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
             <div
               style={{
                 ...s.ticket,
-                minHeight: `${Math.max(120, Number(preview.ticketMinHeightMm || 120))}mm`,
               }}
             >
               <div style={s.inner}>
@@ -378,24 +373,13 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                   <div>{preview.data}</div>
                 </div>
 
-                {preview.logo ? (
-                  <>
-                    <div style={s.dash} />
-                    <div style={s.logoBox}>
-                      <img
-                        src={preview.logo}
-                        alt="logo"
-                        style={{
-                          ...s.logoImg,
-                          maxHeight: `${preview.logoMaxHeightMm || 18}mm`,
-                        }}
-                      />
-                    </div>
-                    <div style={s.dash} />
-                  </>
-                ) : (
-                  <div style={s.dash} />
-                )}
+                <div style={s.dash} />
+                <div style={s.logoBox}>
+                  {preview.logo ? (
+                    <img src={preview.logo} alt="logo" style={s.logoImg} />
+                  ) : null}
+                </div>
+                <div style={s.dash} />
 
                 {/* Item (layout de ticket: esquerda item / direita preço) */}
                 <div style={s.linhaItem}>
@@ -416,20 +400,13 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
                 <div style={s.dash} />
 
                 {/* Rodapé */}
+                <div style={s.push} />
                 <div style={s.rodape}>{preview.rodape}</div>
-
-                {/* Corte */}
-                <div style={s.corte}>
-                  <div style={s.corteLine} />
-                  CORTE AQUI
-                  <div style={s.corteLine} />
-                </div>
-
-                <div style={{ height: "10mm" }} />
+                <div style={s.corte}>CORTE AQUI</div>
               </div>
             </div>
             <div className="muted" style={{ marginTop: 8, fontWeight: 700 }}>
-              Máx recomendado: {preview.ticketMaxHeightMm || 150}mm
+              Tamanho fixo: 58mm x 80mm
             </div>
           </div>
         </div>
