@@ -67,8 +67,8 @@ const LIB = [
   { key: "cer_lata", nome: "Cerveja Lata" },
   { key: "cer_garrafa", nome: "Cerveja Garrafa" },
 
-  { key: "chope", nome: "Chope (Copo)" },
-  { key: "barril", nome: "Barril de chope" },
+  { key: "chope", nome: "Chopp (Copo)" },
+  { key: "barril", nome: "Barril de chopp" },
 
   { key: "lanche", nome: "Lanche" },
   { key: "sobremesa", nome: "Sobremesa" },
