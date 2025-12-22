@@ -127,24 +127,65 @@ function isNativePlatform() {
 }
 
 export async function getLocalIp() {
+  const normalizeResult = (result) => {
+    if (!result) return null;
+    if (typeof result === "string") return result;
+    return result?.ip || result?.address || null;
+  };
+
+  const callPluginMethod = async (target, methodName) => {
+    const method = target?.[methodName];
+    if (typeof method !== "function") return null;
+    try {
+      const response = method();
+      if (response && typeof response.then === "function") {
+        const result = await response;
+        return normalizeResult(result);
+      }
+      if (response !== undefined) {
+        return normalizeResult(response);
+      }
+    } catch {
+      // ignore and try callback style
+    }
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const response = method((res) => resolve(res), (err) => reject(err));
+        if (response && typeof response.then === "function") {
+          response.then(resolve).catch(reject);
+        }
+      });
+      return normalizeResult(result);
+    } catch {
+      return null;
+    }
+  };
+
+  const networkInterface =
+    window?.networkinterface ||
+    window?.NetworkInterface ||
+    window?.Capacitor?.Plugins?.NetworkInterface;
+  const networkMethods = ["getWiFiIPAddress", "getIPAddress", "getIpAddress"];
+  for (const methodName of networkMethods) {
+    const result = await callPluginMethod(networkInterface, methodName);
+    if (result) return result;
+  }
+
   const server = window?.Capacitor?.Plugins?.HttpServer;
-  if (server?.getLocalIPAddress) {
-    try {
-      const result = await server.getLocalIPAddress();
-      return result?.ip || result?.address || null;
-    } catch {
-      return null;
-    }
+  const serverMethods = ["getLocalIPAddress", "getIPAddress", "getIpAddress"];
+  for (const methodName of serverMethods) {
+    const result = await callPluginMethod(server, methodName);
+    if (result) return result;
   }
-  if (server?.getIpAddress) {
-    try {
-      const result = await server.getIpAddress();
-      return result?.ip || result?.address || null;
-    } catch {
-      return null;
-    }
+
+  try {
+    const hostname = window?.location?.hostname || "";
+    if (hostname === "localhost") return null;
+    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+    return isIpv4 ? hostname : null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function startMasterServer({
