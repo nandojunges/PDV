@@ -284,7 +284,7 @@ function buildTicketsHTML({
     width: 58mm;
     max-width: 58mm;
     margin: 0;
-    padding: 4mm 3mm;
+    padding: 4mm 3mm 8mm;
     border: 0;
     border-radius: 0;
     page-break-inside: avoid;

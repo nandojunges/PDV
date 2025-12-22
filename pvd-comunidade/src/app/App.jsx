@@ -319,6 +319,8 @@ export default function App() {
             setCaixa={setCaixa}
             setVendas={setVendas}
             setProdutos={setProdutos}
+            ajustes={ajustes}
+            setAjustes={setAjustes}
           />
         )}
 

@@ -280,6 +280,7 @@ export async function startMasterServer({
         body: JSON.stringify({
           ok: true,
           snapshot,
+          ticketModel: result?.ticketModel || null,
           clientId,
           clientsConnected: clients.size,
         }),
@@ -331,7 +332,10 @@ export async function startMasterServer({
         body: JSON.stringify({
           ok: true,
           snapshotDelta:
-            result || { products: null, updatedAt: new Date().toISOString() },
+            result?.snapshotDelta ||
+            result ||
+            { products: null, updatedAt: new Date().toISOString() },
+          ticketModel: result?.ticketModel || null,
         }),
       };
     }
