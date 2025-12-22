@@ -158,7 +158,8 @@ function TipoSelectSafe({ value, onChange }) {
       className="input"
       value={value?.value || "unitario"}
       onChange={(e) => {
-        const opt = TIPO_OPTIONS.find((o) => o.value === e.target.value) || TIPO_OPTIONS[0];
+        const opt =
+          TIPO_OPTIONS.find((o) => o.value === e.target.value) || TIPO_OPTIONS[0];
         onChange(opt);
       }}
       style={{ height: 44, borderRadius: 14, fontWeight: 900 }}
@@ -214,11 +215,16 @@ export default function Produtos({
   readOnly = false,
   itensFinalizados = false,
 }) {
-  const itensEvento = useMemo(() => (Array.isArray(produtos) ? produtos : []), [produtos]);
+  const itensEvento = useMemo(
+    () => (Array.isArray(produtos) ? produtos : []),
+    [produtos]
+  );
 
   const atalhosDisponiveis = useMemo(() => {
     const usados = new Set(
-      itensEvento.map((p) => String(p?.nome || "").trim().toLowerCase()).filter(Boolean)
+      itensEvento
+        .map((p) => String(p?.nome || "").trim().toLowerCase())
+        .filter(Boolean)
     );
     return LIB.filter((it) => !usados.has(String(it.nome).trim().toLowerCase()));
   }, [itensEvento]);
@@ -242,20 +248,53 @@ export default function Produtos({
   const precoRef = useRef(null);
 
   function scrollTopoEFocusPreco() {
-    // rola para o topo do card de cadastro
-    if (topoRef.current?.scrollIntoView) {
-      topoRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
+    // Queremos: subir sempre o suficiente, mas sem "chacoalhão".
+    // Estratégia:
+    // 1) Um scroll smooth calculado (1 só).
+    // 2) Depois, um ajuste "auto" (sem animação) se ainda faltou.
+    // 3) Só então foca o preço.
+    const HEADER_OFFSET = 110; // 👈 aumente/diminua se tiver topo fixo diferente (90–140)
+    const el = topoRef.current;
+    if (!el || !el.getBoundingClientRect) {
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        try {
+          precoRef.current?.focus?.();
+          precoRef.current?.select?.();
+        } catch (_) {}
+      }, 280);
+      return;
     }
 
-    // foca o input de preço (delay ajuda em mobile)
+    const calcTargetTop = () => {
+      const rect = el.getBoundingClientRect();
+      return Math.max(0, window.scrollY + rect.top - HEADER_OFFSET);
+    };
+
+    // 1) scroll principal (uma vez)
+    const targetTop = calcTargetTop();
+    window.scrollTo({ top: targetTop, behavior: "smooth" });
+
+    // 2) correção sem animação (evita "tremer")
+    setTimeout(() => {
+      try {
+        const afterTop = calcTargetTop();
+        const delta = afterTop - window.scrollY;
+
+        // se ainda está longe do ponto certo (faltou subir), ajusta no seco
+        if (Math.abs(delta) > 6) {
+          window.scrollTo({ top: afterTop, behavior: "auto" });
+        }
+      } catch (_) {}
+    }, 420);
+
+    // 3) foco depois de estabilizar
     setTimeout(() => {
       try {
         precoRef.current?.focus?.();
         precoRef.current?.select?.();
       } catch (_) {}
-    }, 250);
+    }, 520);
   }
 
   function limparTopo() {
@@ -273,18 +312,22 @@ export default function Produtos({
     setNome(it.nome);
     setAtalhoKey(it.key);
 
-    // ✅ ajuste do fluxo: sobe pro formulário e foca no preço
+    // ✅ sobe até o formulário e deixa o campo de preço visível
     scrollTopoEFocusPreco();
   }
 
   function getIconKeyForItem(nm) {
-    const keyByName = LIB.find((x) => String(x.nome).trim() === String(nm).trim())?.key;
+    const keyByName = LIB.find(
+      (x) => String(x.nome).trim() === String(nm).trim()
+    )?.key;
     return keyByName || atalhoKey || "";
   }
 
   function isBarrilNome(nm) {
     const nomeNormalizado = String(nm || "").toLowerCase();
-    return nomeNormalizado.includes("barril") || getIconKeyForItem(nm) === "barril";
+    return (
+      nomeNormalizado.includes("barril") || getIconKeyForItem(nm) === "barril"
+    );
   }
 
   function adicionarItemAoEvento() {
@@ -293,7 +336,8 @@ export default function Produtos({
 
     const nm = String(nome || "").trim();
     const t = tipo?.value === "combo" ? "combo" : "unitario";
-    const qtdCombo = t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
+    const qtdCombo =
+      t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
     const iconKey = getIconKeyForItem(nm);
     const barril = isBarrilNome(nm) || iconKey === "barril";
 
@@ -326,13 +370,17 @@ export default function Produtos({
 
   function removerItem(id) {
     if (bloqueadoEdicao) return;
-    setProdutos((prev) => (Array.isArray(prev) ? prev : []).filter((x) => x.id !== id));
+    setProdutos((prev) =>
+      (Array.isArray(prev) ? prev : []).filter((x) => x.id !== id)
+    );
   }
 
   function toggleAtivo(id) {
     if (bloqueadoEdicao) return;
     setProdutos((prev) =>
-      (Array.isArray(prev) ? prev : []).map((p) => (p.id === id ? { ...p, ativo: !p.ativo } : p))
+      (Array.isArray(prev) ? prev : []).map((p) =>
+        p.id === id ? { ...p, ativo: !p.ativo } : p
+      )
     );
   }
 
@@ -349,8 +397,8 @@ export default function Produtos({
     <div style={{ display: "grid", gap: 12 }}>
       {/* ===== CADASTRO ===== */}
       <Card title="Produtos" subtitle="Selecione no atalho, digite o preço e adicione.">
-        {/* ✅ âncora para scroll */}
-        <div ref={topoRef} />
+        {/* ✅ âncora para scroll (no topo real do formulário) */}
+        <div ref={topoRef} style={{ height: 1 }} />
 
         {readOnly && (
           <div className="badge" style={{ marginBottom: 10 }}>
@@ -403,7 +451,10 @@ export default function Produtos({
             </div>
 
             {/* ✅ react-select com proteção (sem tela branca) */}
-            <TipoSelectSafe value={tipo} onChange={bloqueadoEdicao ? () => {} : setTipo} />
+            <TipoSelectSafe
+              value={tipo}
+              onChange={bloqueadoEdicao ? () => {} : setTipo}
+            />
           </div>
 
           {tipo?.value === "combo" && (
@@ -431,7 +482,9 @@ export default function Produtos({
               ref={precoRef}
               className="input"
               value={precoBRL}
-              onChange={(e) => setPrecoDigits(String(e.target.value || "").replace(/\D/g, ""))}
+              onChange={(e) =>
+                setPrecoDigits(String(e.target.value || "").replace(/\D/g, ""))
+              }
               inputMode="numeric"
               style={{ fontSize: 18, fontWeight: 900 }}
               disabled={bloqueadoEdicao}
@@ -460,7 +513,12 @@ export default function Produtos({
             Adicionar item ao evento
           </button>
 
-          <button type="button" onClick={limparTopo} style={btnSoft} disabled={bloqueadoEdicao}>
+          <button
+            type="button"
+            onClick={limparTopo}
+            style={btnSoft}
+            disabled={bloqueadoEdicao}
+          >
             Limpar
           </button>
         </div>
@@ -590,7 +648,14 @@ export default function Produtos({
 
         <div className="hr" />
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
+        >
           <button
             type="button"
             onClick={limparItensEvento}
