@@ -607,7 +607,7 @@ export default function Evento({
           return getProdutosSnapshotDelta({ since });
         },
       });
-      const ip = (await getWifiIpAddress()) || (await getLocalIp());
+      const ip = await getLocalIp();
       setServerIp(ip || "");
       setServerAtivo(true);
       setStatusConexao("Mestre ativo");
@@ -647,29 +647,6 @@ export default function Evento({
       pin: String(data.pin || ""),
       eventId: data.id,
     };
-  }
-
-  async function getWifiIpAddress() {
-    const networkInterface =
-      window?.networkinterface ||
-      window?.NetworkInterface ||
-      window?.Capacitor?.Plugins?.NetworkInterface;
-    if (!networkInterface?.getWiFiIPAddress) return null;
-    try {
-      const result = await new Promise((resolve, reject) => {
-        const maybePromise = networkInterface.getWiFiIPAddress(
-          (res) => resolve(res),
-          (err) => reject(err)
-        );
-        if (maybePromise && typeof maybePromise.then === "function") {
-          maybePromise.then(resolve).catch(reject);
-        }
-      });
-      if (typeof result === "string") return result;
-      return result?.ip || result?.address || null;
-    } catch {
-      return null;
-    }
   }
 
   function tratarQrLido(payload) {
@@ -813,6 +790,7 @@ export default function Evento({
   const ipMestreLabel = isCliente
     ? clienteHost || config?.masterHost || "-"
     : serverIp || "-";
+  const mostrarAvisoIpMestre = isNative && !isCliente && !serverIp;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", paddingBottom: 12 }}>
@@ -1051,6 +1029,12 @@ export default function Evento({
                   <div>
                     <strong style={{ color: "#111827" }}>IP do mestre:</strong> {ipMestreLabel}
                   </div>
+                  {mostrarAvisoIpMestre && (
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                      Não foi possível ler o IP automaticamente. Informe manualmente ou verifique
+                      o plugin NetworkInterface/HttpServer no APK.
+                    </div>
+                  )}
                   <div>
                     <strong style={{ color: "#111827" }}>Porta:</strong> {portaAtual}
                   </div>
