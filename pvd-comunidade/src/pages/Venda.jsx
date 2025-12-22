@@ -104,7 +104,8 @@ export function printTickets({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoScale,
+  logoMaxHeightMm,
+  ticketMinHeightMm,
 }) {
   const html = buildTicketsHTML({
     eventoNome,
@@ -112,7 +113,8 @@ export function printTickets({
     tickets,
     mensagemRodape,
     logoDataUrl,
-    logoScale,
+    logoMaxHeightMm,
+    ticketMinHeightMm,
   });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -203,7 +205,8 @@ function buildTicketsHTML({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoScale,
+  logoMaxHeightMm,
+  ticketMinHeightMm,
 }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -227,8 +230,10 @@ function buildTicketsHTML({
     return v.toFixed(2).replace(".", ",");
   };
 
-  const scaleNum = Number(logoScale ?? 1);
-  const safeScale = Number.isFinite(scaleNum) ? Math.min(2.2, Math.max(0.6, scaleNum)) : 1;
+  const logoMaxNum = Number(logoMaxHeightMm ?? 18);
+  const safeLogoMax = Number.isFinite(logoMaxNum) ? Math.min(20, Math.max(8, logoMaxNum)) : 18;
+  const ticketMinNum = Number(ticketMinHeightMm ?? 120);
+  const safeTicketMin = Number.isFinite(ticketMinNum) ? Math.max(120, ticketMinNum) : 120;
   const logoHtml = logoDataUrl
     ? `
         <div class="logoWrap">
@@ -240,7 +245,7 @@ function buildTicketsHTML({
   const cards = (Array.isArray(tickets) ? tickets : [])
     .map((t) => {
       return `
-      <div class="ticket">
+      <div class="ticket" style="--logoMaxH: ${safeLogoMax}mm; --ticketMinH: ${safeTicketMin}mm;">
         <div class="inner">
           <div class="title">${esc(eventoNome || "Evento")}</div>
           <div class="date">${esc(dataBR)}</div>
@@ -258,6 +263,7 @@ function buildTicketsHTML({
           <div class="sep"></div>
           <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
           <div class="cut">CORTE AQUI</div>
+          <div class="spacer"></div>
         </div>
       </div>
     `;
@@ -273,7 +279,7 @@ function buildTicketsHTML({
 <title>Impressão</title>
 <style>
   @page { size: 58mm auto; margin: 0; }
-  body {
+  html, body {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
@@ -282,17 +288,18 @@ function buildTicketsHTML({
   }
   .ticket {
     width: 58mm;
-    max-width: 58mm;
     margin: 0;
-    padding: 4mm 3mm 8mm;
+    padding: 4mm 3mm;
     border: 0;
     border-radius: 0;
+    box-sizing: border-box;
     page-break-inside: avoid;
+    min-height: var(--ticketMinH, 120mm);
   }
   .inner { width: 52mm; margin: 0 auto; }
   .title { font-size: 18px; font-weight: 900; text-align: center; }
   .date {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 900;
     text-align: center;
     margin-top: 6px;
@@ -300,19 +307,14 @@ function buildTicketsHTML({
   }
   .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
   .logoWrap {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 8px 0 6px;
-    overflow: visible;
+    margin: 2mm 0 3mm 0;
   }
   .logo {
     display: block;
-    max-width: 100%;
+    width: 100%;
     height: auto;
+    max-height: var(--logoMaxH, 18mm);
     object-fit: contain;
-    transform: scale(var(--logoScale, 1));
-    transform-origin: center top;
   }
   .row { display:flex; justify-content: space-between; gap: 10px; align-items: baseline; line-height: 1.5; margin-top: 4px; }
   .left { font-size: 16px; font-weight: 900; }
@@ -328,6 +330,7 @@ function buildTicketsHTML({
     border-top: 1px dashed #bbb;
     padding-top: 10px;
   }
+  .spacer { height: 10mm; }
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -335,7 +338,7 @@ function buildTicketsHTML({
   }
 </style>
 </head>
-<body style="--logoScale: ${safeScale};">
+<body>
   ${cards || `<div style="padding:16px;font-weight:900">Nenhum ticket para imprimir.</div>`}
 </body>
 </html>
@@ -562,7 +565,8 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoScale: Number(ajustes?.logoScale || 1),
+      logoMaxHeightMm: Number(ajustes?.logoMaxHeightMm || 18),
+      ticketMinHeightMm: Number(ajustes?.ticketMinHeightMm || 120),
     });
   }
 
@@ -626,7 +630,8 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoScale: Number(ajustes?.logoScale || 1),
+      logoMaxHeightMm: Number(ajustes?.logoMaxHeightMm || 18),
+      ticketMinHeightMm: Number(ajustes?.ticketMinHeightMm || 120),
     });
     limpar();
 
