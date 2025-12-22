@@ -578,13 +578,18 @@ export default function Evento({
           const snapshot = getProdutosSnapshot();
           return { snapshot };
         },
-        onSale: ({ sale, summary }) => {
+        onSale: ({ sale, summary, deviceId, deviceName }) => {
           if (summary) {
-            const result = persistSaleSummary(summary);
+            const normalizedSummary = {
+              ...summary,
+              deviceId: summary?.deviceId ?? deviceId ?? null,
+              deviceName: summary?.deviceName || deviceName || "Cliente",
+            };
+            const result = persistSaleSummary(normalizedSummary);
             return {
               applied: result.added,
               totals: null,
-              serverSaleId: summary?.saleId || summary?.id || null,
+              serverSaleId: normalizedSummary?.saleId || normalizedSummary?.id || null,
             };
           }
           if (!sale) {

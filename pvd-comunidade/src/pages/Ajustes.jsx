@@ -8,6 +8,11 @@ import { useConfig } from "../config/ConfigProvider";
 export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
+  const [logoScale, setLogoScale] = useState(
+    Number.isFinite(Number(ajustes?.logoScale))
+      ? Number(ajustes?.logoScale)
+      : 1.2
+  );
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
   const fileRef = useRef(null);
@@ -29,6 +34,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       ...(p || {}),
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
+      logoScale,
     }));
     alert("Ajustes salvos!");
   }
@@ -39,6 +45,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       data: new Date().toLocaleDateString("pt-BR"),
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
+      logoScale,
       // exemplo do item (apenas preview)
       iconeProduto: "🥤",
       qtd: 1,
@@ -128,7 +135,7 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      overflow: "hidden",
+      overflow: "visible",
       padding: 10,
     },
     logoImg: {
@@ -262,6 +269,58 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
               </div>
             </div>
 
+            <div className="fullRow">
+              <div className="muted" style={{ marginBottom: 6 }}>
+                Tamanho da logo
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Button
+                  small
+                  onClick={() => {
+                    const next = Math.max(0.6, Number((logoScale - 0.05).toFixed(2)));
+                    setLogoScale(next);
+                    setAjustes((p) => ({ ...(p || {}), logoScale: next }));
+                  }}
+                  disabled={hasEventoAberto}
+                >
+                  -
+                </Button>
+                <input
+                  type="range"
+                  min="0.6"
+                  max="2.2"
+                  step="0.05"
+                  value={logoScale}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setLogoScale(next);
+                    setAjustes((p) => ({ ...(p || {}), logoScale: next }));
+                  }}
+                  disabled={hasEventoAberto}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  small
+                  onClick={() => {
+                    const next = Math.min(2.2, Number((logoScale + 0.05).toFixed(2)));
+                    setLogoScale(next);
+                    setAjustes((p) => ({ ...(p || {}), logoScale: next }));
+                  }}
+                  disabled={hasEventoAberto}
+                >
+                  +
+                </Button>
+                <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
+                  {Number(logoScale).toFixed(2)}x
+                </div>
+              </div>
+              {hasEventoAberto ? (
+                <div className="muted" style={{ marginTop: 6 }}>
+                  Feche o evento para ajustar o tamanho da logo.
+                </div>
+              ) : null}
+            </div>
+
             <div className="formActions">
               <Button variant="primary" onClick={salvar}>
                 Salvar
@@ -316,7 +375,15 @@ export default function Ajustes({ ajustes, setAjustes, hasEventoAberto }) {
               {/* Logo */}
               <div style={s.logoBox}>
                 {preview.logo ? (
-                  <img src={preview.logo} alt="logo" style={s.logoImg} />
+                  <img
+                    src={preview.logo}
+                    alt="logo"
+                    style={{
+                      ...s.logoImg,
+                      transform: `scale(${preview.logoScale})`,
+                      transformOrigin: "center top",
+                    }}
+                  />
                 ) : (
                   <div className="muted" style={{ fontWeight: 800 }}>
                     Sua logo aqui

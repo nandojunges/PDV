@@ -289,12 +289,14 @@ export async function startMasterServer({
     if (path === "/sale") {
       const sale = payload?.sale || null;
       const summary = payload?.saleSummary || payload?.summary || null;
+      const deviceName = payload?.deviceName || "Cliente";
       const result =
         typeof onSale === "function"
           ? await onSale({
               sale,
               summary,
               deviceId: payload?.deviceId,
+              deviceName,
               type: payload?.type,
               ip,
             })
@@ -389,6 +391,7 @@ export async function postSaleToMaster({
   pin,
   eventId,
   deviceId,
+  deviceName,
   summary,
   sale,
 }) {
@@ -399,6 +402,7 @@ export async function postSaleToMaster({
       pin,
       eventId,
       deviceId,
+      deviceName,
       sale,
       saleSummary: summary || null,
       type: "SALE_SUMMARY",

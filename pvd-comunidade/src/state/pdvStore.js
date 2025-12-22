@@ -33,6 +33,8 @@ export function normalizeVendaForStorage(sale) {
     total: Number(sale?.total ?? sale?.valorTotal ?? 0) || 0,
     pagamento: String(sale?.pagamento || "dinheiro"),
     itens: Array.isArray(sale?.itens) ? sale.itens : [],
+    deviceId: sale?.deviceId ?? sale?.device_id ?? sale?.deviceID ?? null,
+    deviceName: sale?.deviceName ?? sale?.device_name ?? null,
   };
 }
 
@@ -99,7 +101,7 @@ function normalizeItensResumo(itens) {
   });
 }
 
-export function buildSaleSummaryFromSale({ sale, deviceId }) {
+export function buildSaleSummaryFromSale({ sale, deviceId, deviceName }) {
   if (!sale) return null;
   const createdAt =
     sale?.createdAt || sale?.criadoEm || sale?.data || new Date().toISOString();
@@ -112,6 +114,7 @@ export function buildSaleSummaryFromSale({ sale, deviceId }) {
     id: `${deviceId || "device"}:${saleId}`,
     saleId,
     deviceId: deviceId || null,
+    deviceName: deviceName || sale?.deviceName || "Cliente",
     eventoId: sale?.eventoId ?? null,
     eventoNome: String(sale?.eventoNome || "").trim(),
     total,
