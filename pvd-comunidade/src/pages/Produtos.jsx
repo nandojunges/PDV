@@ -427,11 +427,11 @@ export default function Produtos({
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
+      {/* ✅ âncora para scroll (no topo real do formulário) */}
+      <div ref={topoRef} style={{ height: 1 }} />
+
       {/* ===== CADASTRO ===== */}
       <Card title="Produtos" subtitle="Selecione no atalho, digite o preço e adicione.">
-        {/* ✅ âncora para scroll (no topo real do formulário) */}
-        <div ref={topoRef} style={{ height: 1 }} />
-
         {readOnly && (
           <div className="badge" style={{ marginBottom: 10 }}>
             Produtos sincronizados pelo mestre (somente leitura).
