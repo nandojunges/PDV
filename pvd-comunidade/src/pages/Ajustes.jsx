@@ -30,22 +30,23 @@ export default function Ajustes({
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  const logoAreaMm = Number.isFinite(Number(ajustes?.logoAreaMm))
-    ? Number(ajustes?.logoAreaMm)
+  const LOGO_SLOT_MM = 35;
+  const logoImgMm = Number.isFinite(Number(ajustes?.logoImgMm))
+    ? Number(ajustes?.logoImgMm)
     : 20;
 
   useEffect(() => {
-    if (!Number.isFinite(Number(ajustes?.logoAreaMm))) {
-      setAjustes((p) => ({ ...(p || {}), logoAreaMm: 20 }));
+    if (!Number.isFinite(Number(ajustes?.logoImgMm))) {
+      setAjustes((p) => ({ ...(p || {}), logoImgMm: 20 }));
     }
-  }, [ajustes?.logoAreaMm, setAjustes]);
+  }, [ajustes?.logoImgMm, setAjustes]);
 
   function salvar() {
     setAjustes((p) => ({
       ...(p || {}),
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
-      logoAreaMm,
+      logoImgMm,
     }));
     if (hasEventoAberto && typeof onSalvar === "function") {
       onSalvar();
@@ -59,13 +60,13 @@ export default function Ajustes({
       data: new Date().toLocaleDateString("pt-BR"),
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
-      logoAreaMm,
+      logoImgMm,
       // exemplo do item (apenas preview)
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAreaMm]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoImgMm]);
 
   const s = {
     // ===== Layout mobile-first =====
@@ -138,19 +139,19 @@ export default function Ajustes({
     },
 
     meta: {
-      marginTop: 6,
+      marginTop: "1mm",
       display: "flex",
       justifyContent: "center",
       gap: 10,
-      fontSize: 12,
+      fontSize: 11,
       color: "#475569",
       fontWeight: 700,
     },
 
-    dash: { borderTop: "1px dashed #cbd5e1", margin: "12px 0" },
+    dash: { borderTop: "1px dashed #cbd5e1", margin: "1.5mm 0" },
 
     logoBox: {
-      height: `${preview.logoAreaMm || 20}mm`,
+      height: `${LOGO_SLOT_MM}mm`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -159,19 +160,18 @@ export default function Ajustes({
     },
     logoImg: {
       display: "block",
+      height: `${preview.logoImgMm || 20}mm`,
       maxWidth: "100%",
-      maxHeight: "100%",
       width: "auto",
-      height: "auto",
       objectFit: "contain",
     },
 
     // ===== Linha do item (cara de ticket) =====
     itemBlock: {
-      padding: "6px 0",
+      padding: "1mm 0",
       display: "flex",
       flexDirection: "column",
-      gap: 4,
+      gap: 2,
     },
     itemTop: {
       display: "flex",
@@ -181,12 +181,12 @@ export default function Ajustes({
     },
     qtd: {
       fontWeight: 900,
-      fontSize: 14,
+      fontSize: 13,
       whiteSpace: "nowrap",
     },
     itemName: {
       fontWeight: 900,
-      fontSize: 15,
+      fontSize: 14,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "clip",
@@ -197,14 +197,14 @@ export default function Ajustes({
     },
     price: {
       fontWeight: 900,
-      fontSize: 16,
+      fontSize: 15,
       whiteSpace: "nowrap",
     },
 
     // Sub-linha opcional (se quiser detalhar)
     subLinha: {
-      marginTop: 2,
-      fontSize: 11,
+      marginTop: "0.5mm",
+      fontSize: 10,
       color: "#64748b",
       fontWeight: 700,
     },
@@ -214,7 +214,7 @@ export default function Ajustes({
     },
     rodape: {
       textAlign: "center",
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 800,
       wordBreak: "break-word",
     },
@@ -321,16 +321,16 @@ export default function Ajustes({
                   min="10"
                   max="30"
                   step="0.5"
-                  value={ajustes?.logoAreaMm ?? 20}
+                  value={ajustes?.logoImgMm ?? 20}
                   onChange={(e) => {
                     const v = Number(e.target.value);
-                    setAjustes((p) => ({ ...(p || {}), logoAreaMm: v }));
+                    setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
                   }}
                   disabled={readOnly}
                   style={{ flex: 1, width: "100%", touchAction: "pan-x" }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {(ajustes?.logoAreaMm ?? 0).toFixed(1)}mm
+                  {(ajustes?.logoImgMm ?? 0).toFixed(1)}mm
                 </div>
               </div>
             </div>
