@@ -36,8 +36,9 @@ export function getFlowState({ evento, produtos, caixa, vendas }) {
   return "CAIXA_ABERTO";
 }
 
-export function getAllowedTabs(flowState, evento) {
+export function getAllowedTabs(flowState, evento, hasEventoAberto) {
   const baseTabs = ["evento", "produtos", "venda", "caixa", "relatorio", "ajustes"];
+  if (!hasEventoAberto) return baseTabs;
   if (flowState === "SEM_EVENTO" || flowState === "ENCERRADO") return baseTabs;
 
   if (flowState === "ITENS_NAO_FINALIZADOS" || flowState === "EVENTO_ABERTO_SEM_PRODUTOS") {

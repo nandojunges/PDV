@@ -120,6 +120,8 @@ export default function Ajustes({
       boxSizing: "border-box",
       boxShadow: "0 10px 24px rgba(0,0,0,.10)",
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+      position: "relative",
+      overflow: "hidden",
     },
 
     inner: {
@@ -128,6 +130,9 @@ export default function Ajustes({
       height: "100%",
       display: "flex",
       flexDirection: "column",
+    },
+    content: {
+      paddingBottom: "10mm",
     },
     title: {
       fontWeight: 900,
@@ -210,9 +215,6 @@ export default function Ajustes({
       fontWeight: 700,
     },
 
-    push: {
-      flex: 1,
-    },
     rodape: {
       textAlign: "center",
       fontSize: 12,
@@ -220,15 +222,24 @@ export default function Ajustes({
       wordBreak: "break-word",
     },
 
-    corte: {
-      marginTop: "2mm",
-      paddingTop: "2mm",
+    cutlineWrap: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: "3mm",
+      textAlign: "center",
+    },
+    cutline: {
       borderTop: "1px dashed #94a3b8",
+      margin: "0 2mm",
+    },
+    cuttext: {
       fontWeight: 800,
       letterSpacing: 1,
-      fontSize: 10,
+      fontSize: 9,
       color: "#64748b",
-      textAlign: "center",
+      opacity: 0.7,
+      marginTop: "1mm",
     },
   };
 
@@ -390,46 +401,51 @@ export default function Ajustes({
               }}
             >
               <div style={s.inner}>
-                {/* Cabeçalho */}
-                <div style={s.title}>{preview.nome}</div>
+                <div style={s.content}>
+                  {/* Cabeçalho */}
+                  <div style={s.title}>{preview.nome}</div>
 
-                <div style={s.meta}>
-                  <div>{preview.data}</div>
-                </div>
-
-                <div style={s.dash} />
-                <div style={s.logoBox}>
-                  {preview.logo ? (
-                    <img src={preview.logo} alt="logo" style={s.logoImg} />
-                  ) : null}
-                </div>
-                <div style={s.dash} />
-
-                {/* Item (layout de ticket: nome em uma linha, preço abaixo) */}
-                <div style={s.itemBlock}>
-                  <div style={s.itemTop}>
-                    <span style={s.qtd}>{preview.qtd}x</span>
-                    <span
-                      style={{
-                        ...s.itemName,
-                        fontSize: previewItemFont,
-                      }}
-                    >
-                      {preview.produto}
-                    </span>
+                  <div style={s.meta}>
+                    <div>{preview.data}</div>
                   </div>
-                  <div style={s.itemBottom}>
-                    <span style={s.price}>{fmtBRL(preview.valor)}</span>
+
+                  <div style={s.dash} />
+                  <div style={s.logoBox}>
+                    {preview.logo ? (
+                      <img src={preview.logo} alt="logo" style={s.logoImg} />
+                    ) : null}
                   </div>
-                  <div style={s.subLinha}>Exemplo de item (prévia)</div>
+                  <div style={s.dash} />
+
+                  {/* Item (layout de ticket: nome em uma linha, preço abaixo) */}
+                  <div style={s.itemBlock}>
+                    <div style={s.itemTop}>
+                      <span style={s.qtd}>{preview.qtd}x</span>
+                      <span
+                        style={{
+                          ...s.itemName,
+                          fontSize: previewItemFont,
+                        }}
+                      >
+                        {preview.produto}
+                      </span>
+                    </div>
+                    <div style={s.itemBottom}>
+                      <span style={s.price}>{fmtBRL(preview.valor)}</span>
+                    </div>
+                    <div style={s.subLinha}>Exemplo de item (prévia)</div>
+                  </div>
+
+                  <div style={s.dash} />
+
+                  {/* Rodapé */}
+                  <div style={s.rodape}>{preview.rodape}</div>
                 </div>
 
-                <div style={s.dash} />
-
-                {/* Rodapé */}
-                <div style={s.push} />
-                <div style={s.rodape}>{preview.rodape}</div>
-                <div style={s.corte}>CORTE AQUI</div>
+                <div style={s.cutlineWrap}>
+                  <div style={s.cutline} />
+                  <div style={s.cuttext}>CORTE AQUI</div>
+                </div>
               </div>
             </div>
             <div className="muted" style={{ marginTop: 8, fontWeight: 700 }}>
