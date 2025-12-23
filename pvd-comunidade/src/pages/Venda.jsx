@@ -283,10 +283,11 @@ function buildTicketsHTML({
             ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
 
             <div class="sep"></div>
-          </div>
-          <div class="footer">
             <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
-            <div class="cutline">CORTE AQUI</div>
+          </div>
+          <div class="cutlineWrap">
+            <div class="cutline"></div>
+            <div class="cuttext">CORTE AQUI</div>
           </div>
         </div>
       </div>
@@ -320,6 +321,7 @@ function buildTicketsHTML({
     box-sizing: border-box;
     page-break-inside: avoid;
     overflow: hidden;
+    position: relative;
   }
   .inner {
     width: 52mm;
@@ -383,18 +385,23 @@ function buildTicketsHTML({
   .price { font-size: 14px; font-weight: 900; white-space: nowrap; }
   .sub { font-size: 11px; color: #6b7280; margin-top: 1mm; font-weight: 700; line-height: 1.2; }
   .thanks { text-align: center; font-size: 12px; font-weight: 900; }
-  .footer {
-    margin-top: auto;
+  .cutlineWrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 3mm;
     text-align: center;
-    font-weight: 700;
   }
   .cutline {
-    margin-top: 2mm;
-    padding-top: 2mm;
     border-top: 1px dashed #999;
-    font-weight: 800;
+    margin: 0 2mm;
+  }
+  .cuttext {
+    font-size: 9px;
     letter-spacing: 1px;
-    font-size: 10px;
+    opacity: 0.7;
+    margin-top: 1mm;
+    font-weight: 800;
   }
 
   @media print {
@@ -1102,3 +1109,6 @@ export default function Venda({
     </div>
   );
 }
+  .content {
+    padding-bottom: 10mm;
+  }

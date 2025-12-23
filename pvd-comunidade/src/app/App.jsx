@@ -136,8 +136,8 @@ export default function App() {
     [evento, produtos, caixa, vendas]
   );
   const allowedTabs = useMemo(
-    () => getAllowedTabs(flowState, evento),
-    [flowState, evento]
+    () => getAllowedTabs(flowState, evento, hasEventoAberto),
+    [flowState, evento, hasEventoAberto]
   );
   const lastFlowStateRef = useRef(flowState);
 
