@@ -1,0 +1,17 @@
+export const ICONS = {
+  agua: "/Icons/agua.png",
+  ref_lata: "/Icons/refri-lata.png",
+  ref_600: "/Icons/refri-600.png",
+  ref_2l: "/Icons/refri-2l.png",
+  cer_lata: "/Icons/cerveja-lata.png",
+  cer_garrafa: "/Icons/cerveja-garrafa.png",
+  chope: "/Icons/chope.png",
+  barril: "/Icons/barril.png",
+  lanche: "/Icons/lanche.png",
+  sobremesa: "/Icons/sobremesa.png",
+  sorvete: "/Icons/sorvete.png",
+  fichas: "/Icons/fichas.png",
+  suco: "/Icons/suco.png",
+  almoco_socio: "/Icons/almocosocio.png",
+  prato_talher: "/Icons/pratotalher.png",
+};
