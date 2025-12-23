@@ -245,14 +245,7 @@ export default function Produtos({
     [produtos]
   );
 
-  const atalhosDisponiveis = useMemo(() => {
-    const usados = new Set(
-      itensEvento
-        .map((p) => String(p?.nome || "").trim().toLowerCase())
-        .filter(Boolean)
-    );
-    return LIB.filter((it) => !usados.has(String(it.nome).trim().toLowerCase()));
-  }, [itensEvento]);
+  const atalhosDisponiveis = useMemo(() => LIB, []);
 
   const [nome, setNome] = useState("");
   const [precoDigits, setPrecoDigits] = useState("");
@@ -370,12 +363,13 @@ export default function Produtos({
     const t = tipo?.value === "combo" ? "combo" : "unitario";
     const qtdCombo =
       t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
+    const varKey = `${nm}__${t}__${qtdCombo ?? ""}`;
     const iconKey = getIconKeyForItem(nm);
     const barril = isBarrilNome(nm) || iconKey === "barril";
 
     setProdutos((prev) => {
       const arr = Array.isArray(prev) ? prev : [];
-      const idx = arr.findIndex((p) => String(p?.nome || "").trim() === nm);
+      const idx = arr.findIndex((p) => String(p?.varKey || "") === varKey);
 
       const payload = {
         id: idx >= 0 ? arr[idx].id : mkId(),
@@ -384,6 +378,7 @@ export default function Produtos({
         ativo: true,
         tipo: t,
         comboQtd: qtdCombo,
+        varKey,
         iconKey,
         isBarril: barril,
         precoModo: barril ? "por_litro" : "unitario",
