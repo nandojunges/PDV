@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import TopBar from "../components/TopBar";
 
@@ -14,7 +14,7 @@ import { LS_KEYS } from "../storage/keys";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
-import { getFlowState } from "../domain/eventoFlow";
+import { getAllowedTabs, getFlowState } from "../domain/eventoFlow";
 import { stopMasterServer, postSaleToMaster, syncFromMaster } from "../net/connectivity";
 import { useConfig } from "../config/ConfigProvider";
 import {
@@ -36,37 +36,17 @@ export default function App() {
     ensureMigrations();
   }, []);
 
-  function deriveStep({ evento: eventoAtual, caixa: caixaAtual }) {
-    const nomeEvento = String(eventoAtual?.nome || "").trim();
-    if (!nomeEvento) return "sem_evento";
-
-    const produtosConfirmados = Boolean(
-      eventoAtual?.produtosConfirmados || eventoAtual?.itensFinalizados
-    );
-    const ajustesSalvos = Boolean(eventoAtual?.ajustesSalvos);
-    const caixaAberto = Boolean(eventoAtual?.caixaAberto || caixaAtual?.abertura);
-
-    if (caixaAberto) return "vendas";
-    if (produtosConfirmados && ajustesSalvos && !caixaAberto) return "caixa";
-    if (produtosConfirmados && !ajustesSalvos) return "ajustes";
-    if (!produtosConfirmados) return "produtos";
-
-    return "sem_evento";
-  }
-
-  function stepToTab(stepValue) {
-    if (stepValue === "produtos") return "produtos";
-    if (stepValue === "ajustes") return "ajustes";
-    if (stepValue === "caixa") return "caixa";
-    if (stepValue === "vendas") return "venda";
+  function getFlowTargetTab(flowValue) {
+    if (flowValue === "ITENS_NAO_FINALIZADOS") return "produtos";
+    if (flowValue === "EVENTO_ABERTO_SEM_PRODUTOS") return "produtos";
+    if (flowValue === "PRODUTOS_FINALIZADOS") return "ajustes";
+    if (flowValue === "AJUSTES_CONFIRMADOS") return "caixa";
+    if (flowValue === "CAIXA_ABERTO") return "venda";
     return "evento";
   }
 
-  const [tab, setTab] = useState(() =>
-    stepToTab(loadJSON(LS_KEYS.flowStep, "sem_evento"))
-  );
-  const [step, setStep] = useState(() => loadJSON(LS_KEYS.flowStep, "sem_evento"));
-  const [navigationMode, setNavigationMode] = useState("manual");
+  const [tab, setTab] = useState("evento");
+  const [tabNotice, setTabNotice] = useState("");
 
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
@@ -80,6 +60,7 @@ export default function App() {
       itensFinalizados: false,
       produtosConfirmados: false,
       ajustesSalvos: false,
+      ajustesConfirmados: false,
       caixaAberto: false,
     };
     if (!raw || typeof raw !== "object") return fallback;
@@ -91,6 +72,7 @@ export default function App() {
       itensFinalizados: Boolean(raw?.itensFinalizados),
       produtosConfirmados: Boolean(raw?.produtosConfirmados ?? raw?.itensFinalizados),
       ajustesSalvos: Boolean(raw?.ajustesSalvos),
+      ajustesConfirmados: Boolean(raw?.ajustesConfirmados ?? raw?.ajustesSalvos),
       caixaAberto: Boolean(raw?.caixaAberto),
       produtos: Array.isArray(raw?.produtos) ? raw.produtos : [],
     };
@@ -117,10 +99,7 @@ export default function App() {
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
-      logoAreaMm: 35,
-      logoMaxHeightMm: 18,
-      ticketMinHeightMm: 120,
-      ticketMaxHeightMm: 150,
+      logoImgMm: 20,
     })
   );
 
@@ -133,7 +112,6 @@ export default function App() {
   useEffect(() => saveJSON(LS_KEYS.vendas, vendas), [vendas]);
   useEffect(() => saveJSON(LS_KEYS.caixa, caixa), [caixa]);
   useEffect(() => saveJSON(LS_KEYS.ajustes, ajustes), [ajustes]);
-  useEffect(() => saveJSON(LS_KEYS.flowStep, step), [step]);
   useEffect(() => {
     setEvento((prev) => {
       if (!prev) return prev;
@@ -143,54 +121,6 @@ export default function App() {
       };
     });
   }, [produtos]);
-
-  useEffect(() => {
-    const expected = deriveStep({ evento, caixa });
-    if (expected !== step) {
-      setNavigationMode("auto");
-      setStep(expected);
-    }
-  }, [evento, caixa, step]);
-
-  useEffect(() => {
-    if (navigationMode !== "auto") return;
-    const nextTab = stepToTab(step);
-    if (nextTab !== tab) {
-      setTab(nextTab);
-    }
-    setNavigationMode("manual");
-  }, [step, tab, navigationMode]);
-
-  const canNavigateTo = useCallback(
-    (targetTab) => {
-      if (step === "vendas") {
-        return targetTab !== "evento" && targetTab !== "produtos";
-      }
-      if (step === "caixa") {
-        return targetTab === "caixa" || targetTab === "ajustes";
-      }
-      if (step === "ajustes") {
-        return targetTab === "ajustes";
-      }
-      if (step === "produtos") {
-        return targetTab === "produtos";
-      }
-      if (step === "sem_evento") {
-        return targetTab === "evento";
-      }
-      return true;
-    },
-    [step]
-  );
-
-  const handleTabClick = useCallback(
-    (nextTab) => {
-      if (!canNavigateTo(nextTab)) return;
-      setNavigationMode("manual");
-      setTab(nextTab);
-    },
-    [canNavigateTo]
-  );
 
   const resumoEvento = useMemo(() => {
     const nomeEv = (evento?.nome || "").trim();
@@ -204,6 +134,61 @@ export default function App() {
   const flowState = useMemo(
     () => getFlowState({ evento, produtos, caixa, vendas }),
     [evento, produtos, caixa, vendas]
+  );
+  const allowedTabs = useMemo(
+    () => getAllowedTabs(flowState, evento),
+    [flowState, evento]
+  );
+  const lastFlowStateRef = useRef(flowState);
+
+  useEffect(() => {
+    if (lastFlowStateRef.current === flowState) return;
+    lastFlowStateRef.current = flowState;
+    const target = getFlowTargetTab(flowState);
+    if (target && target !== tab) {
+      setTab(target);
+    }
+  }, [flowState, tab]);
+
+  useEffect(() => {
+    if (!tabNotice) return undefined;
+    const timeout = setTimeout(() => setTabNotice(""), 2600);
+    return () => clearTimeout(timeout);
+  }, [tabNotice]);
+
+  const getTabBlockReason = useCallback((flowValue, targetTab) => {
+    if (flowValue === "ITENS_NAO_FINALIZADOS" || flowValue === "EVENTO_ABERTO_SEM_PRODUTOS") {
+      if (targetTab === "ajustes" || targetTab === "caixa" || targetTab === "venda") {
+        return "Finalize os produtos primeiro.";
+      }
+    }
+    if (flowValue === "PRODUTOS_FINALIZADOS") {
+      if (targetTab === "caixa" || targetTab === "venda") {
+        return "Salve os ajustes do ticket primeiro.";
+      }
+      if (targetTab === "produtos") {
+        return "Produtos já finalizados.";
+      }
+    }
+    if (flowValue === "AJUSTES_CONFIRMADOS") {
+      if (targetTab === "venda") return "Abra o caixa primeiro.";
+      if (targetTab === "produtos") return "Produtos já finalizados.";
+    }
+    if (flowValue === "CAIXA_ABERTO") {
+      if (targetTab === "produtos") return "Caixa aberto: produtos bloqueados.";
+    }
+    return "Aba indisponível neste momento.";
+  }, []);
+
+  const handleTabClick = useCallback(
+    (nextTab) => {
+      if (!allowedTabs.includes(nextTab)) {
+        setTabNotice(getTabBlockReason(flowState, nextTab));
+        return;
+      }
+      setTab(nextTab);
+    },
+    [allowedTabs, flowState, getTabBlockReason]
   );
 
   function abrirEvento(nome, options = {}) {
@@ -223,6 +208,7 @@ export default function App() {
       itensFinalizados: false,
       produtosConfirmados: false,
       ajustesSalvos: false,
+      ajustesConfirmados: false,
       caixaAberto: false,
     });
     setProdutos([]);
@@ -233,8 +219,7 @@ export default function App() {
     });
 
     // ao abrir, vai para PRODUTOS
-    setNavigationMode("auto");
-    setStep("produtos");
+    setTab("produtos");
   }
 
   async function encerrarEventoAtual() {
@@ -247,8 +232,7 @@ export default function App() {
     setEvento(null);
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
-    setNavigationMode("auto");
-    setStep("sem_evento");
+    setTab("evento");
   }
 
   function zerarTudo() {
@@ -260,6 +244,7 @@ export default function App() {
       logoDataUrl: "",
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
+      logoImgMm: 20,
     });
   }
 
@@ -411,7 +396,8 @@ export default function App() {
         onTabClick={handleTabClick}
         evento={evento}
         resumo={resumoEvento}
-        step={step}
+        allowedTabs={allowedTabs}
+        notice={tabNotice}
         onZerarTudo={zerarTudo}
       />
 
@@ -438,7 +424,7 @@ export default function App() {
             setProdutos={setProdutos}
             setTab={setTab}
             readOnly={
-              step !== "produtos" ||
+              flowState !== "ITENS_NAO_FINALIZADOS" ||
               (permitirMultiDispositivo && config?.modoMulti === "client")
             }
             itensFinalizados={Boolean(evento?.itensFinalizados)}
@@ -448,11 +434,11 @@ export default function App() {
                 produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
                 itensFinalizados: true,
                 produtosConfirmados: true,
+                ajustesConfirmados: false,
               }))
             }
             onFinalizarItens={() => {
-              setNavigationMode("auto");
-              setStep("ajustes");
+              setTab("ajustes");
             }}
           />
         )}
@@ -487,8 +473,7 @@ export default function App() {
                     }
                   : prev
               );
-              setNavigationMode("auto");
-              setStep("vendas");
+              setTab("venda");
             }}
             onFinalizarCaixa={finalizarCaixaEvento}
           />
@@ -512,18 +497,18 @@ export default function App() {
             ajustes={ajustes}
             setAjustes={setAjustes}
             hasEventoAberto={hasEventoAberto}
-            readOnly={step === "caixa" || step === "vendas"}
+            readOnly={flowState === "AJUSTES_CONFIRMADOS" || flowState === "CAIXA_ABERTO"}
             onSalvar={() => {
               setEvento((prev) =>
                 prev
                   ? {
                       ...prev,
                       ajustesSalvos: true,
+                      ajustesConfirmados: true,
                     }
                   : prev
               );
-              setNavigationMode("auto");
-              setStep("caixa");
+              setTab("caixa");
             }}
           />
         )}

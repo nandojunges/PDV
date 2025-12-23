@@ -22,6 +22,12 @@
   max-width: 100%;
 }
 .tabs::-webkit-scrollbar { height: 6px; }
+.tabsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
 
 .tab {
   border: 1px solid rgba(255,255,255,.2);
@@ -31,6 +37,19 @@
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
+}
+.tab.blocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.tabNotice {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fef3c7;
+  background: rgba(17, 24, 39, 0.35);
+  padding: 4px 10px;
+  border-radius: 999px;
+  max-width: 100%;
 }
 
 .tab.active {

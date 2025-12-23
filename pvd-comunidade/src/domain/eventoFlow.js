@@ -12,22 +12,13 @@ function getEncerradoMeta(nome) {
   return getEventosMeta().find((m) => String(m?.nome || "").trim() === nm) || null;
 }
 
-function getVendasEvento(vendas, nome) {
-  const nm = String(nome || "").trim().toLowerCase();
-  if (!nm) return [];
-  const arr = Array.isArray(vendas) ? vendas : [];
-  return arr.filter(
-    (v) => String(v?.eventoNome || "").trim().toLowerCase() === nm
-  );
-}
-
 export function getFlowState({ evento, produtos, caixa, vendas }) {
   const nomeEvento = String(evento?.nome || "").trim();
   if (!nomeEvento) return "SEM_EVENTO";
 
   const produtosEvento = Array.isArray(produtos) ? produtos : [];
-  const vendasEvento = getVendasEvento(vendas, nomeEvento);
   const itensFinalizados = Boolean(evento?.itensFinalizados);
+  const ajustesConfirmados = Boolean(evento?.ajustesConfirmados);
 
   const encerradoMeta = getEncerradoMeta(nomeEvento);
   const encerradoEm = caixa?.encerradoEm || encerradoMeta?.encerradoEm;
@@ -37,8 +28,30 @@ export function getFlowState({ evento, produtos, caixa, vendas }) {
 
   if (produtosEvento.length === 0) return "EVENTO_ABERTO_SEM_PRODUTOS";
 
-  const caixaAberto = caixa?.abertura != null;
-  if (!caixaAberto && vendasEvento.length === 0) return "PRONTO_PARA_VENDER";
+  if (!ajustesConfirmados) return "PRODUTOS_FINALIZADOS";
 
-  return "VENDENDO";
+  const caixaAberto = caixa?.abertura != null || evento?.caixaAberto;
+  if (!caixaAberto) return "AJUSTES_CONFIRMADOS";
+
+  return "CAIXA_ABERTO";
+}
+
+export function getAllowedTabs(flowState, evento) {
+  const baseTabs = ["evento", "produtos", "venda", "caixa", "relatorio", "ajustes"];
+  if (flowState === "SEM_EVENTO" || flowState === "ENCERRADO") return baseTabs;
+
+  if (flowState === "ITENS_NAO_FINALIZADOS" || flowState === "EVENTO_ABERTO_SEM_PRODUTOS") {
+    return ["evento", "produtos", "relatorio"];
+  }
+  if (flowState === "PRODUTOS_FINALIZADOS") {
+    return ["evento", "ajustes", "relatorio"];
+  }
+  if (flowState === "AJUSTES_CONFIRMADOS") {
+    return ["evento", "ajustes", "caixa", "relatorio"];
+  }
+  if (flowState === "CAIXA_ABERTO") {
+    return ["evento", "ajustes", "caixa", "venda", "relatorio"];
+  }
+  if (!String(evento?.nome || "").trim()) return baseTabs;
+  return baseTabs;
 }

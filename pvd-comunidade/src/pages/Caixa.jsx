@@ -188,16 +188,19 @@ export default function Caixa({
   }
 
   const bloqueiaZerarCaixa =
-    vendasEvento.length > 0 || flowState === "VENDENDO";
+    vendasEvento.length > 0 || flowState === "CAIXA_ABERTO";
 
   function reimprimirVenda(venda) {
     if (!venda?.itens?.length) return;
     const tickets = expandirItensParaTickets(venda.itens);
+    const ajustes = loadJSON(LS_KEYS.ajustes, {});
     printTickets({
       eventoNome: venda.eventoNome || evento.nome,
       dataISO: venda.criadoEm || venda.createdAt || new Date().toISOString(),
       tickets,
-      mensagemRodape: "Obrigado pela preferência!",
+      mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
+      logoDataUrl: ajustes?.logoDataUrl || "",
+      logoAlturaMm: Number(ajustes?.logoImgMm || 20),
     });
   }
 

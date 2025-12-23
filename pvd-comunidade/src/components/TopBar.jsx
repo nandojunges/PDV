@@ -3,7 +3,7 @@ import React from "react";
 import Tabs from "./Tabs";
 import { toBRDateTime } from "../domain/math";
 
-export default function TopBar({ evento, tab, onTabClick, step }) {
+export default function TopBar({ evento, tab, onTabClick, allowedTabs, notice }) {
   return (
     <div className="topbar">
       <div className="row space topbarRow">
@@ -28,7 +28,7 @@ export default function TopBar({ evento, tab, onTabClick, step }) {
         </div>
 
         <div className="topbarRight">
-          <Tabs tab={tab} onTabClick={onTabClick} step={step} />
+          <Tabs tab={tab} onTabClick={onTabClick} allowedTabs={allowedTabs} notice={notice} />
         </div>
       </div>
     </div>
