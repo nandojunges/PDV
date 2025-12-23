@@ -102,6 +102,7 @@ export function printTickets({
   logoDataUrl,
   logoAlturaMm,
   ticketImagemModo,
+  impressaoEcoImagem,
 }) {
   const html = buildTicketsHTML({
     eventoNome,
@@ -111,6 +112,7 @@ export function printTickets({
     logoDataUrl,
     logoAlturaMm,
     ticketImagemModo,
+    impressaoEcoImagem,
   });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -203,6 +205,7 @@ function buildTicketsHTML({
   logoDataUrl,
   logoAlturaMm,
   ticketImagemModo,
+  impressaoEcoImagem,
 }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -232,10 +235,7 @@ function buildTicketsHTML({
     ? Math.min(30, Math.max(10, logoAlturaNum))
     : 20;
   const modoImagem = ticketImagemModo === "produto" ? "produto" : "logo";
-  const imgFilter =
-    modoImagem === "produto"
-      ? "filter: grayscale(1) contrast(1.2) brightness(0.1);"
-      : "";
+  const ecoImagem = Boolean(impressaoEcoImagem);
 
   const buildItemNameClass = (title) => {
     const size = String(title || "").length;
@@ -265,7 +265,7 @@ function buildTicketsHTML({
           <div class="logoBox">
             ${
               imgSrc
-                ? `<img src="${escAttr(imgSrc)}" alt="logo" style="height:${safeLogoAlturaMm}mm; ${imgFilter}" />`
+                ? `<img src="${escAttr(imgSrc)}" alt="logo" style="height:${safeLogoAlturaMm}mm;" />`
                 : ""
             }
           </div>
@@ -356,6 +356,11 @@ function buildTicketsHTML({
     object-fit: contain;
     display: block;
   }
+  .eco-img .logoBox img {
+    filter: grayscale(1) contrast(0.85) brightness(1.1) saturate(0.35);
+    opacity: 0.7;
+    image-rendering: pixelated;
+  }
   .itemBlock {
     display: flex;
     flex-direction: column;
@@ -409,7 +414,7 @@ function buildTicketsHTML({
   }
 </style>
 </head>
-<body>
+<body class="${ecoImagem ? "eco-img" : ""}">
   ${cards || `<div style="padding:16px;font-weight:900">Nenhum ticket para imprimir.</div>`}
 </body>
 </html>
@@ -658,6 +663,7 @@ export default function Venda({
       logoDataUrl: ajustes?.logoDataUrl || "",
       logoAlturaMm: Number(ajustes?.logoImgMm || 20),
       ticketImagemModo: ajustes?.ticketImagemModo || "logo",
+      impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     });
   }
 
@@ -723,6 +729,7 @@ export default function Venda({
       logoDataUrl: ajustes?.logoDataUrl || "",
       logoAlturaMm: Number(ajustes?.logoImgMm || 20),
       ticketImagemModo: ajustes?.ticketImagemModo || "logo",
+      impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     });
     limpar();
 

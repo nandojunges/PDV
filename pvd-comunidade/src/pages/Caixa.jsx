@@ -201,6 +201,8 @@ export default function Caixa({
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
       logoAlturaMm: Number(ajustes?.logoImgMm || 20),
+      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
+      impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     });
   }
 
