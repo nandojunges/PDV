@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
+import { ICONS } from "../domain/icons";
 import { useConfig } from "../config/ConfigProvider";
 
 export default function Ajustes({
@@ -36,10 +37,17 @@ export default function Ajustes({
     : 20;
 
   useEffect(() => {
+    const next = {};
     if (!Number.isFinite(Number(ajustes?.logoImgMm))) {
-      setAjustes((p) => ({ ...(p || {}), logoImgMm: 20 }));
+      next.logoImgMm = 20;
     }
-  }, [ajustes?.logoImgMm, setAjustes]);
+    if (!ajustes?.ticketImagemModo) {
+      next.ticketImagemModo = "logo";
+    }
+    if (Object.keys(next).length > 0) {
+      setAjustes((p) => ({ ...(p || {}), ...next }));
+    }
+  }, [ajustes?.logoImgMm, ajustes?.ticketImagemModo, setAjustes]);
 
   function salvar() {
     setAjustes((p) => ({
@@ -47,6 +55,7 @@ export default function Ajustes({
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
+      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
     }));
     if (hasEventoAberto && typeof onSalvar === "function") {
       onSalvar();
@@ -61,6 +70,7 @@ export default function Ajustes({
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
       logoImgMm: logoAlturaMm,
+      iconKey: "ref_lata",
       // exemplo do item (apenas preview)
       qtd: 1,
       produto: "Refrigerante lata",
@@ -167,6 +177,9 @@ export default function Ajustes({
       width: "auto",
       objectFit: "contain",
     },
+    logoImgMono: {
+      filter: "grayscale(1) contrast(1.2) brightness(0.1)",
+    },
 
     // ===== Linha do item (cara de ticket) =====
     itemBlock: {
@@ -239,6 +252,13 @@ export default function Ajustes({
   const previewTitulo = `${preview.qtd}x ${preview.produto}`.trim();
   const previewItemFont =
     previewTitulo.length > 24 ? 12 : previewTitulo.length > 18 ? 13 : 14;
+  const modoImagem = ajustes?.ticketImagemModo || "logo";
+  const previewImgSrc =
+    modoImagem === "logo" ? preview.logo : ICONS[preview.iconKey];
+  const previewImgStyle =
+    modoImagem === "produto"
+      ? { ...s.logoImg, ...s.logoImgMono }
+      : s.logoImg;
 
   return (
     <Card title="Ajustes" subtitle="Personalização do ticket">
@@ -282,48 +302,94 @@ export default function Ajustes({
 
             <div className="fullRow">
               <div className="muted" style={{ marginBottom: 6 }}>
-                Logo (opcional)
+                Imagem no topo do ticket
               </div>
 
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={(e) => pickLogo(e.target.files?.[0])}
-                disabled={readOnly}
-              />
-
-              <div style={s.filePill}>
-                <div className="muted" style={{ fontWeight: 900 }}>
-                  {preview.logo ? "Logo selecionada" : "Nenhuma logo"}
-                </div>
-
-                <Button
-                  variant="primary"
-                  small
-                  onClick={() => fileRef.current?.click()}
-                  disabled={readOnly}
-                >
-                  Escolher arquivo
-                </Button>
-
-                {preview.logo ? (
-                  <Button
-                    variant="danger"
-                    small
-                    onClick={removerLogo}
+              <div style={{ display: "grid", gap: 10 }}>
+                <label style={{ display: "flex", gap: 8, fontWeight: 800 }}>
+                  <input
+                    type="radio"
+                    name="ticketImagemModo"
+                    value="logo"
+                    checked={modoImagem === "logo"}
+                    onChange={() =>
+                      setAjustes((p) => ({
+                        ...(p || {}),
+                        ticketImagemModo: "logo",
+                      }))
+                    }
                     disabled={readOnly}
-                  >
-                    Remover
-                  </Button>
-                ) : null}
+                  />
+                  Usar logo (upload)
+                </label>
+                <label style={{ display: "flex", gap: 8, fontWeight: 800 }}>
+                  <input
+                    type="radio"
+                    name="ticketImagemModo"
+                    value="produto"
+                    checked={modoImagem === "produto"}
+                    onChange={() =>
+                      setAjustes((p) => ({
+                        ...(p || {}),
+                        ticketImagemModo: "produto",
+                      }))
+                    }
+                    disabled={readOnly}
+                  />
+                  Usar ícone do produto
+                </label>
               </div>
+
+              {modoImagem === "logo" ? (
+                <>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => pickLogo(e.target.files?.[0])}
+                    disabled={readOnly}
+                  />
+
+                  <div style={{ ...s.filePill, marginTop: 12 }}>
+                    <div className="muted" style={{ fontWeight: 900 }}>
+                      {preview.logo ? "Logo selecionada" : "Nenhuma logo"}
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      small
+                      onClick={() => fileRef.current?.click()}
+                      disabled={readOnly}
+                    >
+                      Escolher arquivo
+                    </Button>
+
+                    {preview.logo ? (
+                      <Button
+                        variant="danger"
+                        small
+                        onClick={removerLogo}
+                        disabled={readOnly}
+                      >
+                        Remover
+                      </Button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <div
+                  className="muted"
+                  style={{ marginTop: 10, fontWeight: 800 }}
+                >
+                  O ticket usará o ícone do produto impresso.
+                </div>
+              )}
             </div>
 
             <div className="fullRow">
               <div className="muted" style={{ marginBottom: 6 }}>
-                Altura da logo (mm)
+                Altura da imagem (mm)
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <input
@@ -399,8 +465,8 @@ export default function Ajustes({
 
                 <div style={s.dash} />
                 <div style={s.logoBox}>
-                  {preview.logo ? (
-                    <img src={preview.logo} alt="logo" style={s.logoImg} />
+                  {previewImgSrc ? (
+                    <img src={previewImgSrc} alt="logo" style={previewImgStyle} />
                   ) : null}
                 </div>
                 <div style={s.dash} />

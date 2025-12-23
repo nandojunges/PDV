@@ -103,6 +103,7 @@ export default function App() {
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
       logoImgMm: 20,
+      ticketImagemModo: "logo",
     })
   );
 

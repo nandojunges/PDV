@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useState, useEffect, Component } from "react";
 import Select from "react-select";
 import Card from "../components/Card";
+import { ICONS } from "../domain/icons";
 
 /* ===================== helpers ===================== */
 function mkId() {
@@ -32,30 +33,6 @@ function fmtBRL(n) {
 }
 
 /* ===================== ícones (imagens realistas) ===================== */
-/**
- * IMPORTANTE:
- * Pelo print, sua pasta é: public/Icons (I maiúsculo)
- * Então a URL correta é: "/Icons/arquivo.png"
- * (Se você quiser usar "/icons/...", renomeie a pasta para "icons".)
- */
-const ICONS = {
-  agua: "/Icons/agua.png",
-  ref_lata: "/Icons/refri-lata.png",
-  ref_600: "/Icons/refri-600.png",
-  ref_2l: "/Icons/refri-2l.png",
-  cer_lata: "/Icons/cerveja-lata.png",
-  cer_garrafa: "/Icons/cerveja-garrafa.png",
-  chope: "/Icons/chope.png",
-  barril: "/Icons/barril.png",
-  lanche: "/Icons/lanche.png",
-  sobremesa: "/Icons/sobremesa.png",
-  sorvete: "/Icons/sorvete.png",
-  fichas: "/Icons/fichas.png",
-  suco: "/Icons/suco.png",
-  // ✅ NOVOS
-  almoco_socio: "/Icons/almocosocio.png",
-  prato_talher: "/Icons/pratotalher.png",
-};
 
 const LIB = [
   { key: "agua", nome: "Água (500ml)" },

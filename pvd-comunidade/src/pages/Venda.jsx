@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, uid } from "../domain/math";
+import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { useConfig } from "../config/ConfigProvider";
 import { postSaleToMaster } from "../net/connectivity";
@@ -14,21 +15,6 @@ import {
 } from "../state/pdvStore";
 
 /* ===================== ícones (imagens realistas) ===================== */
-const ICONS = {
-  agua: "/Icons/agua.png",
-  ref_lata: "/Icons/refri-lata.png",
-  ref_600: "/Icons/refri-600.png",
-  ref_2l: "/Icons/refri-2l.png",
-  cer_lata: "/Icons/cerveja-lata.png",
-  cer_garrafa: "/Icons/cerveja-garrafa.png",
-  chope: "/Icons/chope.png",
-  barril: "/Icons/barril.png",
-  lanche: "/Icons/lanche.png",
-  sobremesa: "/Icons/sobremesa.png",
-  sorvete: "/Icons/sorvete.png",
-  fichas: "/Icons/fichas.png",
-  suco: "/Icons/suco.png",
-};
 
 const BARRIL_LITROS = [5, 10, 15, 20, 30, 50];
 const DEFAULT_BARRIL_LITROS = 30;
@@ -84,6 +70,7 @@ export function expandirItensParaTickets(itens = []) {
           itemNome: `${nome} (combo)`,
           qtyText: "1x",
           valorUnit: unitDiv,
+          iconKey: item?.iconKey || "",
           meta: { tipo: "combo", comboQtd: n },
         });
       }
@@ -98,6 +85,7 @@ export function expandirItensParaTickets(itens = []) {
         itemNome: nome,
         qtyText: "1x",
         valorUnit,
+        iconKey: item?.iconKey || "",
         meta: { tipo: "unitario" },
       });
     }
@@ -113,6 +101,7 @@ export function printTickets({
   mensagemRodape,
   logoDataUrl,
   logoAlturaMm,
+  ticketImagemModo,
 }) {
   const html = buildTicketsHTML({
     eventoNome,
@@ -121,6 +110,7 @@ export function printTickets({
     mensagemRodape,
     logoDataUrl,
     logoAlturaMm,
+    ticketImagemModo,
   });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -212,6 +202,7 @@ function buildTicketsHTML({
   mensagemRodape,
   logoDataUrl,
   logoAlturaMm,
+  ticketImagemModo,
 }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -240,6 +231,11 @@ function buildTicketsHTML({
   const safeLogoAlturaMm = Number.isFinite(logoAlturaNum)
     ? Math.min(30, Math.max(10, logoAlturaNum))
     : 20;
+  const modoImagem = ticketImagemModo === "produto" ? "produto" : "logo";
+  const imgFilter =
+    modoImagem === "produto"
+      ? "filter: grayscale(1) contrast(1.2) brightness(0.1);"
+      : "";
 
   const buildItemNameClass = (title) => {
     const size = String(title || "").length;
@@ -257,6 +253,8 @@ function buildTicketsHTML({
         String(t?.qtyText || "").trim() ||
         (fallbackTitle.match(/^\d+\s*x/i)?.[0] || "1x").trim();
       const tituloLinha = String(t?.linhaTitulo || `${qtyText} ${rawName}`).trim();
+      const iconSrc = ICONS[t?.iconKey] || "";
+      const imgSrc = modoImagem === "logo" ? logoDataUrl : iconSrc;
       return `
       <div class="ticket">
         <div class="inner">
@@ -266,8 +264,8 @@ function buildTicketsHTML({
 
           <div class="logoBox">
             ${
-              logoDataUrl
-                ? `<img src="${escAttr(logoDataUrl)}" alt="logo" style="height:${safeLogoAlturaMm}mm" />`
+              imgSrc
+                ? `<img src="${escAttr(imgSrc)}" alt="logo" style="height:${safeLogoAlturaMm}mm; ${imgFilter}" />`
                 : ""
             }
           </div>
@@ -571,6 +569,7 @@ export default function Venda({
           comboQtd:
             p?.tipo === "combo" ? Math.max(2, Number(p.comboQtd || 2)) : null,
           img: p.img || "",
+          iconKey: p.iconKey || "",
         },
       ];
     });
@@ -658,6 +657,7 @@ export default function Venda({
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
       logoAlturaMm: Number(ajustes?.logoImgMm || 20),
+      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
     });
   }
 
@@ -722,6 +722,7 @@ export default function Venda({
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
       logoAlturaMm: Number(ajustes?.logoImgMm || 20),
+      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
     });
     limpar();
 
