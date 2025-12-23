@@ -70,7 +70,11 @@ export function expandirItensParaTickets(itens = []) {
 
     if (tipo === "combo") {
       const totalCombo = unitario || (qtd > 0 ? subtotal / qtd : 0);
-      const n = Number(item?.comboQtd || 2) || 2;
+      const parsedComboQtd =
+        Number(item?.comboQtd) ||
+        Number(String(nome).match(/\(combo\s*x\s*(\d+)\)/i)?.[1]) ||
+        2;
+      const n = Math.max(2, Number(parsedComboQtd || 2));
       const unitDiv = round2(totalCombo / n);
       const totalTickets = qtd * n;
       for (let i = 0; i < totalTickets; i += 1) {
@@ -564,6 +568,8 @@ export default function Venda({
           qtd: 1,
           subtotal: unitario,
           tipo: p.tipo || "simples",
+          comboQtd:
+            p?.tipo === "combo" ? Math.max(2, Number(p.comboQtd || 2)) : null,
           img: p.img || "",
         },
       ];
