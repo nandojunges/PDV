@@ -256,35 +256,34 @@ function buildTicketsHTML({
       return `
       <div class="ticket">
         <div class="inner">
-          <div class="content">
-            <div class="title">${esc(eventoNome || "Evento")}</div>
-            <div class="date">${esc(dataBR)}</div>
-            <div class="sep"></div>
+          <div class="title">${esc(eventoNome || "Evento")}</div>
+          <div class="date">${esc(dataBR)}</div>
+          <div class="sep"></div>
 
-            <div class="logoBox">
-              ${
-                logoDataUrl
-                  ? `<img src="${escAttr(logoDataUrl)}" alt="logo" style="height:${safeLogoAlturaMm}mm" />`
-                  : ""
-              }
-            </div>
-            <div class="sep"></div>
-
-            <div class="itemBlock">
-              <div class="itemTop">
-                <span class="qty">${esc(qtyText)}</span>
-                <span class="${buildItemNameClass(tituloLinha)}">${esc(rawName)}</span>
-              </div>
-              <div class="itemBottom">
-                <span class="price">R$ ${fmt(t.valorUnit)}</span>
-              </div>
-            </div>
-
-            ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
-
-            <div class="sep"></div>
-            <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
+          <div class="logoBox">
+            ${
+              logoDataUrl
+                ? `<img src="${escAttr(logoDataUrl)}" alt="logo" style="height:${safeLogoAlturaMm}mm" />`
+                : ""
+            }
           </div>
+          <div class="sep"></div>
+
+          <div class="itemBlock">
+            <div class="itemTop">
+              <span class="qty">${esc(qtyText)}</span>
+              <span class="${buildItemNameClass(tituloLinha)}">${esc(rawName)}</span>
+            </div>
+            <div class="itemBottom">
+              <span class="price">R$ ${fmt(t.valorUnit)}</span>
+            </div>
+          </div>
+
+          ${t.linhaSub ? `<div class="sub">${esc(t.linhaSub)}</div>` : ""}
+
+          <div class="sep"></div>
+          <div class="push"></div>
+          <div class="thanks">${esc(mensagemRodape || "Obrigado pela preferência!")}</div>
           <div class="cutlineWrap">
             <div class="cutline"></div>
             <div class="cuttext">CORTE AQUI</div>
@@ -384,12 +383,9 @@ function buildTicketsHTML({
   }
   .price { font-size: 14px; font-weight: 900; white-space: nowrap; }
   .sub { font-size: 11px; color: #6b7280; margin-top: 1mm; font-weight: 700; line-height: 1.2; }
-  .thanks { text-align: center; font-size: 12px; font-weight: 900; }
+  .thanks { text-align: center; font-size: 12px; font-weight: 900; margin-bottom: 1.5mm; }
+  .push { flex: 1; }
   .cutlineWrap {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 3mm;
     text-align: center;
   }
   .cutline {
