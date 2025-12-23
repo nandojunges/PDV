@@ -108,6 +108,7 @@ export default function Ajustes({
       padding: 14,
     },
 
+    // ✅ Ticket (layout antigo correto)
     ticket: {
       width: "58mm",
       maxWidth: "100%",
@@ -120,8 +121,6 @@ export default function Ajustes({
       boxSizing: "border-box",
       boxShadow: "0 10px 24px rgba(0,0,0,.10)",
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-      position: "relative",
-      overflow: "hidden",
     },
 
     inner: {
@@ -130,9 +129,6 @@ export default function Ajustes({
       height: "100%",
       display: "flex",
       flexDirection: "column",
-    },
-    content: {
-      paddingBottom: "10mm",
     },
     title: {
       fontWeight: 900,
@@ -207,13 +203,15 @@ export default function Ajustes({
       whiteSpace: "nowrap",
     },
 
-    // Sub-linha opcional (se quiser detalhar)
     subLinha: {
       marginTop: "0.5mm",
       fontSize: 10,
       color: "#64748b",
       fontWeight: 700,
     },
+
+    // ✅ empurra rodapé/corte para o fim sem quebrar
+    push: { flex: 1 },
 
     rodape: {
       textAlign: "center",
@@ -222,28 +220,22 @@ export default function Ajustes({
       wordBreak: "break-word",
     },
 
-    cutlineWrap: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: "3mm",
-      textAlign: "center",
-    },
-    cutline: {
+    // ✅ corte no fluxo (layout antigo perfeito)
+    corte: {
+      marginTop: "2mm",
+      paddingTop: "2mm",
       borderTop: "1px dashed #94a3b8",
-      margin: "0 2mm",
-    },
-    cuttext: {
       fontWeight: 800,
       letterSpacing: 1,
-      fontSize: 9,
+      fontSize: 10,
       color: "#64748b",
-      opacity: 0.7,
-      marginTop: "1mm",
+      textAlign: "center",
     },
   };
 
-  const isWide = typeof window !== "undefined" ? window.innerWidth >= 980 : false;
+  const isWide =
+    typeof window !== "undefined" ? window.innerWidth >= 980 : false;
+
   const previewTitulo = `${preview.qtd}x ${preview.produto}`.trim();
   const previewItemFont =
     previewTitulo.length > 24 ? 12 : previewTitulo.length > 18 ? 13 : 14;
@@ -258,6 +250,7 @@ export default function Ajustes({
             Caixa aberto ou vendas registradas — ajustes bloqueados
           </div>
         ) : null}
+
         <div style={isWide ? s.gridWide : s.grid}>
           {/* ===================== FORM ===================== */}
           <div className="formGrid">
@@ -395,65 +388,58 @@ export default function Ajustes({
               Pré-visualização do ticket
             </div>
 
-            <div
-              style={{
-                ...s.ticket,
-              }}
-            >
+            <div style={s.ticket}>
               <div style={s.inner}>
-                <div style={s.content}>
-                  {/* Cabeçalho */}
-                  <div style={s.title}>{preview.nome}</div>
+                {/* Cabeçalho */}
+                <div style={s.title}>{preview.nome}</div>
 
-                  <div style={s.meta}>
-                    <div>{preview.data}</div>
-                  </div>
-
-                  <div style={s.dash} />
-                  <div style={s.logoBox}>
-                    {preview.logo ? (
-                      <img src={preview.logo} alt="logo" style={s.logoImg} />
-                    ) : null}
-                  </div>
-                  <div style={s.dash} />
-
-                  {/* Item (layout de ticket: nome em uma linha, preço abaixo) */}
-                  <div style={s.itemBlock}>
-                    <div style={s.itemTop}>
-                      <span style={s.qtd}>{preview.qtd}x</span>
-                      <span
-                        style={{
-                          ...s.itemName,
-                          fontSize: previewItemFont,
-                        }}
-                      >
-                        {preview.produto}
-                      </span>
-                    </div>
-                    <div style={s.itemBottom}>
-                      <span style={s.price}>{fmtBRL(preview.valor)}</span>
-                    </div>
-                    <div style={s.subLinha}>Exemplo de item (prévia)</div>
-                  </div>
-
-                  <div style={s.dash} />
-
-                  {/* Rodapé */}
-                  <div style={s.rodape}>{preview.rodape}</div>
+                <div style={s.meta}>
+                  <div>{preview.data}</div>
                 </div>
 
-                <div style={s.cutlineWrap}>
-                  <div style={s.cutline} />
-                  <div style={s.cuttext}>CORTE AQUI</div>
+                <div style={s.dash} />
+                <div style={s.logoBox}>
+                  {preview.logo ? (
+                    <img src={preview.logo} alt="logo" style={s.logoImg} />
+                  ) : null}
                 </div>
+                <div style={s.dash} />
+
+                {/* Item */}
+                <div style={s.itemBlock}>
+                  <div style={s.itemTop}>
+                    <span style={s.qtd}>{preview.qtd}x</span>
+                    <span
+                      style={{
+                        ...s.itemName,
+                        fontSize: previewItemFont,
+                      }}
+                    >
+                      {preview.produto}
+                    </span>
+                  </div>
+
+                  <div style={s.itemBottom}>
+                    <span style={s.price}>{fmtBRL(preview.valor)}</span>
+                  </div>
+
+                  <div style={s.subLinha}>Exemplo de item (prévia)</div>
+                </div>
+
+                <div style={s.dash} />
+
+                {/* Rodapé + Corte */}
+                <div style={s.push} />
+                <div style={s.rodape}>{preview.rodape}</div>
+                <div style={s.corte}>CORTE AQUI</div>
               </div>
             </div>
+
             <div className="muted" style={{ marginTop: 8, fontWeight: 700 }}>
               Tamanho fixo: 58mm x 80mm
             </div>
           </div>
         </div>
-
       </div>
     </Card>
   );
