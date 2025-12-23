@@ -255,7 +255,7 @@ export default function Ajustes({
       <div style={s.wrap}>
         {readOnly ? (
           <div className="muted" style={{ fontWeight: 800, marginBottom: 10 }}>
-            Evento em andamento — ajustes bloqueados
+            Caixa aberto ou vendas registradas — ajustes bloqueados
           </div>
         ) : null}
         <div style={isWide ? s.gridWide : s.grid}>

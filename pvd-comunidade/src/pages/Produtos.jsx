@@ -326,7 +326,7 @@ export default function Produtos({
     setAtalhoKey("");
   }
 
-  const bloqueadoEdicao = readOnly || itensFinalizados;
+  const bloqueadoEdicao = readOnly;
 
   function scrollTopoEFocusPreco() {
     setPendingScroll(true);
@@ -417,7 +417,7 @@ export default function Produtos({
     setProdutos([]);
   }
 
-  const podeFinalizar = itensEvento.length >= 1 && !itensFinalizados;
+  const podeFinalizar = itensEvento.length >= 1 && !readOnly;
   const barrilAtual = isBarrilNome(nome);
 
   return (
@@ -429,12 +429,12 @@ export default function Produtos({
       <Card title="Produtos" subtitle="Selecione no atalho, digite o preço e adicione.">
         {readOnly && (
           <div className="badge" style={{ marginBottom: 10 }}>
-            Produtos sincronizados pelo mestre (somente leitura).
+            Caixa aberto ou vendas registradas. Edição bloqueada.
           </div>
         )}
         {itensFinalizados && (
           <div className="badge" style={{ marginBottom: 10 }}>
-            Itens do evento finalizados. Edição bloqueada.
+            Itens do evento finalizados.
           </div>
         )}
 
