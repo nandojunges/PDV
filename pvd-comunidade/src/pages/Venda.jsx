@@ -71,6 +71,7 @@ export function expandirItensParaTickets(itens = []) {
           qtyText: "1x",
           valorUnit: unitDiv,
           iconKey: item?.iconKey || "",
+          img: item?.img || "",
           meta: { tipo: "combo", comboQtd: n },
         });
       }
@@ -86,6 +87,7 @@ export function expandirItensParaTickets(itens = []) {
         qtyText: "1x",
         valorUnit,
         iconKey: item?.iconKey || "",
+        img: item?.img || "",
         meta: { tipo: "unitario" },
       });
     }
@@ -229,6 +231,34 @@ function buildTicketsHTML({
     return v.toFixed(2).replace(".", ",");
   };
 
+  // Converte "/Icons/x.png" em URL absoluta (evita branco no iOS/print popup)
+  const toAbsUrl = (src) => {
+    const s = String(src || "").trim();
+    if (!s) return "";
+    if (/^data:image\//i.test(s)) return s;
+    if (/^https?:\/\//i.test(s)) return s;
+    try {
+      if (typeof window !== "undefined" && window.location?.origin) {
+        if (s.startsWith("/")) return `${window.location.origin}${s}`;
+        return `${window.location.origin}/${s}`;
+      }
+    } catch {}
+    return s;
+  };
+
+  // Resolve imagem do ticket com fallback
+  const resolveTicketImgSrc = (t) => {
+    const iconKey = String(t?.iconKey || "").trim();
+    const iconSrc = iconKey ? (ICONS[iconKey] || "") : "";
+    const itemImg = String(t?.img || "").trim();
+    // prioridade: ícone do produto > imagem do produto > logo
+    const chosen =
+      (modoImagem === "produto" ? (iconSrc || itemImg) : logoDataUrl) ||
+      logoDataUrl ||
+      "";
+    return toAbsUrl(chosen);
+  };
+
   const logoSlotMm = 35;
   const logoAlturaNum = Number(logoAlturaMm ?? 20);
   const safeLogoAlturaMm = Number.isFinite(logoAlturaNum)
@@ -253,8 +283,7 @@ function buildTicketsHTML({
         String(t?.qtyText || "").trim() ||
         (fallbackTitle.match(/^\d+\s*x/i)?.[0] || "1x").trim();
       const tituloLinha = String(t?.linhaTitulo || `${qtyText} ${rawName}`).trim();
-      const iconSrc = ICONS[t?.iconKey] || "";
-      const imgSrc = modoImagem === "logo" ? logoDataUrl : iconSrc;
+      const imgSrc = resolveTicketImgSrc(t);
       return `
       <div class="ticket">
         <div class="inner">
@@ -265,7 +294,7 @@ function buildTicketsHTML({
           <div class="logoBox">
             ${
               imgSrc
-                ? `<img src="${escAttr(imgSrc)}" alt="logo" style="height:${safeLogoAlturaMm}mm;" />`
+                ? `<img src="${escAttr(imgSrc)}" alt="img" style="height:${safeLogoAlturaMm}mm;" />`
                 : ""
             }
           </div>
