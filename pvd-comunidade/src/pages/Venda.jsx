@@ -1111,6 +1111,3 @@ export default function Venda({
     </div>
   );
 }
-  .content {
-    padding-bottom: 10mm;
-  }
