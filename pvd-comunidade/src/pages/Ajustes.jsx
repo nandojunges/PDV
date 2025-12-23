@@ -31,7 +31,7 @@ export default function Ajustes({
   }
 
   const LOGO_SLOT_MM = 35;
-  const logoImgMm = Number.isFinite(Number(ajustes?.logoImgMm))
+  const logoAlturaMm = Number.isFinite(Number(ajustes?.logoImgMm))
     ? Number(ajustes?.logoImgMm)
     : 20;
 
@@ -46,7 +46,7 @@ export default function Ajustes({
       ...(p || {}),
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
-      logoImgMm,
+      logoImgMm: logoAlturaMm,
     }));
     if (hasEventoAberto && typeof onSalvar === "function") {
       onSalvar();
@@ -60,13 +60,13 @@ export default function Ajustes({
       data: new Date().toLocaleDateString("pt-BR"),
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
-      logoImgMm,
+      logoImgMm: logoAlturaMm,
       // exemplo do item (apenas preview)
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoImgMm]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm]);
 
   const s = {
     // ===== Layout mobile-first =====
@@ -161,6 +161,7 @@ export default function Ajustes({
     logoImg: {
       display: "block",
       height: `${preview.logoImgMm || 20}mm`,
+      maxHeight: `${LOGO_SLOT_MM}mm`,
       maxWidth: "100%",
       width: "auto",
       objectFit: "contain",
@@ -221,6 +222,8 @@ export default function Ajustes({
 
     corte: {
       marginTop: "2mm",
+      paddingTop: "2mm",
+      borderTop: "1px dashed #94a3b8",
       fontWeight: 800,
       letterSpacing: 1,
       fontSize: 10,
@@ -230,6 +233,9 @@ export default function Ajustes({
   };
 
   const isWide = typeof window !== "undefined" ? window.innerWidth >= 980 : false;
+  const previewTitulo = `${preview.qtd}x ${preview.produto}`.trim();
+  const previewItemFont =
+    previewTitulo.length > 24 ? 12 : previewTitulo.length > 18 ? 13 : 14;
 
   return (
     <Card title="Ajustes" subtitle="Personalização do ticket">
@@ -321,8 +327,12 @@ export default function Ajustes({
                   min="10"
                   max="30"
                   step="0.5"
-                  value={ajustes?.logoImgMm ?? 20}
+                  value={logoAlturaMm}
                   onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
+                  }}
+                  onInput={(e) => {
                     const v = Number(e.target.value);
                     setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
                   }}
@@ -330,7 +340,7 @@ export default function Ajustes({
                   style={{ flex: 1, width: "100%", touchAction: "pan-x" }}
                 />
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
-                  {(ajustes?.logoImgMm ?? 0).toFixed(1)}mm
+                  {logoAlturaMm.toFixed(1)}mm
                 </div>
               </div>
             </div>
@@ -402,12 +412,7 @@ export default function Ajustes({
                     <span
                       style={{
                         ...s.itemName,
-                        fontSize:
-                          preview.produto.length > 26
-                            ? 12
-                            : preview.produto.length > 18
-                              ? 13
-                              : s.itemName.fontSize,
+                        fontSize: previewItemFont,
                       }}
                     >
                       {preview.produto}

@@ -108,7 +108,7 @@ export function printTickets({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoAreaMm,
+  logoAlturaMm,
 }) {
   const html = buildTicketsHTML({
     eventoNome,
@@ -116,7 +116,7 @@ export function printTickets({
     tickets,
     mensagemRodape,
     logoDataUrl,
-    logoAreaMm,
+    logoAlturaMm,
   });
 
   // 1) Tenta popup (melhor experiência: não altera a página principal)
@@ -207,7 +207,7 @@ function buildTicketsHTML({
   tickets,
   mensagemRodape,
   logoDataUrl,
-  logoAreaMm,
+  logoAlturaMm,
 }) {
   const dt = new Date(dataISO || Date.now());
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -231,15 +231,16 @@ function buildTicketsHTML({
     return v.toFixed(2).replace(".", ",");
   };
 
-  const logoAreaNum = Number(logoAreaMm ?? 22);
-  const safeLogoAreaMm = Number.isFinite(logoAreaNum)
-    ? Math.min(40, Math.max(10, logoAreaNum))
-    : 22;
+  const logoSlotMm = 35;
+  const logoAlturaNum = Number(logoAlturaMm ?? 20);
+  const safeLogoAlturaMm = Number.isFinite(logoAlturaNum)
+    ? Math.min(30, Math.max(10, logoAlturaNum))
+    : 20;
 
-  const buildItemNameClass = (name) => {
-    const size = String(name || "").length;
-    if (size > 26) return "itemName xlong";
-    if (size > 18) return "itemName long";
+  const buildItemNameClass = (title) => {
+    const size = String(title || "").length;
+    if (size > 24) return "itemName xsmallText";
+    if (size > 18) return "itemName smallText";
     return "itemName";
   };
 
@@ -251,8 +252,9 @@ function buildTicketsHTML({
       const qtyText =
         String(t?.qtyText || "").trim() ||
         (fallbackTitle.match(/^\d+\s*x/i)?.[0] || "1x").trim();
+      const tituloLinha = String(t?.linhaTitulo || `${qtyText} ${rawName}`).trim();
       return `
-      <div class="ticket" style="--logoAreaH: ${safeLogoAreaMm}mm;">
+      <div class="ticket">
         <div class="inner">
           <div class="content">
             <div class="title">${esc(eventoNome || "Evento")}</div>
@@ -262,7 +264,7 @@ function buildTicketsHTML({
             <div class="logoBox">
               ${
                 logoDataUrl
-                  ? `<img src="${escAttr(logoDataUrl)}" alt="logo" />`
+                  ? `<img src="${escAttr(logoDataUrl)}" alt="logo" style="height:${safeLogoAlturaMm}mm" />`
                   : ""
               }
             </div>
@@ -271,7 +273,7 @@ function buildTicketsHTML({
             <div class="itemBlock">
               <div class="itemTop">
                 <span class="qty">${esc(qtyText)}</span>
-                <span class="${buildItemNameClass(rawName)}">${esc(rawName)}</span>
+                <span class="${buildItemNameClass(tituloLinha)}">${esc(rawName)}</span>
               </div>
               <div class="itemBottom">
                 <span class="price">R$ ${fmt(t.valorUnit)}</span>
@@ -300,18 +302,19 @@ function buildTicketsHTML({
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Impressão</title>
 <style>
+  @page { size: 58mm 80mm; margin: 0; }
   html, body {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
     background: #fff;
-    line-height: 1.4;
+    line-height: 1.2;
   }
   .ticket {
     width: 58mm;
     height: 80mm;
     margin: 0;
-    padding: 4mm 3mm;
+    padding: 3mm 3mm;
     border: 0;
     border-radius: 0;
     box-sizing: border-box;
@@ -325,17 +328,17 @@ function buildTicketsHTML({
     display: flex;
     flex-direction: column;
   }
-  .title { font-size: 18px; font-weight: 900; text-align: center; }
+  .title { font-size: 16px; font-weight: 900; text-align: center; }
   .date {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 900;
     text-align: center;
-    margin-top: 6px;
-    margin-bottom: 6px;
+    margin-top: 2mm;
+    margin-bottom: 2mm;
   }
-  .sep { border-top: 1px dashed #cbd5e1; margin: 12px 0; }
+  .sep { border-top: 1px dashed #cbd5e1; margin: 2mm 0; }
   .logoBox {
-    height: var(--logoAreaH, 22mm);
+    height: 35mm;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -344,7 +347,7 @@ function buildTicketsHTML({
   }
   .logoBox img {
     max-width: 100%;
-    max-height: 100%;
+    max-height: 35mm;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -353,9 +356,9 @@ function buildTicketsHTML({
   .itemBlock {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    line-height: 1.5;
-    margin-top: 4px;
+    gap: 2px;
+    line-height: 1.2;
+    margin-top: 1mm;
   }
   .itemTop {
     display: flex;
@@ -363,23 +366,23 @@ function buildTicketsHTML({
     gap: 8px;
     min-width: 0;
   }
-  .qty { font-size: 14px; font-weight: 900; white-space: nowrap; }
+  .qty { font-size: 12px; font-weight: 900; white-space: nowrap; }
   .itemName {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 900;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;
   }
-  .itemName.long { font-size: 13px; }
-  .itemName.xlong { font-size: 12px; }
+  .itemName.smallText { font-size: 12px; }
+  .itemName.xsmallText { font-size: 11px; }
   .itemBottom {
     display: flex;
     justify-content: flex-end;
   }
-  .price { font-size: 16px; font-weight: 900; white-space: nowrap; }
-  .sub { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 700; line-height: 1.4; }
-  .thanks { text-align: center; font-size: 14px; font-weight: 900; }
+  .price { font-size: 14px; font-weight: 900; white-space: nowrap; }
+  .sub { font-size: 11px; color: #6b7280; margin-top: 1mm; font-weight: 700; line-height: 1.2; }
+  .thanks { text-align: center; font-size: 12px; font-weight: 900; }
   .footer {
     margin-top: auto;
     text-align: center;
@@ -391,11 +394,10 @@ function buildTicketsHTML({
     border-top: 1px dashed #999;
     font-weight: 800;
     letter-spacing: 1px;
-    font-size: 12px;
+    font-size: 10px;
   }
 
   @media print {
-    @page { size: 58mm 80mm; margin: 0; }
     html, body { margin: 0; padding: 0; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .ticket { border: 0; }
@@ -646,7 +648,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoAreaMm: Number(ajustes?.logoAreaMm || 35),
+      logoAlturaMm: Number(ajustes?.logoImgMm || 20),
     });
   }
 
@@ -710,7 +712,7 @@ export default function Venda({
       tickets,
       mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
       logoDataUrl: ajustes?.logoDataUrl || "",
-      logoAreaMm: Number(ajustes?.logoAreaMm || 35),
+      logoAlturaMm: Number(ajustes?.logoImgMm || 20),
     });
     limpar();
 
