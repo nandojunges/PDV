@@ -107,6 +107,7 @@ export default function Evento({
   vendas = [],
   caixa,
   flowState,
+  readOnly = false,
   setEvento,
   setCaixa,
   setVendas,
@@ -261,7 +262,7 @@ export default function Evento({
   const produtosEvento = Array.isArray(evento?.produtos) ? evento.produtos : [];
   const estadoFluxo =
     flowState || getFlowState({ evento, produtos: produtosEvento, caixa, vendas });
-  const eventoBloqueado = estadoFluxo === "CAIXA_ABERTO";
+  const eventoBloqueado = readOnly;
   const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
   const portaPlaceholder = PORTA_LAN;
 

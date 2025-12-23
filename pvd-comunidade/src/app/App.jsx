@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import TopBar from "../components/TopBar";
+import Button from "../components/Button";
 
 import Evento from "../pages/Evento";
 import Produtos from "../pages/Produtos";
@@ -47,6 +48,8 @@ export default function App() {
 
   const [tab, setTab] = useState("evento");
   const [tabNotice, setTabNotice] = useState("");
+  const [etapaAtual, setEtapaAtual] = useState("evento");
+  const [etapaHistorico, setEtapaHistorico] = useState([]);
 
   const [evento, setEvento] = useState(() => {
     const raw = loadJSON(LS_KEYS.evento, null);
@@ -122,15 +125,25 @@ export default function App() {
     });
   }, [produtos]);
 
-  const resumoEvento = useMemo(() => {
+  const vendasEvento = useMemo(() => {
     const nomeEv = (evento?.nome || "").trim();
-    if (!nomeEv) return null;
-    return resumoFinanceiroPorEvento(
-      (Array.isArray(vendas) ? vendas : []).filter((v) => v.eventoNome === nomeEv)
-    );
-  }, [vendas, evento]);
+    const eventoId = evento?.id ?? null;
+    if (!nomeEv && !eventoId) return [];
+    return (Array.isArray(vendas) ? vendas : []).filter((v) => {
+      const matchId = eventoId && v?.eventoId && v.eventoId === eventoId;
+      const matchNome = nomeEv && String(v?.eventoNome || "").trim() === nomeEv;
+      return matchId || matchNome;
+    });
+  }, [vendas, evento?.id, evento?.nome]);
+
+  const resumoEvento = useMemo(() => {
+    if (!vendasEvento.length) return null;
+    return resumoFinanceiroPorEvento(vendasEvento);
+  }, [vendasEvento]);
 
   const hasEventoAberto = Boolean((evento?.nome || "").trim());
+  const caixaAberto = Boolean(evento?.caixaAberto || caixa?.abertura != null);
+  const readOnlyWizard = caixaAberto || vendasEvento.length > 0;
   const flowState = useMemo(
     () => getFlowState({ evento, produtos, caixa, vendas }),
     [evento, produtos, caixa, vendas]
@@ -142,11 +155,26 @@ export default function App() {
   const lastFlowStateRef = useRef(flowState);
 
   useEffect(() => {
+    if (!hasEventoAberto) return;
+    if (evento?.caixaAberto) return;
+    if (vendasEvento.length === 0 && caixa?.abertura == null) return;
+    setEvento((prev) =>
+      prev
+        ? {
+            ...prev,
+            caixaAberto: true,
+          }
+        : prev
+    );
+  }, [evento?.caixaAberto, hasEventoAberto, vendasEvento.length, caixa?.abertura]);
+
+  useEffect(() => {
     if (lastFlowStateRef.current === flowState) return;
     lastFlowStateRef.current = flowState;
     const target = getFlowTargetTab(flowState);
     if (target && target !== tab) {
       setTab(target);
+      setEtapaAtual(target);
     }
   }, [flowState, tab]);
 
@@ -155,6 +183,21 @@ export default function App() {
     const timeout = setTimeout(() => setTabNotice(""), 2600);
     return () => clearTimeout(timeout);
   }, [tabNotice]);
+
+  const goToTab = useCallback(
+    (nextTab, { pushHistory = true } = {}) => {
+      if (!nextTab || nextTab === tab) {
+        setEtapaAtual((prev) => prev || tab);
+        return;
+      }
+      if (pushHistory) {
+        setEtapaHistorico((prev) => [...prev, tab]);
+      }
+      setTab(nextTab);
+      setEtapaAtual(nextTab);
+    },
+    [tab]
+  );
 
   const getTabBlockReason = useCallback((flowValue, targetTab) => {
     if (flowValue === "ITENS_NAO_FINALIZADOS" || flowValue === "EVENTO_ABERTO_SEM_PRODUTOS") {
@@ -186,9 +229,9 @@ export default function App() {
         setTabNotice(getTabBlockReason(flowState, nextTab));
         return;
       }
-      setTab(nextTab);
+      goToTab(nextTab);
     },
-    [allowedTabs, flowState, getTabBlockReason]
+    [allowedTabs, flowState, getTabBlockReason, goToTab]
   );
 
   function abrirEvento(nome, options = {}) {
@@ -219,7 +262,8 @@ export default function App() {
     });
 
     // ao abrir, vai para PRODUTOS
-    setTab("produtos");
+    setEtapaHistorico([]);
+    goToTab("produtos");
   }
 
   async function encerrarEventoAtual() {
@@ -232,7 +276,9 @@ export default function App() {
     setEvento(null);
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
+    setEtapaHistorico([]);
     setTab("evento");
+    setEtapaAtual("evento");
   }
 
   function zerarTudo() {
@@ -281,6 +327,23 @@ export default function App() {
   function finalizarCaixaEvento() {
     void encerrarEventoAtual();
   }
+
+  const podeVoltar =
+    hasEventoAberto && !readOnlyWizard && etapaHistorico.length > 0;
+
+  const handleVoltar = useCallback(() => {
+    if (!podeVoltar) return;
+    setEtapaHistorico((prev) => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      const anterior = next.pop();
+      if (anterior) {
+        setTab(anterior);
+        setEtapaAtual(anterior);
+      }
+      return next;
+    });
+  }, [podeVoltar]);
 
   useEffect(() => {
     if (!permitirMultiDispositivo) return undefined;
@@ -401,7 +464,14 @@ export default function App() {
         onZerarTudo={zerarTudo}
       />
 
-      <main style={{ padding: 16 }}>
+      <main style={{ padding: 16 }} data-etapa={etapaAtual}>
+        {podeVoltar && (
+          <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <Button variant="ghost" onClick={handleVoltar}>
+              ← Voltar
+            </Button>
+          </div>
+        )}
         {tab === "evento" && (
           <Evento
             evento={evento}
@@ -409,6 +479,7 @@ export default function App() {
             vendas={vendas}
             caixa={caixa}
             flowState={flowState}
+            readOnly={readOnlyWizard}
             setEvento={setEvento}
             setCaixa={setCaixa}
             setVendas={setVendas}
@@ -422,11 +493,8 @@ export default function App() {
           <Produtos
             produtos={produtos}
             setProdutos={setProdutos}
-            setTab={setTab}
-            readOnly={
-              flowState !== "ITENS_NAO_FINALIZADOS" ||
-              (permitirMultiDispositivo && config?.modoMulti === "client")
-            }
+            setTab={goToTab}
+            readOnly={readOnlyWizard}
             itensFinalizados={Boolean(evento?.itensFinalizados)}
             onSalvarOfertaDoEvento={(novosProdutos) =>
               setEvento((prev) => ({
@@ -438,7 +506,7 @@ export default function App() {
               }))
             }
             onFinalizarItens={() => {
-              setTab("ajustes");
+              goToTab("ajustes");
             }}
           />
         )}
@@ -449,7 +517,7 @@ export default function App() {
             produtos={produtos}
             vendas={vendas}
             setVendas={setVendas}
-            setTab={setTab}
+            setTab={goToTab}
             ajustes={ajustes}
           />
         )}
@@ -473,7 +541,7 @@ export default function App() {
                     }
                   : prev
               );
-              setTab("venda");
+              goToTab("venda");
             }}
             onFinalizarCaixa={finalizarCaixaEvento}
           />
@@ -497,7 +565,7 @@ export default function App() {
             ajustes={ajustes}
             setAjustes={setAjustes}
             hasEventoAberto={hasEventoAberto}
-            readOnly={flowState === "AJUSTES_CONFIRMADOS" || flowState === "CAIXA_ABERTO"}
+            readOnly={readOnlyWizard}
             onSalvar={() => {
               setEvento((prev) =>
                 prev
@@ -508,7 +576,7 @@ export default function App() {
                     }
                   : prev
               );
-              setTab("caixa");
+              goToTab("caixa");
             }}
           />
         )}
