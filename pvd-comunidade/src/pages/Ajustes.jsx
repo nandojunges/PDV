@@ -44,10 +44,18 @@ export default function Ajustes({
     if (!ajustes?.ticketImagemModo) {
       next.ticketImagemModo = "logo";
     }
+    if (typeof ajustes?.impressaoEcoImagem !== "boolean") {
+      next.impressaoEcoImagem = false;
+    }
     if (Object.keys(next).length > 0) {
       setAjustes((p) => ({ ...(p || {}), ...next }));
     }
-  }, [ajustes?.logoImgMm, ajustes?.ticketImagemModo, setAjustes]);
+  }, [
+    ajustes?.logoImgMm,
+    ajustes?.ticketImagemModo,
+    ajustes?.impressaoEcoImagem,
+    setAjustes,
+  ]);
 
   function salvar() {
     setAjustes((p) => ({
@@ -56,6 +64,7 @@ export default function Ajustes({
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
       ticketImagemModo: ajustes?.ticketImagemModo || "logo",
+      impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     }));
     if (hasEventoAberto && typeof onSalvar === "function") {
       onSalvar();
@@ -177,8 +186,18 @@ export default function Ajustes({
       width: "auto",
       objectFit: "contain",
     },
-    logoImgMono: {
-      filter: "grayscale(1) contrast(1.2) brightness(0.1)",
+    rangeWrap: {
+      flex: 1,
+      padding: "10px 8px",
+      borderRadius: 12,
+      background: "#f8fafc",
+    },
+    rangeInput: {
+      flex: 1,
+      width: "100%",
+      height: 40,
+      padding: "8px 0",
+      touchAction: "pan-x",
     },
 
     // ===== Linha do item (cara de ticket) =====
@@ -255,10 +274,7 @@ export default function Ajustes({
   const modoImagem = ajustes?.ticketImagemModo || "logo";
   const previewImgSrc =
     modoImagem === "logo" ? preview.logo : ICONS[preview.iconKey];
-  const previewImgStyle =
-    modoImagem === "produto"
-      ? { ...s.logoImg, ...s.logoImgMono }
-      : s.logoImg;
+  const previewImgStyle = s.logoImg;
 
   return (
     <Card title="Ajustes" subtitle="Personalização do ticket">
@@ -392,27 +408,56 @@ export default function Ajustes({
                 Altura da imagem (mm)
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <input
-                  type="range"
-                  min="10"
-                  max="30"
-                  step="0.5"
-                  value={logoAlturaMm}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
-                  }}
-                  onInput={(e) => {
-                    const v = Number(e.target.value);
-                    setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
-                  }}
-                  disabled={readOnly}
-                  style={{ flex: 1, width: "100%", touchAction: "pan-x" }}
-                />
+                <div style={s.rangeWrap}>
+                  <input
+                    type="range"
+                    min="10"
+                    max="30"
+                    step="0.5"
+                    value={logoAlturaMm}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
+                    }}
+                    onInput={(e) => {
+                      const v = Number(e.target.value);
+                      setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
+                    }}
+                    disabled={readOnly}
+                    style={s.rangeInput}
+                  />
+                </div>
                 <div style={{ fontWeight: 800, width: 50, textAlign: "right" }}>
                   {logoAlturaMm.toFixed(1)}mm
                 </div>
               </div>
+            </div>
+
+            <div className="fullRow">
+              <div className="muted" style={{ marginBottom: 6 }}>
+                Impressão econômica de imagem (térmica)
+              </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontWeight: 700,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(ajustes?.impressaoEcoImagem)}
+                  onChange={(e) =>
+                    setAjustes((p) => ({
+                      ...(p || {}),
+                      impressaoEcoImagem: e.target.checked,
+                    }))
+                  }
+                  disabled={readOnly}
+                />
+                Ativar redução de tinta na impressão
+              </label>
             </div>
 
             <div className="formActions">
