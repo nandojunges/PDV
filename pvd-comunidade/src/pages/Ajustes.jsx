@@ -15,6 +15,7 @@ export default function Ajustes({
 }) {
   const [nomeOrg, setNomeOrg] = useState(ajustes?.nomeOrganizacao || "");
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
+  const [logoFileName, setLogoFileName] = useState("");
   const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
 
   const fileRef = useRef(null);
@@ -23,11 +24,13 @@ export default function Ajustes({
     if (!file) return;
     const url = await readFileAsDataURL(file);
     setAjustes((p) => ({ ...(p || {}), logoDataUrl: url }));
+    setLogoFileName(file.name || "logo");
   }
 
   function removerLogo() {
     if (!confirm("Remover logo?")) return;
     setAjustes((p) => ({ ...(p || {}), logoDataUrl: "" }));
+    setLogoFileName("");
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -107,16 +110,27 @@ export default function Ajustes({
       alignItems: "start",
     },
 
-    // ===== File button pill =====
-    filePill: {
+    // ===== Logo upload =====
+    logoUploadCard: {
+      marginTop: 12,
+      padding: "12px 14px",
+      borderRadius: 12,
+      border: "1px solid #e2e8f0",
+      background: "#f8fafc",
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+    },
+    logoUploadLine: {
+      fontWeight: 900,
+      color: "#0f172a",
+      wordBreak: "break-word",
+    },
+    logoUploadActions: {
       display: "flex",
       flexWrap: "wrap",
       gap: 10,
       alignItems: "center",
-      padding: "10px 12px",
-      borderRadius: 999,
-      border: "1px solid #e2e8f0",
-      background: "#f8fafc",
     },
 
     // ===== Ticket container =====
@@ -374,30 +388,33 @@ export default function Ajustes({
                     disabled={readOnly}
                   />
 
-                  <div style={{ ...s.filePill, marginTop: 12 }}>
-                    <div className="muted" style={{ fontWeight: 900 }}>
-                      {preview.logo ? "Logo selecionada" : "Nenhuma logo"}
+                  <div style={s.logoUploadCard}>
+                    <div style={s.logoUploadLine}>
+                      Arquivo:{" "}
+                      {logoFileName || "Nenhum arquivo selecionado"}
                     </div>
 
-                    <Button
-                      variant="primary"
-                      small
-                      onClick={() => fileRef.current?.click()}
-                      disabled={readOnly}
-                    >
-                      Escolher arquivo
-                    </Button>
-
-                    {preview.logo ? (
+                    <div style={s.logoUploadActions}>
                       <Button
-                        variant="danger"
+                        variant="primary"
                         small
-                        onClick={removerLogo}
+                        onClick={() => fileRef.current?.click()}
                         disabled={readOnly}
                       >
-                        Remover
+                        Escolher arquivo
                       </Button>
-                    ) : null}
+
+                      {preview.logo ? (
+                        <Button
+                          variant="danger"
+                          small
+                          onClick={removerLogo}
+                          disabled={readOnly}
+                        >
+                          Remover
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </>
               ) : (
