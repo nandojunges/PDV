@@ -400,7 +400,7 @@ export default function Produtos({
     fontWeight: 950,
     fontSize: 12,
     textAlign: "center",
-    lineHeight: 1.2,
+    lineHeight: 1.15,
     maxWidth: "100%",
     display: "-webkit-box",
     WebkitLineClamp: 2,
@@ -708,7 +708,7 @@ export default function Produtos({
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: 10,
+            gap: 8,
           }}
         >
           {atalhosDisponiveis.map((it) => (
@@ -721,19 +721,19 @@ export default function Produtos({
                 border: "1px solid #e5e7eb",
                 borderRadius: 18,
                 background: "#fff",
-                padding: 12,
+                padding: 8,
                 cursor: bloqueadoEdicao ? "not-allowed" : "pointer",
                 opacity: bloqueadoEdicao ? 0.6 : 1,
-                minHeight: 112,
+                minHeight: 98,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                gap: 8,
+                gap: 4,
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              <IconImg iconKey={it.key} size={46} />
+              <IconImg iconKey={it.key} size={42} />
 
               <div style={produtoNomeClampStyle} title={it.nome}>
                 {it.nome}

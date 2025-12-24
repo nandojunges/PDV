@@ -21,32 +21,6 @@ const DEFAULT_BARRIL_LITROS = 30;
 
 function IconImg({ iconKey, size = 42 }) {
   const src = ICONS[iconKey] || ICONS.ref_600;
-  const produtoNomeClampStyle = {
-    fontWeight: 950,
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 1.2,
-    maxWidth: "100%",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-    whiteSpace: "normal",
-    wordBreak: "break-word",
-    color: "#2563eb",
-  };
-
-  const comboChipStyle = {
-    fontSize: 10,
-    fontWeight: 800,
-    padding: "2px 8px",
-    borderRadius: 999,
-    background: "#f3f4f6",
-    color: "#111827",
-    border: "1px solid #e5e7eb",
-    textAlign: "center",
-  };
-
   return (
     <img
       src={src}
@@ -831,9 +805,9 @@ export default function Venda({
     : [];
   const produtoNomeClampStyle = {
     fontWeight: 950,
-    fontSize: 13,
+    fontSize: 12,
     textAlign: "center",
-    lineHeight: 1.1,
+    lineHeight: 1.15,
     maxWidth: "100%",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -841,7 +815,18 @@ export default function Venda({
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     whiteSpace: "normal",
+    wordBreak: "break-word",
     color: "#2563eb",
+  };
+  const comboChipStyle = {
+    fontSize: 10,
+    fontWeight: 800,
+    padding: "2px 8px",
+    borderRadius: 999,
+    background: "#f3f4f6",
+    color: "#111827",
+    border: "1px solid #e5e7eb",
+    textAlign: "center",
   };
 
   return (
@@ -867,64 +852,81 @@ export default function Venda({
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: 10,
+            gap: 8,
           }}
         >
-          {produtosAtivos.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => addProduto(p)}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: 18,
-                background: "#fff",
-                padding: 12,
-                cursor: "pointer",
-                minHeight: 112,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 6,
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              {p.img ? (
-                <img
-                  src={p.img}
-                  alt={p.nome}
-                  style={{
-                    width: 46,
-                    height: 46,
-                    objectFit: "contain",
-                    display: "block",
-                  }}
-                />
-              ) : (
-                <IconImg iconKey={p.iconKey} size={46} />
-              )}
-
-              <div style={produtoNomeClampStyle} title={p.nome}>
-                {p.nome}
-              </div>
-
-              {(p.tipo === "combo" || p.comboQtd) && (
-                <div style={comboChipStyle}>
-                  {`COMBO${p.comboQtd ? ` x${p.comboQtd}` : ""}`}
-                </div>
-              )}
-              <div
+          {produtosAtivos.map((p) => {
+            const isCombo = p.tipo === "combo" || p.comboQtd;
+            const comboCount = Math.max(2, Number(p.comboQtd) || 0);
+            const precoTotal = Number(p.preco) || 0;
+            const precoUnitario = comboCount ? precoTotal / comboCount : 0;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => addProduto(p)}
                 style={{
-                  fontWeight: 800,
-                  fontSize: 12,
-                  color: "#111827",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 18,
+                  background: "#fff",
+                  padding: 8,
+                  cursor: "pointer",
+                  minHeight: 98,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 4,
+                  WebkitTapHighlightColor: "transparent",
                 }}
               >
-                {fmtBRL(p.preco)}
-              </div>
-            </button>
-          ))}
+                {p.img ? (
+                  <img
+                    src={p.img}
+                    alt={p.nome}
+                    style={{
+                      width: 42,
+                      height: 42,
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <IconImg iconKey={p.iconKey} size={42} />
+                )}
+
+                <div style={produtoNomeClampStyle} title={p.nome}>
+                  {p.nome}
+                </div>
+
+                {isCombo && (
+                  <div style={comboChipStyle}>
+                    {`COMBO${p.comboQtd ? ` x${p.comboQtd}` : ""}`}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 12,
+                    color: "#111827",
+                  }}
+                >
+                  {fmtBRL(precoTotal)}
+                </div>
+                {isCombo && comboCount > 0 && (
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#4b5563",
+                    }}
+                  >
+                    {`(${fmtBRL(precoUnitario)} cada)`}
+                  </div>
+                )}
+              </button>
+            );
+          })}
 
           {produtosAtivos.length === 0 && (
             <div className="muted">
