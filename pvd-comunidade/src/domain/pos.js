@@ -21,6 +21,8 @@ export function buildVenda(data) {
       isBarril: it?.isBarril ?? false,
       barrilLitros: it?.barrilLitros ?? null,
       unitarioPorLitro: it?.unitarioPorLitro ?? null,
+      iconKey: it?.iconKey ?? "",
+      img: it?.img ?? "",
     };
   });
 
