@@ -70,7 +70,7 @@ export function expandirItensParaTickets(itens = []) {
           itemNome: `${nome} (combo)`,
           qtyText: "1x",
           valorUnit: unitDiv,
-          iconKey: item?.iconKey || "",
+          iconKey: item?.iconKey || "ref_600",
           img: item?.img || "",
           meta: { tipo: "combo", comboQtd: n },
         });
@@ -86,7 +86,7 @@ export function expandirItensParaTickets(itens = []) {
         itemNome: nome,
         qtyText: "1x",
         valorUnit,
-        iconKey: item?.iconKey || "",
+        iconKey: item?.iconKey || "ref_600",
         img: item?.img || "",
         meta: { tipo: "unitario" },
       });
@@ -251,24 +251,12 @@ function buildTicketsHTML({
   const safeLogoAlturaMm = Number.isFinite(logoAlturaNum)
     ? Math.min(30, Math.max(10, logoAlturaNum))
     : 20;
-  const modoImagem = /produto|icone|ícone|icon|product/i.test(
+  const modoImagem = /produto|icone|ícone|icon/i.test(
     String(ticketImagemModo || ""),
   )
     ? "produto"
     : "logo";
   const ecoImagem = Boolean(impressaoEcoImagem);
-
-  // Resolve imagem do ticket com fallback
-  const resolveTicketImgSrc = (t) => {
-    if (modoImagem === "logo") {
-      return toAbsUrl(logoDataUrl || "");
-    }
-    const iconKey = String(t?.iconKey || "").trim();
-    const iconSrc = iconKey ? ICONS[iconKey] || "" : "";
-    const itemImg = String(t?.img || "").trim();
-    const chosen = iconSrc || itemImg || "";
-    return toAbsUrl(chosen);
-  };
 
   const buildItemNameClass = (title) => {
     const size = String(title || "").length;
@@ -286,7 +274,9 @@ function buildTicketsHTML({
         String(t?.qtyText || "").trim() ||
         (fallbackTitle.match(/^\d+\s*x/i)?.[0] || "1x").trim();
       const tituloLinha = String(t?.linhaTitulo || `${qtyText} ${rawName}`).trim();
-      const imgSrc = resolveTicketImgSrc(t);
+      const iconSrc = ICONS?.[t?.iconKey] || "";
+      const imgSrc =
+        modoImagem === "logo" ? (logoDataUrl || "") : (iconSrc || "");
       return `
       <div class="ticket">
         <div class="inner">
@@ -298,7 +288,7 @@ function buildTicketsHTML({
             ${
               imgSrc
                 ? `<img src="${escAttr(imgSrc)}" alt="img" style="height:${safeLogoAlturaMm}mm;" />`
-                : ""
+                : `<div style="font-size:11px;font-weight:900;text-align:center;opacity:.6;">SEM ÍCONE</div>`
             }
           </div>
           <div class="sep"></div>

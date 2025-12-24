@@ -341,7 +341,7 @@ export default function Produtos({
     const qtdCombo =
       t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
     const varKey = `${nm}__${t}__${qtdCombo ?? ""}`;
-    const iconKey = getIconKeyForItem(nm);
+    const iconKey = getIconKeyForItem(nm) || "ref_600";
     const barril = isBarrilNome(nm) || iconKey === "barril";
 
     setProdutos((prev) => {
@@ -356,7 +356,7 @@ export default function Produtos({
         tipo: t,
         comboQtd: qtdCombo,
         varKey,
-        iconKey,
+        iconKey: iconKey || "ref_600",
         isBarril: barril,
         precoModo: barril ? "por_litro" : "unitario",
       };
