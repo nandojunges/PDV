@@ -246,26 +246,29 @@ function buildTicketsHTML({
     return s;
   };
 
-  // Resolve imagem do ticket com fallback
-  const resolveTicketImgSrc = (t) => {
-    const iconKey = String(t?.iconKey || "").trim();
-    const iconSrc = iconKey ? (ICONS[iconKey] || "") : "";
-    const itemImg = String(t?.img || "").trim();
-    // prioridade: ícone do produto > imagem do produto > logo
-    const chosen =
-      (modoImagem === "produto" ? (iconSrc || itemImg) : logoDataUrl) ||
-      logoDataUrl ||
-      "";
-    return toAbsUrl(chosen);
-  };
-
   const logoSlotMm = 35;
   const logoAlturaNum = Number(logoAlturaMm ?? 20);
   const safeLogoAlturaMm = Number.isFinite(logoAlturaNum)
     ? Math.min(30, Math.max(10, logoAlturaNum))
     : 20;
-  const modoImagem = ticketImagemModo === "produto" ? "produto" : "logo";
+  const modoImagem = /produto|icone|ícone|icon|product/i.test(
+    String(ticketImagemModo || ""),
+  )
+    ? "produto"
+    : "logo";
   const ecoImagem = Boolean(impressaoEcoImagem);
+
+  // Resolve imagem do ticket com fallback
+  const resolveTicketImgSrc = (t) => {
+    if (modoImagem === "logo") {
+      return toAbsUrl(logoDataUrl || "");
+    }
+    const iconKey = String(t?.iconKey || "").trim();
+    const iconSrc = iconKey ? ICONS[iconKey] || "" : "";
+    const itemImg = String(t?.img || "").trim();
+    const chosen = iconSrc || itemImg || "";
+    return toAbsUrl(chosen);
+  };
 
   const buildItemNameClass = (title) => {
     const size = String(title || "").length;
