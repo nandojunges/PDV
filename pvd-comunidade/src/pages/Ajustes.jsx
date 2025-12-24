@@ -44,9 +44,6 @@ export default function Ajustes({
     if (!Number.isFinite(Number(ajustes?.logoImgMm))) {
       next.logoImgMm = 20;
     }
-    if (!ajustes?.ticketImagemModo) {
-      next.ticketImagemModo = "logo";
-    }
     if (typeof ajustes?.impressaoEcoImagem !== "boolean") {
       next.impressaoEcoImagem = false;
     }
@@ -55,7 +52,6 @@ export default function Ajustes({
     }
   }, [
     ajustes?.logoImgMm,
-    ajustes?.ticketImagemModo,
     ajustes?.impressaoEcoImagem,
     setAjustes,
   ]);
@@ -66,7 +62,6 @@ export default function Ajustes({
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
-      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
       impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     }));
     if (hasEventoAberto && typeof onSalvar === "function") {
@@ -285,16 +280,30 @@ export default function Ajustes({
   const previewTitulo = `${preview.qtd}x ${preview.produto}`.trim();
   const previewItemFont =
     previewTitulo.length > 24 ? 12 : previewTitulo.length > 18 ? 13 : 14;
-  const modoImagem = /produto|icone|ícone|icon|product/i.test(
-    String(ajustes?.ticketImagemModo || ""),
-  )
+  const modoImagemRaw = String(ajustes?.ticketImagemModo || "").trim();
+  const modoImagemLower = modoImagemRaw.toLowerCase();
+  const modoImagem = /produto|icone|ícone|icon|product/i.test(modoImagemLower)
     ? "produto"
-    : "logo";
+    : modoImagemLower === "texto"
+      ? "texto"
+      : modoImagemLower === "logo"
+        ? "logo"
+        : "produto";
   const previewIconKey = preview.iconKey || "ref_600";
   const previewImgSrc =
     modoImagem === "logo"
       ? preview.logo
-      : ICONS[previewIconKey] || ICONS.ref_600;
+      : modoImagem === "produto"
+        ? ICONS[previewIconKey] || ICONS.ref_600
+        : "";
+  const previewTextoLogo =
+    String(
+      ajustes?.ticketImagemTexto || ajustes?.logoTexto || ajustes?.textoLogo || "",
+    ).trim() || "SEU TEXTO";
+  const textoLogoBold = Boolean(
+    ajustes?.logoTextoNegrito || ajustes?.logoTextoBold || ajustes?.textoLogoBold,
+  );
+  const textoLogoFontSize = Math.round(logoAlturaMm * 0.9) + 6;
   const previewImgStyle = s.logoImg;
 
   return (
@@ -534,7 +543,21 @@ export default function Ajustes({
 
                 <div style={s.dash} />
                 <div style={s.logoBox}>
-                  {previewImgSrc ? (
+                  {modoImagem === "texto" ? (
+                    <div
+                      style={{
+                        fontSize: textoLogoFontSize,
+                        fontWeight: textoLogoBold ? 950 : 700,
+                        lineHeight: 1.1,
+                        textAlign: "center",
+                        letterSpacing: 0.2,
+                        color: "#0f172a",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {previewTextoLogo}
+                    </div>
+                  ) : previewImgSrc ? (
                     <img src={previewImgSrc} alt="logo" style={previewImgStyle} />
                   ) : null}
                 </div>
