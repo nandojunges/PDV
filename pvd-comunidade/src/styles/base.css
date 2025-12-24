@@ -194,6 +194,12 @@ html { scroll-padding-top: var(--sticky-offset, 140px); }
 
 .big { font-weight: 900; font-size: 22px; }
 
+.ticketPreview.eco-img .ticketPreviewImg {
+  filter: grayscale(1) contrast(0.85) brightness(1.1) saturate(0.35);
+  opacity: 0.7;
+  image-rendering: pixelated;
+}
+
 /* Venda */
 .atalhoGrid {
   display: grid;
