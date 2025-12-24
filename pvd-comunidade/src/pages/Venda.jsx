@@ -70,7 +70,7 @@ export function expandirItensParaTickets(itens = []) {
           itemNome: `${nome} (combo)`,
           qtyText: "1x",
           valorUnit: unitDiv,
-          iconKey: item?.iconKey || "ref_600",
+          iconKey: item?.iconKey || "",
           img: item?.img || "",
           meta: { tipo: "combo", comboQtd: n },
         });
@@ -86,7 +86,7 @@ export function expandirItensParaTickets(itens = []) {
         itemNome: nome,
         qtyText: "1x",
         valorUnit,
-        iconKey: item?.iconKey || "ref_600",
+        iconKey: item?.iconKey || "",
         img: item?.img || "",
         meta: { tipo: "unitario" },
       });
@@ -274,7 +274,8 @@ function buildTicketsHTML({
         String(t?.qtyText || "").trim() ||
         (fallbackTitle.match(/^\d+\s*x/i)?.[0] || "1x").trim();
       const tituloLinha = String(t?.linhaTitulo || `${qtyText} ${rawName}`).trim();
-      const iconSrc = ICONS?.[t?.iconKey] || "";
+      const hasIconKey = Boolean(String(t?.iconKey || "").trim());
+      const iconSrc = hasIconKey ? ICONS?.[t?.iconKey] || "" : ICONS?.ref_600 || "";
       const imgSrc =
         modoImagem === "logo" ? (logoDataUrl || "") : (iconSrc || "");
       return `
