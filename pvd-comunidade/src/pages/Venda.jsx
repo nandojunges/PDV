@@ -818,16 +818,6 @@ export default function Venda({
     wordBreak: "break-word",
     color: "#2563eb",
   };
-  const comboChipStyle = {
-    fontSize: 10,
-    fontWeight: 800,
-    padding: "2px 8px",
-    borderRadius: 999,
-    background: "#f3f4f6",
-    color: "#111827",
-    border: "1px solid #e5e7eb",
-    textAlign: "center",
-  };
 
   return (
     <div
