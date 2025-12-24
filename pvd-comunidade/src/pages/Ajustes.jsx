@@ -271,9 +271,16 @@ export default function Ajustes({
   const previewTitulo = `${preview.qtd}x ${preview.produto}`.trim();
   const previewItemFont =
     previewTitulo.length > 24 ? 12 : previewTitulo.length > 18 ? 13 : 14;
-  const modoImagem = ajustes?.ticketImagemModo || "logo";
+  const modoImagem = /produto|icone|ícone|icon|product/i.test(
+    String(ajustes?.ticketImagemModo || ""),
+  )
+    ? "produto"
+    : "logo";
+  const previewIconKey = preview.iconKey || "ref_600";
   const previewImgSrc =
-    modoImagem === "logo" ? preview.logo : ICONS[preview.iconKey];
+    modoImagem === "logo"
+      ? preview.logo
+      : ICONS[previewIconKey] || ICONS.ref_600;
   const previewImgStyle = s.logoImg;
 
   return (
@@ -336,7 +343,7 @@ export default function Ajustes({
                     }
                     disabled={readOnly}
                   />
-                  Usar logo (upload)
+                  Logo do evento
                 </label>
                 <label style={{ display: "flex", gap: 8, fontWeight: 800 }}>
                   <input
@@ -352,7 +359,7 @@ export default function Ajustes({
                     }
                     disabled={readOnly}
                   />
-                  Usar ícone do produto
+                  Ícone do produto
                 </label>
               </div>
 
