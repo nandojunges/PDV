@@ -396,6 +396,20 @@ export default function Produtos({
 
   const podeFinalizar = itensEvento.length >= 1 && !readOnly;
   const barrilAtual = isBarrilNome(nome);
+  const produtoNomeClampStyle = {
+    fontWeight: 950,
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 1.2,
+    maxWidth: "100%",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    color: "#2563eb",
+  };
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -710,7 +724,7 @@ export default function Produtos({
                 padding: 12,
                 cursor: bloqueadoEdicao ? "not-allowed" : "pointer",
                 opacity: bloqueadoEdicao ? 0.6 : 1,
-                minHeight: 86,
+                minHeight: 112,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
@@ -721,20 +735,7 @@ export default function Produtos({
             >
               <IconImg iconKey={it.key} size={46} />
 
-              <div
-                style={{
-                  fontWeight: 950,
-                  fontSize: 13,
-                  textAlign: "center",
-                  lineHeight: 1.1,
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  color: "#2563eb",
-                }}
-                title={it.nome}
-              >
+              <div style={produtoNomeClampStyle} title={it.nome}>
                 {it.nome}
               </div>
             </button>

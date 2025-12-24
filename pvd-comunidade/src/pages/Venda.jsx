@@ -21,6 +21,32 @@ const DEFAULT_BARRIL_LITROS = 30;
 
 function IconImg({ iconKey, size = 42 }) {
   const src = ICONS[iconKey] || ICONS.ref_600;
+  const produtoNomeClampStyle = {
+    fontWeight: 950,
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 1.2,
+    maxWidth: "100%",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    color: "#2563eb",
+  };
+
+  const comboChipStyle = {
+    fontSize: 10,
+    fontWeight: 800,
+    padding: "2px 8px",
+    borderRadius: 999,
+    background: "#f3f4f6",
+    color: "#111827",
+    border: "1px solid #e5e7eb",
+    textAlign: "center",
+  };
+
   return (
     <img
       src={src}
@@ -824,7 +850,7 @@ export default function Venda({
                 background: "#fff",
                 padding: 12,
                 cursor: "pointer",
-                minHeight: 86,
+                minHeight: 112,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
@@ -848,22 +874,15 @@ export default function Venda({
                 <IconImg iconKey={p.iconKey} size={46} />
               )}
 
-              <div
-                style={{
-                  fontWeight: 950,
-                  fontSize: 13,
-                  textAlign: "center",
-                  lineHeight: 1.1,
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  color: "#2563eb",
-                }}
-                title={p.nome}
-              >
+              <div style={produtoNomeClampStyle} title={p.nome}>
                 {p.nome}
               </div>
+
+              {(p.tipo === "combo" || p.comboQtd) && (
+                <div style={comboChipStyle}>
+                  {`COMBO${p.comboQtd ? ` x${p.comboQtd}` : ""}`}
+                </div>
+              )}
               <div
                 style={{
                   fontWeight: 800,
