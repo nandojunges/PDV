@@ -812,6 +812,20 @@ export default function Venda({
   const itensConfirm = Array.isArray(vendaDraft?.carrinho)
     ? vendaDraft.carrinho
     : [];
+  const produtoNomeClampStyle = {
+    fontWeight: 950,
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 1.1,
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    whiteSpace: "normal",
+    color: "#2563eb",
+  };
 
   return (
     <div
