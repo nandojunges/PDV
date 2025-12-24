@@ -5,7 +5,6 @@ import Button from "../components/Button";
 import { fmtBRL, toNumBR } from "../domain/math";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
-import { expandirItensParaTickets, printTickets } from "./Venda";
 
 /* ===================== máscara de moeda (digit shifting) ===================== */
 function onlyDigits(s) {
@@ -42,15 +41,251 @@ function formatHora(iso) {
   return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
 }
 
-function getVendaDate(venda) {
-  return (
-    venda?.criadoEm ||
-    venda?.createdAt ||
-    venda?.data ||
-    venda?.created_at ||
-    venda?.created ||
-    null
-  );
+function formatDateTime(iso) {
+  const dt = new Date(iso || Date.now());
+  if (Number.isNaN(dt.getTime())) return "--/--/---- --:--";
+  return dt.toLocaleString("pt-BR");
+}
+
+function normalizePayment(pagamentoRaw) {
+  const p = String(pagamentoRaw ?? "").trim().toLowerCase();
+  if (!p || p === "dinheiro" || p === "cash") return "dinheiro";
+  if (p.includes("pix")) return "pix";
+  if (p.includes("cart") || p.includes("card") || p.includes("credito") || p.includes("debito")) {
+    return "cartao";
+  }
+  return "dinheiro";
+}
+
+function safeNum(value) {
+  return Number(value) || 0;
+}
+
+function extractItensFromVenda(venda) {
+  const itens =
+    venda?.itens ??
+    venda?.items ??
+    venda?.produtos ??
+    venda?.products ??
+    venda?.carrinho ??
+    venda?.cart ??
+    [];
+  if (!Array.isArray(itens)) return [];
+
+  return itens
+    .map((it) => {
+      const nome =
+        it?.nome ??
+        it?.name ??
+        it?.titulo ??
+        it?.title ??
+        it?.descricao ??
+        it?.produto ??
+        "";
+      const qtd = safeNum(it?.qtd ?? it?.qty ?? it?.quantidade ?? it?.quantity) || 1;
+      const total =
+        safeNum(it?.subtotal ?? it?.total ?? it?.valorTotal ?? it?.valor_total ?? 0) || 0;
+      let preco = safeNum(
+        it?.unitario ??
+          it?.preco ??
+          it?.price ??
+          it?.valor ??
+          it?.unitPrice ??
+          it?.precoUnit
+      );
+      if (!preco && total && qtd) {
+        preco = total / qtd;
+      }
+      if (!nome || (!total && !preco)) return null;
+      const totalFinal = total || preco * qtd;
+      if (!Number.isFinite(totalFinal) || !Number.isFinite(preco)) return null;
+      return {
+        nome: String(nome).trim(),
+        qtd: qtd || 1,
+        preco,
+        total: totalFinal,
+      };
+    })
+    .filter(Boolean);
+}
+
+function aggregateItens(vendasLista) {
+  const mapa = new Map();
+  vendasLista.forEach((venda) => {
+    extractItensFromVenda(venda).forEach((it) => {
+      const nomeNormalizado = String(it.nome).trim().toLowerCase();
+      const precoCentavos = Math.round(safeNum(it.preco) * 100);
+      const key = `${nomeNormalizado}|${precoCentavos}`;
+      const atual = mapa.get(key) || {
+        nome: it.nome,
+        preco: safeNum(it.preco),
+        qtd: 0,
+        total: 0,
+      };
+      atual.qtd += safeNum(it.qtd);
+      atual.total += safeNum(it.total);
+      mapa.set(key, atual);
+    });
+  });
+
+  return Array.from(mapa.values()).sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    if (b.qtd !== a.qtd) return b.qtd - a.qtd;
+    return a.nome.localeCompare(b.nome);
+  });
+}
+
+function getDeviceInfo(venda) {
+  const deviceId =
+    venda?.deviceId ??
+    venda?.deviceID ??
+    venda?.device?.id ??
+    venda?.maquininhaId ??
+    "local";
+  const deviceName =
+    venda?.deviceName ??
+    venda?.device?.name ??
+    venda?.device?.label ??
+    venda?.maquininhaName ??
+    "Local";
+  return {
+    deviceId: String(deviceId || "local"),
+    deviceName: String(deviceName || "Local"),
+  };
+}
+
+function buildRelatorioHtml({
+  eventoNome,
+  abertoEm,
+  fechadoEm,
+  abertura,
+  totalVendidoGeral,
+  pagamentosGeral,
+  itensGeral,
+  sangrias,
+  totalSangrias,
+  saldoDinheiroFinal,
+  porDevice,
+}) {
+  const agora = new Date();
+  const linhasSangrias = (sangrias || [])
+    .map(
+      (s, index) =>
+        `<div class="row"><span>Sangria ${index + 1}</span><span>${fmtBRL(
+          safeNum(s?.valor)
+        )}</span></div>`
+    )
+    .join("");
+
+  const tabelaItens = (titulo, itens) => {
+    if (!itens || itens.length === 0) {
+      return `<div class="muted">Nenhum item registrado.</div>`;
+    }
+    const linhas = itens
+      .map(
+        (it) => `<tr>
+        <td>${it.nome}</td>
+        <td class="right">${it.qtd}</td>
+        <td class="right">${fmtBRL(safeNum(it.total))}</td>
+      </tr>`
+      )
+      .join("");
+    return `
+      <div class="section-title">${titulo}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="right">Qtd.</th>
+            <th class="right">Total</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    `;
+  };
+
+  const tabelaDevices = (porDevice || [])
+    .map((device) => {
+      const pagamentos = device?.pagamentos || {};
+      return `
+        <div class="device-section">
+          <div class="section-title">Por maquininha: ${device.deviceName || "Local"} (${
+        device.deviceId || "local"
+      })</div>
+          <div class="row"><span>Total vendido</span><span>${fmtBRL(
+            safeNum(device.totalVendido)
+          )}</span></div>
+          <div class="row"><span>Dinheiro</span><span>${fmtBRL(
+            safeNum(pagamentos.dinheiro)
+          )}</span></div>
+          <div class="row"><span>Pix</span><span>${fmtBRL(
+            safeNum(pagamentos.pix)
+          )}</span></div>
+          <div class="row"><span>Cartão</span><span>${fmtBRL(
+            safeNum(pagamentos.cartao)
+          )}</span></div>
+          ${tabelaItens("Itens vendidos", device.itens || [])}
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <html>
+      <head>
+        <title>Relatório de Fechamento</title>
+        <style>
+          body { font-family: Arial, sans-serif; font-size: 12px; padding: 16px; color: #111; }
+          h1 { font-size: 18px; margin: 0 0 8px 0; }
+          .muted { color: #666; }
+          .section-title { font-weight: 700; margin: 16px 0 8px; }
+          .row { display: flex; justify-content: space-between; margin: 4px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th, td { border-bottom: 1px solid #e5e7eb; padding: 6px 0; text-align: left; }
+          .right { text-align: right; }
+          .device-section { margin-top: 16px; }
+        </style>
+      </head>
+      <body>
+        <h1>Relatório de Fechamento</h1>
+        <div class="muted">Evento: ${eventoNome || "-"}</div>
+        <div class="muted">Período: ${formatDateTime(abertoEm)} → ${formatDateTime(
+    fechadoEm
+  )}</div>
+        <div class="section-title">Resumo geral</div>
+        <div class="row"><span>Abertura</span><span>${fmtBRL(safeNum(abertura))}</span></div>
+        <div class="row"><span>Total vendido</span><span>${fmtBRL(
+          safeNum(totalVendidoGeral)
+        )}</span></div>
+        <div class="row"><span>Dinheiro</span><span>${fmtBRL(
+          safeNum(pagamentosGeral?.dinheiro)
+        )}</span></div>
+        <div class="row"><span>Pix</span><span>${fmtBRL(
+          safeNum(pagamentosGeral?.pix)
+        )}</span></div>
+        <div class="row"><span>Cartão</span><span>${fmtBRL(
+          safeNum(pagamentosGeral?.cartao)
+        )}</span></div>
+
+        <div class="section-title">Sangrias</div>
+        ${linhasSangrias || '<div class="muted">Nenhuma sangria registrada.</div>'}
+        <div class="row"><span>Total de sangrias</span><span>${fmtBRL(
+          safeNum(totalSangrias)
+        )}</span></div>
+        <div class="row"><span>Saldo final em dinheiro</span><span>${fmtBRL(
+          safeNum(saldoDinheiroFinal)
+        )}</span></div>
+
+        ${tabelaItens("Itens vendidos (Geral)", itensGeral || [])}
+
+        ${tabelaDevices}
+
+        <div class="section-title">Impresso em</div>
+        <div class="muted">${formatDateTime(agora.toISOString())}</div>
+      </body>
+    </html>
+  `;
 }
 
 export default function Caixa({
@@ -90,15 +325,6 @@ export default function Caixa({
     });
   }, [vendasLista, eventoRef?.id, eventoRef?.nome]);
 
-  const vendasRecentes = useMemo(() => {
-    const ordenadas = [...vendasEvento].sort((a, b) => {
-      const dataA = new Date(getVendaDate(a) || 0).getTime();
-      const dataB = new Date(getVendaDate(b) || 0).getTime();
-      return dataB - dataA;
-    });
-    return ordenadas.slice(0, 10);
-  }, [vendasEvento]);
-
   function totalFallback(v) {
     if (Number(v?.total)) return Number(v.total);
     const itens = v?.itens ?? v?.carrinho ?? [];
@@ -112,12 +338,52 @@ export default function Caixa({
     );
   }
 
-  const totalDinheiroVendas = vendasEvento
-    .filter((v) => {
-      const p = String(v?.pagamento ?? v?.formaPagamento ?? "").toLowerCase();
-      return p === "dinheiro" || p === "cash" || p === "";
-    })
-    .reduce((s, v) => s + totalFallback(v), 0);
+  const pagamentosGeral = useMemo(() => {
+    return vendasEvento.reduce(
+      (acc, venda) => {
+        const tipo = normalizePayment(venda?.pagamento ?? venda?.formaPagamento);
+        acc[tipo] += totalFallback(venda);
+        return acc;
+      },
+      { dinheiro: 0, pix: 0, cartao: 0 }
+    );
+  }, [vendasEvento]);
+
+  const totalVendidoGeral = useMemo(() => {
+    return pagamentosGeral.dinheiro + pagamentosGeral.pix + pagamentosGeral.cartao;
+  }, [pagamentosGeral]);
+
+  const itensGeral = useMemo(() => aggregateItens(vendasEvento), [vendasEvento]);
+
+  const porDevice = useMemo(() => {
+    const mapa = new Map();
+    vendasEvento.forEach((venda) => {
+      const deviceInfo = getDeviceInfo(venda);
+      const atual =
+        mapa.get(deviceInfo.deviceId) || {
+          deviceId: deviceInfo.deviceId,
+          deviceName: deviceInfo.deviceName,
+          totalVendido: 0,
+          pagamentos: { dinheiro: 0, pix: 0, cartao: 0 },
+          vendas: [],
+        };
+      atual.totalVendido += totalFallback(venda);
+      const tipo = normalizePayment(venda?.pagamento ?? venda?.formaPagamento);
+      atual.pagamentos[tipo] += totalFallback(venda);
+      atual.vendas.push(venda);
+      mapa.set(deviceInfo.deviceId, atual);
+    });
+
+    return Array.from(mapa.values())
+      .map((device) => ({
+        deviceId: device.deviceId,
+        deviceName: device.deviceName,
+        totalVendido: device.totalVendido,
+        pagamentos: device.pagamentos,
+        itens: aggregateItens(device.vendas),
+      }))
+      .sort((a, b) => b.totalVendido - a.totalVendido);
+  }, [vendasEvento]);
 
   // ✅ campo abertura com máscara “shift”
   const [aberturaTxt, setAberturaTxt] = useState(() => {
@@ -132,7 +398,7 @@ export default function Caixa({
     return Number(toNumBR(aberturaTxt) || 0) || 0;
   }, [aberturaTxt]);
 
-  const entrouDinheiro = useMemo(() => totalDinheiroVendas, [totalDinheiroVendas]);
+  const entrouDinheiro = useMemo(() => pagamentosGeral.dinheiro, [pagamentosGeral]);
   const movimentos = useMemo(() => {
     return Array.isArray(caixaSafe.movimentos) ? caixaSafe.movimentos : [];
   }, [caixaSafe.movimentos]);
@@ -229,6 +495,9 @@ export default function Caixa({
     if (!aberturaJaDefinida) return alert("Abra o caixa antes de finalizar.");
 
     const fecharAgora = new Date().toISOString();
+    const totalSangriasSafe = Number(totalSangrias || 0) || 0;
+    const saldoDinheiroFinal =
+      Number(abertura || 0) + Number(pagamentosGeral.dinheiro || 0) - totalSangriasSafe;
 
     // ✅ snapshot simples do fechamento (sem itens)
     const fechamento = {
@@ -238,13 +507,41 @@ export default function Caixa({
       abertura: Number(abertura || 0) || 0,
       entrouDinheiro: Number(entrouDinheiro || 0) || 0,
       totalNoCaixa: Number(totalNoCaixaAgora || 0) || 0,
+      totalVendidoGeral: Number(totalVendidoGeral || 0) || 0,
+      pagamentosGeral: {
+        dinheiro: Number(pagamentosGeral.dinheiro || 0) || 0,
+        pix: Number(pagamentosGeral.pix || 0) || 0,
+        cartao: Number(pagamentosGeral.cartao || 0) || 0,
+      },
+      itensGeral: itensGeral.map((it) => ({
+        nome: it.nome,
+        preco: Number(it.preco || 0) || 0,
+        qtd: Number(it.qtd || 0) || 0,
+        total: Number(it.total || 0) || 0,
+      })),
+      porDevice: porDevice.map((device) => ({
+        deviceId: device.deviceId,
+        deviceName: device.deviceName,
+        totalVendido: Number(device.totalVendido || 0) || 0,
+        pagamentos: {
+          dinheiro: Number(device.pagamentos?.dinheiro || 0) || 0,
+          pix: Number(device.pagamentos?.pix || 0) || 0,
+          cartao: Number(device.pagamentos?.cartao || 0) || 0,
+        },
+        itens: (device.itens || []).map((it) => ({
+          nome: it.nome,
+          preco: Number(it.preco || 0) || 0,
+          qtd: Number(it.qtd || 0) || 0,
+          total: Number(it.total || 0) || 0,
+        })),
+      })),
       sangrias: sangrias.map((mov) => ({
         id: mov?.id,
         valor: Number(mov?.valor) || 0,
         criadoEm: mov?.criadoEm || null,
       })),
-      totalSangrias: Number(totalSangrias || 0) || 0,
-      saldoDinheiroFinal: Number(totalNoCaixaAgora || 0) || 0,
+      totalSangrias: totalSangriasSafe,
+      saldoDinheiroFinal,
     };
 
     // ✅ marca no cache como ENCERRADO
@@ -263,6 +560,35 @@ export default function Caixa({
       encerradoEm: fecharAgora,
     }));
 
+    const cfg = loadJSON(LS_KEYS.config, loadJSON(LS_KEYS.ajustes, {}));
+    const isMaster = cfg?.modoMulti !== "client";
+    if (isMaster) {
+      const html = buildRelatorioHtml({
+        eventoNome,
+        abertoEm: fechamento.abertoEm,
+        fechadoEm: fechamento.fechadoEm,
+        abertura: fechamento.abertura,
+        totalVendidoGeral: fechamento.totalVendidoGeral,
+        pagamentosGeral: fechamento.pagamentosGeral,
+        itensGeral: fechamento.itensGeral,
+        sangrias: fechamento.sangrias,
+        totalSangrias: fechamento.totalSangrias,
+        saldoDinheiroFinal: fechamento.saldoDinheiroFinal,
+        porDevice: fechamento.porDevice,
+      });
+      const w = window.open("", "_blank", "width=420,height=720");
+      if (w) {
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        setTimeout(() => {
+          w.focus();
+          w.print();
+          w.close();
+        }, 250);
+      }
+    }
+
     // ✅ o "zerar relatório" é o pai limpar o evento atual.
     // Aqui só disparamos o callback.
     if (typeof onFinalizarCaixa === "function") onFinalizarCaixa(fechamento);
@@ -270,22 +596,6 @@ export default function Caixa({
 
   const bloqueiaZerarCaixa =
     vendasEvento.length > 0 || flowState === "CAIXA_ABERTO";
-
-  function reimprimirVenda(venda) {
-    if (!venda?.itens?.length) return;
-    const tickets = expandirItensParaTickets(venda.itens);
-    const ajustes = loadJSON(LS_KEYS.ajustes, {});
-    printTickets({
-      eventoNome: venda.eventoNome || evento.nome,
-      dataISO: venda.criadoEm || venda.createdAt || new Date().toISOString(),
-      tickets,
-      mensagemRodape: ajustes?.textoRodape || "Obrigado pela preferência!",
-      logoDataUrl: ajustes?.logoDataUrl || "",
-      logoAlturaMm: Number(ajustes?.logoImgMm || 20),
-      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
-      impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
-    });
-  }
 
   return (
     <div className="split caixaRoot">
@@ -464,58 +774,6 @@ export default function Caixa({
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
           Ao finalizar: o evento fica marcado como encerrado e o sistema deve limpar o evento atual (Relatório zera).
         </div>
-      </Card>
-
-      <Card title="Últimas vendas" subtitle="Reimprima se a impressora falhar.">
-        {!eventoAberto ? (
-          <div className="muted">Abra um evento para ver as últimas vendas.</div>
-        ) : vendasRecentes.length === 0 ? (
-          <div className="muted">Nenhuma venda registrada neste evento.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {vendasRecentes.map((venda, index) => {
-              const dataISO = getVendaDate(venda);
-              const hora = formatHora(dataISO);
-              const totalVenda = Number(venda?.total || 0) || 0;
-              const pagamento = String(venda?.pagamento || "dinheiro");
-              const podeReimprimir = Array.isArray(venda?.itens) && venda.itens.length > 0;
-              return (
-                <div
-                  key={venda?.id || `${dataISO || "sem-data"}-${index}`}
-                  className="row space"
-                  style={{
-                    paddingBottom: 10,
-                    borderBottom: "1px solid #e5e7eb",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <div style={{ fontWeight: 900 }}>{hora}</div>
-                      {index === 0 && <span className="badge">ÚLTIMA</span>}
-                    </div>
-                    <div className="muted">
-                      {fmtBRL(totalVenda)} • {pagamento}
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    small
-                    onClick={() => reimprimirVenda(venda)}
-                    disabled={disabled || !podeReimprimir}
-                    title={
-                      podeReimprimir
-                        ? "Reimprimir tickets"
-                        : "Venda sem itens para reimprimir"
-                    }
-                  >
-                    Reimprimir
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </Card>
     </div>
   );

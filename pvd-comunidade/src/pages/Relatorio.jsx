@@ -39,6 +39,15 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
   const evento = eventoProp ?? loadJSON(LS_KEYS.evento, null);
   const vendas = Array.isArray(vendasProp) ? vendasProp : loadJSON(LS_KEYS.vendas, []);
   const caixa = caixaProp ?? loadJSON(LS_KEYS.caixa, null);
+  const eventosMeta = loadJSON(LS_KEYS.eventosMeta, []);
+
+  const metaEvento = useMemo(() => {
+    if (!evento?.nome || !Array.isArray(eventosMeta)) return null;
+    return eventosMeta.find((item) => norm(item?.nome) === norm(evento.nome)) || null;
+  }, [eventosMeta, evento?.nome]);
+
+  const fechamento = metaEvento?.fechamento || null;
+  const usandoFechamento = Boolean(fechamento?.fechadoEm || metaEvento?.encerradoEm);
 
   const vendasEvento = vendas.filter((v) => {
     const matchId = evento?.id && v?.eventoId && v.eventoId === evento.id;
@@ -47,7 +56,7 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
     return matchId || matchNome;
   });
 
-  const isMaster = permitirMultiDispositivo && config?.modoMulti === "master";
+  const isMaster = permitirMultiDispositivo && config?.modoMulti === "master" && !usandoFechamento;
   const saleSummaries = useMemo(() => {
     if (!isMaster) return [];
     const raw = loadJSON(LS_KEYS.saleSummaries, []);
@@ -163,7 +172,7 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
     });
   }
 
-  const linhas = Array.from(mapa.values()).map((it) => {
+  const linhasCalculadas = Array.from(mapa.values()).map((it) => {
     if (!it.barrilLitros) return it;
     const litrosTag = `${it.barrilLitros}L`;
     const jaTemLitros = new RegExp(`\\b${it.barrilLitros}\\s*L\\b`, "i").test(it.nome);
@@ -172,9 +181,28 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
       nome: jaTemLitros ? it.nome : `${it.nome} ${litrosTag}`,
     };
   });
-  const totalVendido = linhas.reduce((s, l) => s + l.total, 0);
-  const abertura = Number(caixa?.abertura ?? 0);
+  const linhasFechamento = Array.isArray(fechamento?.itensGeral) ? fechamento.itensGeral : [];
+  const linhas = usandoFechamento ? linhasFechamento : linhasCalculadas;
+  const totalVendido = usandoFechamento
+    ? Number(
+        fechamento?.totalVendidoGeral ??
+          linhasFechamento.reduce((s, l) => s + (Number(l?.total) || 0), 0)
+      )
+    : linhas.reduce((s, l) => s + l.total, 0);
+  const abertura = usandoFechamento ? Number(fechamento?.abertura ?? 0) : Number(caixa?.abertura ?? 0);
   const totalGeral = abertura + totalVendido;
+  const sangrias = usandoFechamento
+    ? fechamento?.sangrias || []
+    : (Array.isArray(caixa?.movimentos) ? caixa.movimentos : []).filter(
+        (mov) => mov?.tipo === "sangria"
+      );
+  const totalSangrias = usandoFechamento
+    ? Number(fechamento?.totalSangrias ?? 0)
+    : sangrias.reduce((s, mov) => s + (Number(mov?.valor) || 0), 0);
+  const saldoDinheiroFinal = usandoFechamento
+    ? Number(fechamento?.saldoDinheiroFinal ?? 0)
+    : abertura + totalVendido - totalSangrias;
+  const porDeviceFechamento = Array.isArray(fechamento?.porDevice) ? fechamento.porDevice : [];
 
   return (
     <Card
@@ -201,9 +229,86 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
               <div className="muted">Total (abertura + vendas)</div>
               <div className="big">{fmtBRL(totalGeral)}</div>
             </div>
+            <div className="miniCard">
+              <div className="muted">Total de sangrias</div>
+              <div className="big">{fmtBRL(totalSangrias)}</div>
+            </div>
+            <div className="miniCard">
+              <div className="muted">Saldo final em dinheiro</div>
+              <div className="big">{fmtBRL(saldoDinheiroFinal)}</div>
+            </div>
           </div>
 
           <div className="hr" />
+
+          <div className="muted" style={{ fontWeight: 900, marginBottom: 8 }}>
+            Sangrias do evento
+          </div>
+          {sangrias.length === 0 ? (
+            <div className="muted">Nenhuma sangria registrada.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sangrias.map((mov, index) => (
+                <div key={mov?.id || `${mov?.criadoEm}-${index}`} className="row space">
+                  <div style={{ fontWeight: 800 }}>Sangria {index + 1}</div>
+                  <div style={{ fontWeight: 800 }}>{fmtBRL(Number(mov?.valor) || 0)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="hr" />
+
+          {usandoFechamento && porDeviceFechamento.length > 0 && (
+            <>
+              <div className="muted" style={{ fontWeight: 900, marginBottom: 8 }}>
+                Por maquininha
+              </div>
+              <div style={{ display: "grid", gap: 16 }}>
+                {porDeviceFechamento.map((device) => (
+                  <div key={device.deviceId || device.deviceName} className="tableWrap">
+                    <div style={{ fontWeight: 900, marginBottom: 6 }}>
+                      {device.deviceName || "Local"}
+                      <span className="muted" style={{ marginLeft: 6, fontWeight: 700 }}>
+                        ({device.deviceId || "local"})
+                      </span>
+                    </div>
+                    <div className="row" style={{ flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
+                      <div className="miniCard">
+                        <div className="muted">Total</div>
+                        <div className="big">{fmtBRL(Number(device.totalVendido || 0))}</div>
+                      </div>
+                    </div>
+                    {device.itens?.length ? (
+                      <table className="table" style={{ width: "100%" }}>
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th style={{ width: 90, textAlign: "right" }}>Qtd.</th>
+                            <th style={{ width: 120, textAlign: "right" }}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {device.itens.map((item) => (
+                            <tr key={`${device.deviceId}-${item.nome}`}>
+                              <td style={{ fontWeight: 800 }}>{item.nome}</td>
+                              <td style={{ textAlign: "right" }}>{item.qtd}</td>
+                              <td style={{ textAlign: "right" }}>
+                                {fmtBRL(Number(item.total || 0))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="muted">Nenhum item registrado.</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="hr" />
+            </>
+          )}
 
           {isMaster && (
             <>
@@ -286,16 +391,21 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
                   </tr>
                 </thead>
                 <tbody>
-                  {linhas.map((it) => (
-                    <tr key={it.nome}>
-                      <td style={{ fontWeight: 900 }}>{it.nome}</td>
-                      <td style={{ textAlign: "right" }}>{it.qtd}</td>
-                      <td style={{ textAlign: "right" }}>
-                        {it.unitario > 0 ? fmtBRL(it.unitario) : "—"}
-                      </td>
-                      <td style={{ textAlign: "right", fontWeight: 900 }}>{fmtBRL(it.total)}</td>
-                    </tr>
-                  ))}
+                  {linhas.map((it) => {
+                    const unitario = Number(it.unitario ?? it.preco ?? 0);
+                    return (
+                      <tr key={it.nome}>
+                        <td style={{ fontWeight: 900 }}>{it.nome}</td>
+                        <td style={{ textAlign: "right" }}>{it.qtd}</td>
+                        <td style={{ textAlign: "right" }}>
+                          {unitario > 0 ? fmtBRL(unitario) : "—"}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 900 }}>
+                          {fmtBRL(it.total)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>
