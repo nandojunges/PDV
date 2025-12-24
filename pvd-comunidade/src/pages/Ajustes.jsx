@@ -44,9 +44,6 @@ export default function Ajustes({
     if (!Number.isFinite(Number(ajustes?.logoImgMm))) {
       next.logoImgMm = 20;
     }
-    if (!ajustes?.ticketImagemModo) {
-      next.ticketImagemModo = "produto";
-    }
     if (typeof ajustes?.impressaoEcoImagem !== "boolean") {
       next.impressaoEcoImagem = false;
     }
@@ -58,7 +55,6 @@ export default function Ajustes({
     }
   }, [
     ajustes?.logoImgMm,
-    ajustes?.ticketImagemModo,
     ajustes?.impressaoEcoImagem,
     ajustes?.ticketTopoTextoBold,
     setAjustes,
@@ -333,6 +329,7 @@ export default function Ajustes({
   const previewImgStyle = s.logoImg;
   const previewTextoTopo =
     modoImagem === "texto" ? textoTopoTicket.trim() : "";
+  const logoTextFontSizePx = Math.round(logoAlturaMm * 0.9) + 6;
   const previewTextoTopoStyle = {
     ...s.logoText,
     fontWeight: textoTopoTicketBold ? 900 : 700,
@@ -341,7 +338,8 @@ export default function Ajustes({
       : "system-ui, -apple-system, Segoe UI, Roboto, Arial",
     color: previewTextoTopo ? "#0f172a" : "#94a3b8",
     opacity: previewTextoTopo ? 1 : 0.6,
-    lineHeight: textoTopoTicketBold ? 1.05 : 1.15,
+    lineHeight: textoTopoTicketBold ? 1.05 : 1.12,
+    fontSize: `${logoTextFontSizePx}px`,
   };
 
   return (
