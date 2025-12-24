@@ -133,7 +133,23 @@ export default function Caixa({
   }, [aberturaTxt]);
 
   const entrouDinheiro = useMemo(() => totalDinheiroVendas, [totalDinheiroVendas]);
-  const totalNoCaixaAgora = useMemo(() => abertura + entrouDinheiro, [abertura, entrouDinheiro]);
+  const movimentos = useMemo(() => {
+    return Array.isArray(caixaSafe.movimentos) ? caixaSafe.movimentos : [];
+  }, [caixaSafe.movimentos]);
+  const sangrias = useMemo(() => {
+    return movimentos.filter((mov) => mov?.tipo === "sangria");
+  }, [movimentos]);
+  const totalSangrias = useMemo(() => {
+    return sangrias.reduce((s, mov) => s + (Number(mov?.valor) || 0), 0);
+  }, [sangrias]);
+  const totalNoCaixaAgora = useMemo(() => {
+    return abertura + entrouDinheiro - totalSangrias;
+  }, [abertura, entrouDinheiro, totalSangrias]);
+
+  const [sangriaTxt, setSangriaTxt] = useState("");
+  const sangriaValor = useMemo(() => {
+    return Number(toNumBR(sangriaTxt) || 0) || 0;
+  }, [sangriaTxt]);
 
   function abrirCaixa() {
     if (disabled) return;
@@ -147,6 +163,64 @@ export default function Caixa({
     }));
 
     if (typeof onAbrirCaixaOk === "function") onAbrirCaixaOk();
+  }
+
+  function getCaixaStorageKey() {
+    if (LS_KEYS?.caixa) return LS_KEYS.caixa;
+    if (LS_KEYS?.caixaAtual) return LS_KEYS.caixaAtual;
+    return "caixa";
+  }
+
+  function createMovimentoId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function adicionarSangria() {
+    if (disabled) return;
+    if (!eventoAberto) return alert("Abra um evento antes de lançar sangria.");
+    if (!aberturaJaDefinida) return alert("Abra o caixa antes de lançar sangria.");
+    if (sangriaValor <= 0) return alert("Informe um valor válido para a sangria.");
+
+    const novoMovimento = {
+      id: createMovimentoId(),
+      tipo: "sangria",
+      valor: sangriaValor,
+      criadoEm: new Date().toISOString(),
+    };
+
+    setCaixa((prev) => {
+      const prevSafe = prev && typeof prev === "object" ? prev : {};
+      const prevMovimentos = Array.isArray(prevSafe.movimentos)
+        ? prevSafe.movimentos
+        : [];
+      const nextCaixa = {
+        ...prevSafe,
+        movimentos: [...prevMovimentos, novoMovimento],
+      };
+      saveJSON(getCaixaStorageKey(), nextCaixa);
+      return nextCaixa;
+    });
+    setSangriaTxt("");
+  }
+
+  function removerSangria(id) {
+    if (disabled) return;
+    setCaixa((prev) => {
+      const prevSafe = prev && typeof prev === "object" ? prev : {};
+      const prevMovimentos = Array.isArray(prevSafe.movimentos)
+        ? prevSafe.movimentos
+        : [];
+      const nextMovimentos = prevMovimentos.filter((mov) => mov?.id !== id);
+      const nextCaixa = {
+        ...prevSafe,
+        movimentos: nextMovimentos,
+      };
+      saveJSON(getCaixaStorageKey(), nextCaixa);
+      return nextCaixa;
+    });
   }
 
   function finalizarCaixa() {
@@ -164,6 +238,13 @@ export default function Caixa({
       abertura: Number(abertura || 0) || 0,
       entrouDinheiro: Number(entrouDinheiro || 0) || 0,
       totalNoCaixa: Number(totalNoCaixaAgora || 0) || 0,
+      sangrias: sangrias.map((mov) => ({
+        id: mov?.id,
+        valor: Number(mov?.valor) || 0,
+        criadoEm: mov?.criadoEm || null,
+      })),
+      totalSangrias: Number(totalSangrias || 0) || 0,
+      saldoDinheiroFinal: Number(totalNoCaixaAgora || 0) || 0,
     };
 
     // ✅ marca no cache como ENCERRADO
@@ -287,6 +368,80 @@ export default function Caixa({
         <div className="row space" style={{ marginTop: 4 }}>
           <div style={{ fontWeight: 900 }}>Total em caixa</div>
           <div style={{ fontWeight: 900, fontSize: 18 }}>{fmtBRL(totalNoCaixaAgora)}</div>
+        </div>
+
+        <div className="hr" />
+
+        {/* ===================== SANGRIAS ===================== */}
+        <div className="muted" style={{ marginBottom: 8, fontWeight: 900 }}>
+          Sangrias
+        </div>
+
+        <div className="formGrid">
+          <div>
+            <div className="muted" style={{ marginBottom: 6 }}>
+              Valor (R$)
+            </div>
+            <input
+              className="input"
+              placeholder="0,00"
+              value={sangriaTxt}
+              onChange={(e) => setSangriaTxt(maskBRLFromDigits(e.target.value))}
+              inputMode="numeric"
+              disabled={disabled || !aberturaJaDefinida || !eventoAberto}
+            />
+            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+              Dica: digite apenas números. Ex.: 5 → 0,05 | 50000 → 500,00
+            </div>
+          </div>
+
+          <div className="formActions">
+            <Button
+              variant="primary"
+              onClick={adicionarSangria}
+              disabled={
+                disabled ||
+                !aberturaJaDefinida ||
+                !eventoAberto ||
+                sangriaValor <= 0
+              }
+            >
+              Adicionar sangria
+            </Button>
+          </div>
+        </div>
+
+        {sangrias.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {sangrias.map((mov, index) => (
+              <div key={mov?.id || `${mov?.criadoEm}-${index}`} className="row space">
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ fontWeight: 900 }}>Sangria {index + 1}</div>
+                  <div className="muted">
+                    {fmtBRL(Number(mov?.valor) || 0)} • {formatHora(mov?.criadoEm)}
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  small
+                  onClick={() => removerSangria(mov?.id)}
+                  disabled={disabled}
+                >
+                  Remover
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="muted">Nenhuma sangria lançada.</div>
+        )}
+
+        <div className="row space" style={{ marginTop: 4 }}>
+          <div className="muted" style={{ fontWeight: 900 }}>
+            Total de sangrias
+          </div>
+          <div style={{ fontWeight: 900 }}>{fmtBRL(totalSangrias)}</div>
         </div>
 
         <div className="hr" />
