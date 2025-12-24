@@ -45,10 +45,13 @@ export default function Ajustes({
       next.logoImgMm = 20;
     }
     if (!ajustes?.ticketImagemModo) {
-      next.ticketImagemModo = "logo";
+      next.ticketImagemModo = "produto";
     }
     if (typeof ajustes?.impressaoEcoImagem !== "boolean") {
       next.impressaoEcoImagem = false;
+    }
+    if (typeof ajustes?.ticketTopoTextoBold !== "boolean") {
+      next.ticketTopoTextoBold = false;
     }
     if (Object.keys(next).length > 0) {
       setAjustes((p) => ({ ...(p || {}), ...next }));
@@ -57,6 +60,7 @@ export default function Ajustes({
     ajustes?.logoImgMm,
     ajustes?.ticketImagemModo,
     ajustes?.impressaoEcoImagem,
+    ajustes?.ticketTopoTextoBold,
     setAjustes,
   ]);
 
@@ -66,7 +70,9 @@ export default function Ajustes({
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
-      ticketImagemModo: ajustes?.ticketImagemModo || "logo",
+      ticketImagemModo: ajustes?.ticketImagemModo || "produto",
+      ticketTopoTexto: (ajustes?.ticketTopoTexto || "").toUpperCase(),
+      ticketTopoTextoBold: Boolean(ajustes?.ticketTopoTextoBold),
       impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     }));
     if (hasEventoAberto && typeof onSalvar === "function") {
@@ -89,6 +95,20 @@ export default function Ajustes({
       valor: 5,
     };
   }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm]);
+
+  const textoTopoTicket = (ajustes?.ticketTopoTexto || "").toUpperCase();
+  const textoTopoTicketBold = Boolean(ajustes?.ticketTopoTextoBold);
+  const TEXT_MAX_LINES = 2;
+  const TEXT_MAX_CHARS_PER_LINE = 22;
+
+  function normalizeTicketTexto(value) {
+    const upper = String(value || "").toUpperCase().replace(/\r/g, "");
+    const lines = upper.split("\n").slice(0, TEXT_MAX_LINES);
+    const trimmedLines = lines.map((line) =>
+      line.slice(0, TEXT_MAX_CHARS_PER_LINE),
+    );
+    return trimmedLines.join("\n");
+  }
 
   const s = {
     // ===== Layout mobile-first =====
@@ -200,6 +220,14 @@ export default function Ajustes({
       width: "auto",
       objectFit: "contain",
     },
+    logoText: {
+      textAlign: "center",
+      whiteSpace: "pre-line",
+      wordBreak: "break-word",
+      lineHeight: 1.1,
+      fontSize: 20,
+      padding: "0 4mm",
+    },
     rangeWrap: {
       flex: 1,
       padding: "10px 8px",
@@ -285,17 +313,36 @@ export default function Ajustes({
   const previewTitulo = `${preview.qtd}x ${preview.produto}`.trim();
   const previewItemFont =
     previewTitulo.length > 24 ? 12 : previewTitulo.length > 18 ? 13 : 14;
-  const modoImagem = /produto|icone|ícone|icon|product/i.test(
-    String(ajustes?.ticketImagemModo || ""),
-  )
-    ? "produto"
-    : "logo";
+  const rawModoImagem = String(ajustes?.ticketImagemModo || "").toLowerCase();
+  const modoImagem = rawModoImagem
+    ? /texto/i.test(rawModoImagem)
+      ? "texto"
+      : /logo/i.test(rawModoImagem)
+        ? "logo"
+        : /produto|icone|ícone|icon|product/i.test(rawModoImagem)
+          ? "produto"
+          : "produto"
+    : "produto";
   const previewIconKey = preview.iconKey || "ref_600";
   const previewImgSrc =
     modoImagem === "logo"
       ? preview.logo
-      : ICONS[previewIconKey] || ICONS.ref_600;
+      : modoImagem === "produto"
+        ? ICONS[previewIconKey] || ICONS.ref_600
+        : "";
   const previewImgStyle = s.logoImg;
+  const previewTextoTopo =
+    modoImagem === "texto" ? textoTopoTicket.trim() : "";
+  const previewTextoTopoStyle = {
+    ...s.logoText,
+    fontWeight: textoTopoTicketBold ? 900 : 700,
+    fontFamily: textoTopoTicketBold
+      ? '"Arial Black", "Impact", system-ui, -apple-system, Segoe UI, Roboto, Arial'
+      : "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+    color: previewTextoTopo ? "#0f172a" : "#94a3b8",
+    opacity: previewTextoTopo ? 1 : 0.6,
+    lineHeight: textoTopoTicketBold ? 1.05 : 1.15,
+  };
 
   return (
     <Card title="Ajustes" subtitle="Personalização do ticket">
@@ -357,7 +404,7 @@ export default function Ajustes({
                     }
                     disabled={readOnly}
                   />
-                  Logo do evento
+                  Usar logo (upload)
                 </label>
                 <label style={{ display: "flex", gap: 8, fontWeight: 800 }}>
                   <input
@@ -373,7 +420,23 @@ export default function Ajustes({
                     }
                     disabled={readOnly}
                   />
-                  Ícone do produto
+                  Usar ícone do produto
+                </label>
+                <label style={{ display: "flex", gap: 8, fontWeight: 800 }}>
+                  <input
+                    type="radio"
+                    name="ticketImagemModo"
+                    value="texto"
+                    checked={modoImagem === "texto"}
+                    onChange={() =>
+                      setAjustes((p) => ({
+                        ...(p || {}),
+                        ticketImagemModo: "texto",
+                      }))
+                    }
+                    disabled={readOnly}
+                  />
+                  Texto
                 </label>
               </div>
 
@@ -418,12 +481,63 @@ export default function Ajustes({
                   </div>
                 </>
               ) : (
-                <div
-                  className="muted"
-                  style={{ marginTop: 10, fontWeight: 800 }}
-                >
-                  O ticket usará o ícone do produto impresso.
-                </div>
+                <>
+                  {modoImagem === "produto" ? (
+                    <div
+                      className="muted"
+                      style={{ marginTop: 10, fontWeight: 800 }}
+                    >
+                      O ticket usará o ícone do produto impresso.
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 10 }}>
+                      <div className="muted" style={{ marginBottom: 6 }}>
+                        Texto do topo do ticket (máx. 2 linhas)
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <textarea
+                          className="input"
+                          rows={2}
+                          value={textoTopoTicket}
+                          onChange={(e) =>
+                            setAjustes((p) => ({
+                              ...(p || {}),
+                              ticketTopoTexto: normalizeTicketTexto(
+                                e.target.value,
+                              ),
+                            }))
+                          }
+                          placeholder="Digite aqui (até 2 linhas)"
+                          disabled={readOnly}
+                          style={{ resize: "none", width: "100%" }}
+                        />
+                        <Button
+                          variant={textoTopoTicketBold ? "primary" : "secondary"}
+                          small
+                          onClick={() =>
+                            setAjustes((p) => ({
+                              ...(p || {}),
+                              ticketTopoTextoBold: !p?.ticketTopoTextoBold,
+                            }))
+                          }
+                          disabled={readOnly}
+                        >
+                          Negrito: {textoTopoTicketBold ? "ON" : "OFF"}
+                        </Button>
+                      </div>
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        Limite sugerido: {TEXT_MAX_CHARS_PER_LINE} caracteres por
+                        linha.
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -536,6 +650,10 @@ export default function Ajustes({
                 <div style={s.logoBox}>
                   {previewImgSrc ? (
                     <img src={previewImgSrc} alt="logo" style={previewImgStyle} />
+                  ) : modoImagem === "texto" ? (
+                    <div style={previewTextoTopoStyle}>
+                      {previewTextoTopo || "DIGITE O TEXTO"}
+                    </div>
                   ) : null}
                 </div>
                 <div style={s.dash} />
