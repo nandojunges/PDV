@@ -635,7 +635,10 @@ export default function Ajustes({
               Pré-visualização do ticket
             </div>
 
-            <div style={s.ticket}>
+            <div
+              style={s.ticket}
+              className={`ticketPreview${ajustes?.impressaoEcoImagem ? " eco-img" : ""}`}
+            >
               <div style={s.inner}>
                 {/* Cabeçalho */}
                 <div style={s.title}>{preview.nome}</div>
@@ -647,7 +650,12 @@ export default function Ajustes({
                 <div style={s.dash} />
                 <div style={s.logoBox}>
                   {previewImgSrc ? (
-                    <img src={previewImgSrc} alt="logo" style={previewImgStyle} />
+                    <img
+                      src={previewImgSrc}
+                      alt="logo"
+                      style={previewImgStyle}
+                      className="ticketPreviewImg"
+                    />
                   ) : modoImagem === "texto" ? (
                     <div style={previewTextoTopoStyle}>
                       {previewTextoTopo || "DIGITE O TEXTO"}
