@@ -567,6 +567,23 @@ export default function Venda({
     boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
   };
 
+  const comboChipStyle = {
+    marginTop: 6,
+    padding: "3px 8px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 950,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    background: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    color: "#1d4ed8",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  };
+
   useEffect(() => {
     if (!confirmOpen) return undefined;
     function onKeyDown(e) {
