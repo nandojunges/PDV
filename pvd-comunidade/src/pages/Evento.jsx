@@ -49,6 +49,97 @@ function toBRDateTime(iso) {
     d.getHours()
   )}:${pad2(d.getMinutes())}`;
 }
+function fmtBRL(value) {
+  return `R$ ${Number(value || 0).toFixed(2).replace(".", ",")}`;
+}
+
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+const ITEM_LIST_KEYS = ["itens", "items", "produtos", "products", "carrinho", "cart"];
+const ITEM_NAME_KEYS = ["nome", "name", "titulo", "title", "descricao"];
+const ITEM_PRICE_KEYS = ["preco", "price", "valor", "unitPrice", "precoUnit"];
+const ITEM_QTD_KEYS = ["qtd", "qty", "quantidade", "quantity"];
+const ITEM_TOTAL_KEYS = ["total", "valorTotal", "subtotal"];
+
+function pickField(obj, keys) {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null && obj[key] !== "") return obj[key];
+  }
+  return undefined;
+}
+
+function toNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string") {
+    const raw = value.replace(/\s/g, "").replace(",", ".");
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeNameKey(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function extractItensFromVenda(venda) {
+  if (!venda || typeof venda !== "object") return [];
+  let itensRaw = null;
+  for (const key of ITEM_LIST_KEYS) {
+    if (Array.isArray(venda[key])) {
+      itensRaw = venda[key];
+      break;
+    }
+  }
+  if (!Array.isArray(itensRaw)) return [];
+
+  const itens = [];
+  for (const item of itensRaw) {
+    const nome = pickField(item, ITEM_NAME_KEYS);
+    const nomeLimpo = String(nome || "").trim();
+    if (!nomeLimpo) continue;
+
+    const qtd = toNumber(pickField(item, ITEM_QTD_KEYS)) || 1;
+    let preco = toNumber(pickField(item, ITEM_PRICE_KEYS));
+    let total = toNumber(pickField(item, ITEM_TOTAL_KEYS));
+
+    if (preco == null && total != null && qtd) preco = total / qtd;
+    if (total == null && preco != null) total = preco * qtd;
+
+    if (preco == null && total == null) continue;
+
+    itens.push({
+      nome: nomeLimpo,
+      preco: preco == null ? null : preco,
+      qtd,
+      total: total == null ? 0 : total,
+    });
+  }
+  return itens;
+}
+
+function extractProdutoInfo(produto) {
+  if (!produto || typeof produto !== "object") return null;
+  const nome = pickField(produto, ITEM_NAME_KEYS);
+  const nomeLimpo = String(nome || "").trim();
+  if (!nomeLimpo) return null;
+  const preco = toNumber(
+    pickField(produto, ["preco", "price", "valor", "valorUnitario", "unitPrice"])
+  );
+  return { nome: nomeLimpo, preco: preco == null ? null : preco };
+}
 
 const overlay = {
   position: "fixed",
@@ -747,6 +838,84 @@ export default function Evento({
 
     const saldoDinheiroEsperado = abertura + resumo.porPagamento.dinheiro + reforcos - sangrias;
 
+    const itensMap = new Map();
+    const itensPorNome = new Map();
+    const registrarItem = (item) => {
+      if (!item) return;
+      const nome = String(item.nome || "").trim();
+      if (!nome) return;
+      const precoNum = Number.isFinite(item.preco) ? Number(item.preco) : null;
+      const precoKey = precoNum == null ? "sem-preco" : precoNum.toFixed(2);
+      const chave = `${normalizeNameKey(nome)}__${precoKey}`;
+      if (!itensMap.has(chave)) {
+        itensMap.set(chave, {
+          nome,
+          preco: precoNum,
+          qtd: 0,
+          total: 0,
+        });
+      }
+      const registro = itensMap.get(chave);
+      registro.qtd += Number(item.qtd || 0) || 0;
+      registro.total += Number(item.total || 0) || 0;
+
+      const nomeKey = normalizeNameKey(nome);
+      if (!itensPorNome.has(nomeKey)) itensPorNome.set(nomeKey, new Set());
+      itensPorNome.get(nomeKey).add(chave);
+    };
+
+    for (const venda of evVendas) {
+      const itensVenda = extractItensFromVenda(venda);
+      for (const item of itensVenda) {
+        registrarItem(item);
+      }
+    }
+
+    const metaEncerrado = encerradosMap.get(String(nomeEv || "").trim());
+    const produtosLista =
+      String(nomeEv || "").trim() === String(evento?.nome || "").trim()
+        ? produtosEvento
+        : Array.isArray(metaEncerrado?.produtos)
+          ? metaEncerrado.produtos
+          : Array.isArray(metaEncerrado?.fechamento?.produtos)
+            ? metaEncerrado.fechamento.produtos
+            : [];
+
+    for (const produto of produtosLista) {
+      const info = extractProdutoInfo(produto);
+      if (!info) continue;
+      const nomeKey = normalizeNameKey(info.nome);
+      const precoKey = info.preco == null ? "sem-preco" : info.preco.toFixed(2);
+      const chave = `${nomeKey}__${precoKey}`;
+
+      if (info.preco == null) {
+        const existentes = itensPorNome.get(nomeKey);
+        if (existentes && existentes.size > 0) continue;
+      }
+
+      if (!itensMap.has(chave)) {
+        itensMap.set(chave, {
+          nome: info.nome,
+          preco: info.preco,
+          qtd: 0,
+          total: 0,
+        });
+      }
+    }
+
+    const itensResumo = Array.from(itensMap.values()).sort((a, b) => {
+      const totalDiff = (Number(b.total || 0) || 0) - (Number(a.total || 0) || 0);
+      if (totalDiff !== 0) return totalDiff;
+      const qtdDiff = (Number(b.qtd || 0) || 0) - (Number(a.qtd || 0) || 0);
+      if (qtdDiff !== 0) return qtdDiff;
+      return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+    });
+
+    const itensComVenda = itensResumo.filter((it) => (Number(it.qtd || 0) || 0) > 0).length;
+    const itensSemVenda = itensResumo.length - itensComVenda;
+    const totalItensCalculado = itensResumo.reduce((s, it) => s + (Number(it.total || 0) || 0), 0);
+    const totalItens = Number(resumo.total || 0) || totalItensCalculado;
+
     return {
       nome: nomeEv,
       resumo,
@@ -755,8 +924,188 @@ export default function Evento({
       reforcos,
       sangrias,
       saldoDinheiroEsperado,
+      itensResumo,
+      itensTotais: {
+        totalItens,
+        itensComVenda,
+        itensSemVenda,
+      },
       encerradoEm: encerradosMap.get(String(nomeEv || "").trim())?.encerradoEm || null,
     };
+  }
+
+  function imprimirResumoCaixa(resumoCaixa) {
+    if (!resumoCaixa) return;
+    const periodo = resumoCaixa.resumo.primeira
+      ? `${toBRDateTime(resumoCaixa.resumo.primeira)} → ${toBRDateTime(resumoCaixa.resumo.ultima)}`
+      : "Sem vendas registradas.";
+    const impressoEm = toBRDateTime(new Date().toISOString());
+    const itensHtml = (resumoCaixa.itensResumo || [])
+      .map((item) => {
+        const preco = item.preco == null ? "-" : fmtBRL(item.preco);
+        return `
+          <tr>
+            <td>${escapeHtml(item.nome)}</td>
+            <td class="num">${escapeHtml(preco)}</td>
+            <td class="num">${Number(item.qtd || 0)}</td>
+            <td class="num">${escapeHtml(fmtBRL(item.total || 0))}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>Caixa • ${escapeHtml(resumoCaixa.nome)}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              color: #111827;
+              margin: 12px;
+            }
+            h1 {
+              font-size: 16px;
+              margin: 0 0 6px;
+            }
+            .muted {
+              color: #6b7280;
+            }
+            .section {
+              margin-top: 10px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 6px;
+            }
+            th, td {
+              border-bottom: 1px solid #e5e7eb;
+              padding: 4px 0;
+              text-align: left;
+            }
+            th {
+              font-weight: 700;
+            }
+            .num {
+              text-align: right;
+              white-space: nowrap;
+            }
+            .totais {
+              margin-top: 6px;
+              display: grid;
+              gap: 4px;
+            }
+            .linha {
+              display: flex;
+              justify-content: space-between;
+            }
+            .footer {
+              margin-top: 12px;
+              font-size: 11px;
+              color: #6b7280;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(resumoCaixa.nome)}</h1>
+          <div class="muted">${escapeHtml(periodo)}</div>
+          ${
+            resumoCaixa.encerradoEm
+              ? `<div class="muted">Encerrado em: ${escapeHtml(
+                  toBRDateTime(resumoCaixa.encerradoEm)
+                )}</div>`
+              : ""
+          }
+          <div class="section totais">
+            <div class="linha"><strong>Total vendido</strong><strong>${fmtBRL(
+              resumoCaixa.resumo.total || 0
+            )}</strong></div>
+            <div class="linha"><span>Dinheiro</span><span>${fmtBRL(
+              resumoCaixa.resumo.porPagamento.dinheiro || 0
+            )}</span></div>
+            <div class="linha"><span>Pix</span><span>${fmtBRL(
+              resumoCaixa.resumo.porPagamento.pix || 0
+            )}</span></div>
+            <div class="linha"><span>Cartão</span><span>${fmtBRL(
+              resumoCaixa.resumo.porPagamento.cartao || 0
+            )}</span></div>
+            ${
+              resumoCaixa.caixaAtual
+                ? `<div class="linha"><span>Abertura</span><span>${fmtBRL(
+                    resumoCaixa.abertura || 0
+                  )}</span></div>
+                   <div class="linha"><strong>Saldo esperado (dinheiro)</strong><strong>${fmtBRL(
+                     resumoCaixa.saldoDinheiroEsperado || 0
+                   )}</strong></div>`
+                : ""
+            }
+          </div>
+          <div class="section">
+            <strong>Itens do evento</strong>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th class="num">Preço</th>
+                  <th class="num">Qtd</th>
+                  <th class="num">Total (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itensHtml}
+              </tbody>
+            </table>
+            <div class="linha" style="margin-top:6px;">
+              <strong>Total geral (itens)</strong>
+              <strong>${fmtBRL(resumoCaixa.itensTotais?.totalItens || 0)}</strong>
+            </div>
+          </div>
+          <div class="footer">Impresso em ${escapeHtml(impressoEm)}</div>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const finalizePrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        // ignore
+      } finally {
+        setTimeout(() => {
+          iframe.remove();
+        }, 500);
+      }
+    };
+
+    if (iframe.contentWindow) {
+      iframe.onload = finalizePrint;
+      setTimeout(finalizePrint, 300);
+    }
   }
 
   function pedirExcluir(ev) {
@@ -1141,26 +1490,26 @@ export default function Evento({
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ fontWeight: 900 }}>Total vendido</div>
                   <div style={{ fontWeight: 950 }}>
-                    R$ {Number(evResumo.resumo.total || 0).toFixed(2).replace(".", ",")}
+                    {fmtBRL(evResumo.resumo.total || 0)}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ color: "#6b7280" }}>Dinheiro</div>
                   <div style={{ fontWeight: 900 }}>
-                    R$ {Number(evResumo.resumo.porPagamento.dinheiro || 0).toFixed(2).replace(".", ",")}
+                    {fmtBRL(evResumo.resumo.porPagamento.dinheiro || 0)}
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ color: "#6b7280" }}>Pix</div>
                   <div style={{ fontWeight: 900 }}>
-                    R$ {Number(evResumo.resumo.porPagamento.pix || 0).toFixed(2).replace(".", ",")}
+                    {fmtBRL(evResumo.resumo.porPagamento.pix || 0)}
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ color: "#6b7280" }}>Cartão</div>
                   <div style={{ fontWeight: 900 }}>
-                    R$ {Number(evResumo.resumo.porPagamento.cartao || 0).toFixed(2).replace(".", ",")}
+                    {fmtBRL(evResumo.resumo.porPagamento.cartao || 0)}
                   </div>
                 </div>
 
@@ -1171,7 +1520,7 @@ export default function Evento({
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ color: "#6b7280" }}>Abertura</div>
                       <div style={{ fontWeight: 900 }}>
-                        R$ {Number(evResumo.abertura || 0).toFixed(2).replace(".", ",")}
+                        {fmtBRL(evResumo.abertura || 0)}
                       </div>
                     </div>
 
@@ -1180,7 +1529,7 @@ export default function Evento({
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ fontWeight: 900 }}>Saldo esperado (dinheiro)</div>
                       <div style={{ fontWeight: 950 }}>
-                        R$ {Number(evResumo.saldoDinheiroEsperado || 0).toFixed(2).replace(".", ",")}
+                        {fmtBRL(evResumo.saldoDinheiroEsperado || 0)}
                       </div>
                     </div>
                   </>
@@ -1191,7 +1540,87 @@ export default function Evento({
                 )}
               </div>
 
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Itens do evento</div>
+                <div
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 90px 70px 100px",
+                      gap: 6,
+                      padding: "8px 10px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div>Item</div>
+                    <div style={{ textAlign: "right" }}>Preço</div>
+                    <div style={{ textAlign: "right" }}>Qtd</div>
+                    <div style={{ textAlign: "right" }}>Total (R$)</div>
+                  </div>
+                  <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                    {(evResumo.itensResumo || []).map((item, idx) => (
+                      <div
+                        key={`${item.nome}-${item.preco ?? "sem-preco"}-${idx}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 90px 70px 100px",
+                          gap: 6,
+                          padding: "8px 10px",
+                          fontSize: 13,
+                          borderTop: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.nome}
+                        </div>
+                        <div style={{ textAlign: "right", color: "#6b7280" }}>
+                          {item.preco == null ? "-" : fmtBRL(item.preco)}
+                        </div>
+                        <div style={{ textAlign: "right" }}>{Number(item.qtd || 0)}</div>
+                        <div style={{ textAlign: "right", fontWeight: 800 }}>
+                          {fmtBRL(item.total || 0)}
+                        </div>
+                      </div>
+                    ))}
+                    {(!evResumo.itensResumo || evResumo.itensResumo.length === 0) && (
+                      <div
+                        style={{
+                          padding: "10px",
+                          fontSize: 13,
+                          color: "#9ca3af",
+                          borderTop: "1px solid #e5e7eb",
+                        }}
+                      >
+                        Nenhum item encontrado.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: 8,
+                    fontWeight: 900,
+                  }}
+                >
+                  <div>Total geral (itens)</div>
+                  <div>{fmtBRL(evResumo.itensTotais?.totalItens || 0)}</div>
+                </div>
+              </div>
+
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
+                <button style={btn("soft")} onClick={() => imprimirResumoCaixa(evResumo)}>
+                  Imprimir
+                </button>
                 <button style={btn("soft")} onClick={() => setEvResumo(null)}>
                   Fechar
                 </button>
