@@ -7,7 +7,7 @@ import { getFlowState } from "../domain/eventoFlow";
 import { useConfig } from "../config/ConfigProvider";
 import { getOrCreateEventoKey, getOrCreateEventoPin, shortId } from "../rede/eventIdentity";
 import { PDV_PORT } from "../net/pdvNetConfig";
-import { imprimirTexto } from "../utils/androidPrinter";
+import { imprimirTexto } from "../services/printService";
 import {
   REPORT_LINE_WIDTH,
   REPORT_SEPARATOR,
