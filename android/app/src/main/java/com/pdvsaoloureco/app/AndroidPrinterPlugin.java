@@ -37,7 +37,7 @@ public class AndroidPrinterPlugin extends Plugin {
             }
 
             printerBridge = new AndroidPrinterBridge(ctx.getApplicationContext());
-            Log.i(TAG, "Plugin carregado. Bridge criada.");
+            Log.i(TAG, "PLUGIN CARREGADO");
         } catch (Throwable t) {
             Log.e(TAG, "Falha ao inicializar AndroidPrinterBridge", t);
         }
@@ -86,31 +86,6 @@ public class AndroidPrinterPlugin extends Plugin {
         ret.put("ok", ok);
         ret.put("status", status != null ? status : safeStatus());
         if (error != null && !error.trim().isEmpty()) ret.put("error", error);
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void ping(PluginCall call) {
-        JSObject ret = new JSObject();
-        ret.put("ok", true);
-        ret.put("pong", true);
-        ret.put("status", safeStatus());
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void isBridgeReady(PluginCall call) {
-        JSObject ret = new JSObject();
-        ret.put("ok", isBridgeOk());
-        ret.put("status", safeStatus());
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void printerStatus(PluginCall call) {
-        JSObject ret = new JSObject();
-        ret.put("ok", isBridgeOk());
-        ret.put("status", safeStatus());
         call.resolve(ret);
     }
 
