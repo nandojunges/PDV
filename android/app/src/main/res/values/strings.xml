@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PDV São Lourenço</string>
+    <string name="title_activity_main">PDV São Lourenço</string>
+    <string name="package_name">com.pdvsaoloureco.app</string>
+    <string name="custom_url_scheme">com.pdvsaoloureco.app</string>
+</resources>

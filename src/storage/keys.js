@@ -1,0 +1,16 @@
+export const LS_KEYS = {
+  version: "pvd_version_v1",
+  evento: "pvd_evento_v1",
+  produtos: "pvd_produtos_v1",
+  vendas: "pvd_vendas_v1",
+  caixa: "pvd_caixa_v1",
+  ajustes: "pvd_ajustes_v1",
+  config: "pvd_config_v1",
+  eventosMeta: "pvd_eventos_meta",
+  pendingSales: "pvd_pending_sales_v1",
+  deviceId: "pvd_device_id_v1",
+  produtosUpdatedAt: "pvd_produtos_updated_at_v1",
+  produtosSyncAt: "pvd_produtos_sync_at_v1",
+  saleSummaries: "pvd_sale_summaries_v1",
+  flowStep: "pvd_flow_step_v1",
+};
