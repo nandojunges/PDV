@@ -5,6 +5,7 @@ import {
   getAndroidPrinterPlugin,
   getPlatform,
 } from "../utils/androidPrinterPlugin";
+import { printHtml, printTesteDireto, printText } from "../utils/androidPrinter";
 
 /**
  * Plugin-first:
@@ -107,12 +108,12 @@ const printViaAndroidPlugin = async ({ html, text, prefer = "text" }) => {
   for (const kind of order) {
     try {
       if (kind === "text" && text && hasTextFn) {
-        const res = await plugin.printText({ text });
+        const res = await printText(text);
         const ok = normalizeAndroidResult(res);
         return { ok, mode: "android", status: res?.status, error: res?.error };
       }
       if (kind === "html" && html && hasHtmlFn) {
-        const res = await plugin.printHtml({ html });
+        const res = await printHtml(html);
         const ok = normalizeAndroidResult(res);
         return { ok, mode: "android", status: res?.status, error: res?.error };
       }
@@ -195,7 +196,7 @@ export async function printAndroidSelfTest() {
   }
 
   try {
-    const res = await plugin.printTesteDireto();
+    const res = await printTesteDireto();
     const ok = normalizeAndroidResult(res);
     return ok
       ? { ok: true, mode: "android", status: res?.status }
