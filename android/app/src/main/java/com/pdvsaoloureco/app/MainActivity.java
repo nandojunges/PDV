@@ -1,6 +1,7 @@
 package com.pdvsaoloureco.app;
 
 import android.os.Bundle;
+import android.util.Log;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -11,5 +12,6 @@ public class MainActivity extends BridgeActivity {
 
         // Registra o plugin de impressão
         registerPlugin(AndroidPrinterPlugin.class);
+        Log.i("MainActivity", "PLUGIN REGISTRADO");
     }
 }
