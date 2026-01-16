@@ -1,6 +1,10 @@
 // src/services/printService.js
 import { wrapThermal58 } from "./receiptTemplate58";
-import { Capacitor } from "@capacitor/core";
+import {
+  getAndroidPrinterDiagnostics,
+  getAndroidPrinterPlugin,
+  getPlatform,
+} from "../utils/androidPrinterPlugin";
 
 /**
  * Plugin-first:
@@ -13,74 +17,8 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const REPORT_LINE_WIDTH = 32;
 const REPORT_SEPARATOR = "-".repeat(REPORT_LINE_WIDTH);
 
-const getCapacitor = () => {
-  try {
-    if (typeof Capacitor !== "undefined" && Capacitor) return Capacitor;
-  } catch {}
-  try {
-    if (typeof window !== "undefined" && window.Capacitor) return window.Capacitor;
-  } catch {}
-  return null;
-};
-
-const getPlatform = () => {
-  const Cap = getCapacitor();
-  try {
-    if (Cap?.getPlatform) return Cap.getPlatform(); // "android" | "ios" | "web"
-  } catch {}
-  try {
-    return /android/i.test(navigator?.userAgent || "") ? "android" : "web";
-  } catch {
-    return "web";
-  }
-};
-
 const isAndroidRuntime = () => getPlatform() === "android";
-
-const getAndroidPrinterPlugin = () => {
-  const Cap = getCapacitor();
-  try {
-    // Capacitor 3/4/5 (recomendado)
-    if (Cap?.Plugins?.AndroidPrinterPlugin) return Cap.Plugins.AndroidPrinterPlugin;
-  } catch {}
-  try {
-    // fallback ultra defensivo
-    if (typeof window !== "undefined" && window.Capacitor?.Plugins?.AndroidPrinterPlugin) {
-      return window.Capacitor.Plugins.AndroidPrinterPlugin;
-    }
-  } catch {}
-  return null;
-};
-
-const listPluginKeys = (plugin) => {
-  try {
-    if (!plugin) return [];
-    return Object.keys(plugin);
-  } catch {
-    return [];
-  }
-};
-
-const getAndroidPluginDiagnostics = () => {
-  const Cap = getCapacitor();
-  const platform = getPlatform();
-  const plugins = Cap?.Plugins ? Object.keys(Cap.Plugins) : [];
-  const plugin = getAndroidPrinterPlugin();
-  const pluginKeys = listPluginKeys(plugin);
-
-  return (
-    `UA: ${navigator?.userAgent || "?"}\n` +
-    `platform: ${platform}\n` +
-    `window.Capacitor: ${typeof window?.Capacitor}\n` +
-    `Capacitor.getPlatform: ${typeof Cap?.getPlatform}\n` +
-    `Capacitor.Plugins keys: ${plugins.length ? plugins.join(", ") : "(nenhum)"}\n` +
-    `AndroidPrinterPlugin typeof: ${typeof plugin}\n` +
-    `AndroidPrinterPlugin keys: ${pluginKeys.length ? pluginKeys.join(", ") : "(vazio)"}\n` +
-    `printText typeof: ${typeof plugin?.printText}\n` +
-    `printHtml typeof: ${typeof plugin?.printHtml}\n` +
-    `printTesteDireto typeof: ${typeof plugin?.printTesteDireto}\n`
-  );
-};
+const getAndroidPluginDiagnostics = () => getAndroidPrinterDiagnostics();
 
 /**
  * Normaliza retorno do plugin para boolean.
