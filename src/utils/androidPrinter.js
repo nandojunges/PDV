@@ -20,3 +20,7 @@ export async function printTesteDireto() {
   if (!ensureAndroid()) return;
   return AndroidPrinterPlugin.printTesteDireto({});
 }
+
+export const imprimirTexto = printText;
+export const imprimirHTML = printHtml;
+export const testarImpressora = printTesteDireto;
