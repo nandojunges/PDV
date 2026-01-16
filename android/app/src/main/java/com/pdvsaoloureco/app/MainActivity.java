@@ -11,8 +11,6 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
         try {
             // Registro explícito do plugin (necessário quando não existe auto-registro no projeto)
             registerPlugin(AndroidPrinterPlugin.class);
@@ -21,6 +19,7 @@ public class MainActivity extends BridgeActivity {
             Log.e(TAG, "Falha ao registrar AndroidPrinterPlugin", t);
         }
 
+        super.onCreate(savedInstanceState);
         Log.i(TAG, "MainActivity onCreate finalizado");
     }
 }
