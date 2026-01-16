@@ -1,6 +1,5 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
-
-const AndroidPrinterPlugin = registerPlugin("AndroidPrinterPlugin");
+import { Capacitor } from "@capacitor/core";
+import { AndroidPrinterPlugin } from "./androidPrinter";
 
 const listPluginKeys = (plugin) => {
   try {
