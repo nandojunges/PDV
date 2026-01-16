@@ -24,6 +24,7 @@ import {
   readPendingSales,
   removePendingSaleById,
 } from "../state/pdvStore";
+import { logAndroidPrinterStatus } from "../utils/androidPrinterPlugin";
 
 export default function App() {
   const { config, permitirMultiDispositivo } = useConfig();
@@ -35,6 +36,10 @@ export default function App() {
 
   useEffect(() => {
     ensureMigrations();
+  }, []);
+
+  useEffect(() => {
+    logAndroidPrinterStatus();
   }, []);
 
   function getFlowTargetTab(flowValue) {
