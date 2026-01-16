@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, toNumBR } from "../domain/math";
-import { imprimirTexto } from "../utils/androidPrinter";
+import { imprimirTexto } from "../services/printService";
 import {
   REPORT_LINE_WIDTH,
   REPORT_SEPARATOR,

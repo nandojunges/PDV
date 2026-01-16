@@ -7,7 +7,7 @@ import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { useConfig } from "../config/ConfigProvider";
 import { postSaleToMaster } from "../net/connectivity";
-import { imprimirVenda, testarImpressora } from "../utils/androidPrinter";
+import { imprimirVenda, testarImpressora } from "../services/printService";
 import {
   buildSaleSummaryFromSale,
   enqueuePendingSale,
