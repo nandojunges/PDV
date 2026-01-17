@@ -91,6 +91,7 @@ public class AndroidPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void printTesteDireto(PluginCall call) {
+        Log.i(TAG, "printTesteDireto chamado (JS->Nativo)");
         if (!isBridgeOk()) {
             resolveError(call, safeStatus(), "Impressora não conectada");
             return;
@@ -98,7 +99,6 @@ public class AndroidPrinterPlugin extends Plugin {
 
         boolean ok = false;
         try {
-            Log.i(TAG, "printTesteDireto solicitado");
             ok = printerBridge.printTesteDireto();
             resolveOk(call, ok, safeStatus(), ok ? null : "Falha no auto-teste");
         } catch (Throwable t) {
@@ -109,6 +109,7 @@ public class AndroidPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void printText(PluginCall call) {
+        Log.i(TAG, "printText chamado (JS->Nativo)");
         String text = call.getString("text", "");
         if (text == null) text = "";
 
@@ -133,6 +134,7 @@ public class AndroidPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void printHtml(PluginCall call) {
+        Log.i(TAG, "printHtml chamado (JS->Nativo)");
         String html = call.getString("html", "");
         if (html == null) html = "";
 
