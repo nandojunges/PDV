@@ -24,7 +24,7 @@ import {
   readPendingSales,
   removePendingSaleById,
 } from "../state/pdvStore";
-import { logAndroidPrinterStatus } from "../utils/androidPrinterPlugin";
+import { logAndroidPrinterStatus } from "../utils/androidPrinter";
 
 export default function App() {
   const { config, permitirMultiDispositivo } = useConfig();
