@@ -363,7 +363,12 @@ export async function printAndroidSelfTest() {
   }
 }
 
-export async function imprimirVenda(payload) {
+export async function imprimirVenda(ticketText) {
+  if (typeof ticketText === "string" || typeof ticketText === "number") {
+    return printTicketText(String(ticketText));
+  }
+
+  const payload = ticketText;
   if (!isAndroidRuntime()) {
     return { ok: false, mode: "browser", error: "Impressão disponível apenas no Android." };
   }
@@ -504,5 +509,5 @@ export async function printReceiptHtml(htmlString) {
 }
 
 export const imprimirTexto = printTicketText;
-export const imprimirHTML = printReceiptHtml;
+export const imprimirHtml = printReceiptHtml;
 export const testarImpressora = printAndroidSelfTest;
