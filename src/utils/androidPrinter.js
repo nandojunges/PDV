@@ -271,11 +271,13 @@ const printViaAndroidPlugin = async ({ html, text, prefer = "text" }) => {
   for (const kind of order) {
     try {
       if (kind === "text" && text && hasTextFn) {
+        console.log("[PRINT] usando AndroidPrinterPlugin...");
         const res = await printText(text);
         const ok = normalizeAndroidResult(res);
         return { ok, mode: "android", status: res?.status, error: res?.error };
       }
       if (kind === "html" && html && hasHtmlFn) {
+        console.log("[PRINT] usando AndroidPrinterPlugin...");
         const res = await printHtml(html);
         const ok = normalizeAndroidResult(res);
         return { ok, mode: "android", status: res?.status, error: res?.error };
@@ -353,6 +355,7 @@ export async function printAndroidSelfTest() {
   }
 
   try {
+    console.log("[PRINT] usando AndroidPrinterPlugin...");
     const res = await printTesteDireto();
     const ok = normalizeAndroidResult(res);
     return ok
@@ -394,6 +397,7 @@ export async function imprimirVenda(ticketText) {
 
   if (hasHtmlFn) {
     try {
+      console.log("[PRINT] usando AndroidPrinterPlugin...");
       const htmlResult = await printHtml(html);
       const okHtml = normalizeAndroidResult(htmlResult);
       if (okHtml) return { ok: true, mode: "android", status: htmlResult?.status };
@@ -404,6 +408,7 @@ export async function imprimirVenda(ticketText) {
 
   if (hasTextFn) {
     try {
+      console.log("[PRINT] usando AndroidPrinterPlugin...");
       const textResult = await printText(text);
       const okText = normalizeAndroidResult(textResult);
       return okText
