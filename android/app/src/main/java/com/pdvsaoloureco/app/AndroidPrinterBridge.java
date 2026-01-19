@@ -5,8 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.Html;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
@@ -18,8 +16,6 @@ public class AndroidPrinterBridge {
     private static final String TAG = "AndroidPrinter";
 
     private final Context appContext;
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-
     private IWoyouService printerService;
 
     private volatile boolean isBinding = false;
@@ -35,10 +31,10 @@ public class AndroidPrinterBridge {
         isBinding = true;
 
         try {
-            Intent intent = new Intent();
-            intent.setAction("woyou.aidlservice.jiuiv5.IWoyouService");
+            Intent intent = new Intent("woyou.aidlservice.jiuiv5.IWoyouService");
             intent.setPackage("woyou.aidlservice.jiuiv5");
 
+            appContext.startService(intent);
             boolean ok = appContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
             isBound = ok;
             Log.i(TAG, "bindService retornou: " + ok);
@@ -49,27 +45,26 @@ public class AndroidPrinterBridge {
         }
     }
 
-    private void scheduleRebind(long delayMs) {
-        mainHandler.postDelayed(() -> {
-            try {
-                bindPrinterService();
-            } catch (Throwable ignored) {}
-        }, delayMs);
-    }
-
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             printerService = IWoyouService.Stub.asInterface(service);
-            Log.i(TAG, "onServiceConnected: " + name + " | printerService=" + (printerService != null));
+            Log.i(TAG, "onServiceConnected executado: " + name + " | printerService=" + (printerService != null));
+            if (printerService != null) {
+                try {
+                    printerService.printerInit(callbackNoop);
+                    Log.i(TAG, "printerInit executado com sucesso.");
+                } catch (Throwable t) {
+                    Log.e(TAG, "Falha ao executar printerInit.", t);
+                }
+            }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            Log.w(TAG, "onServiceDisconnected: " + name);
+            Log.w(TAG, "onServiceDisconnected executado: " + name);
             printerService = null;
             isBound = false;
-            scheduleRebind(600);
         }
 
         @Override
@@ -77,7 +72,6 @@ public class AndroidPrinterBridge {
             Log.w(TAG, "onBindingDied: " + name);
             printerService = null;
             isBound = false;
-            scheduleRebind(600);
         }
 
         @Override
@@ -85,7 +79,6 @@ public class AndroidPrinterBridge {
             Log.e(TAG, "onNullBinding: " + name);
             printerService = null;
             isBound = false;
-            scheduleRebind(1200);
         }
     };
 
