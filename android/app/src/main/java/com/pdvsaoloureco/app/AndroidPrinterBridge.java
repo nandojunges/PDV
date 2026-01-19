@@ -9,6 +9,9 @@ import android.text.Html;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import woyou.aidlservice.jiuiv5.ICallback;
 import woyou.aidlservice.jiuiv5.IWoyouService;
 
@@ -17,6 +20,7 @@ public class AndroidPrinterBridge {
 
     private final Context appContext;
     private IWoyouService printerService;
+    private volatile CountDownLatch connectionLatch = new CountDownLatch(1);
 
     private volatile boolean isBinding = false;
     private volatile boolean isBound = false;
@@ -31,6 +35,9 @@ public class AndroidPrinterBridge {
         isBinding = true;
 
         try {
+            if (printerService == null) {
+                connectionLatch = new CountDownLatch(1);
+            }
             Intent intent = new Intent("woyou.aidlservice.jiuiv5.IWoyouService");
             intent.setPackage("woyou.aidlservice.jiuiv5");
 
@@ -45,10 +52,41 @@ public class AndroidPrinterBridge {
         }
     }
 
+    public boolean ensureConnected(long timeoutMs) {
+        if (printerService != null) {
+            return true;
+        }
+
+        Log.i(TAG, "ensureConnected aguardando conexão. timeoutMs=" + timeoutMs);
+        bindPrinterService();
+
+        CountDownLatch latch = connectionLatch;
+        boolean connected = false;
+        try {
+            if (latch != null) {
+                connected = latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.w(TAG, "ensureConnected interrompido.", e);
+            return false;
+        }
+
+        boolean ok = printerService != null || connected;
+        if (!ok) {
+            Log.w(TAG, "ensureConnected timeout após " + timeoutMs + "ms.");
+        }
+        return ok;
+    }
+
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             printerService = IWoyouService.Stub.asInterface(service);
+            CountDownLatch latch = connectionLatch;
+            if (latch != null) {
+                latch.countDown();
+            }
             Log.i(TAG, "onServiceConnected executado: " + name + " | printerService=" + (printerService != null));
             if (printerService != null) {
                 try {
@@ -65,6 +103,7 @@ public class AndroidPrinterBridge {
             Log.w(TAG, "onServiceDisconnected executado: " + name);
             printerService = null;
             isBound = false;
+            connectionLatch = new CountDownLatch(1);
         }
 
         @Override
@@ -72,6 +111,7 @@ public class AndroidPrinterBridge {
             Log.w(TAG, "onBindingDied: " + name);
             printerService = null;
             isBound = false;
+            connectionLatch = new CountDownLatch(1);
         }
 
         @Override
@@ -79,6 +119,7 @@ public class AndroidPrinterBridge {
             Log.e(TAG, "onNullBinding: " + name);
             printerService = null;
             isBound = false;
+            connectionLatch = new CountDownLatch(1);
         }
     };
 

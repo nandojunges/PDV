@@ -18,6 +18,7 @@ public class AndroidPrinterPlugin extends Plugin {
     @Override
     public void load() {
         super.load();
+        Log.i(TAG, "load iniciado.");
         try {
             Context ctx = null;
 
@@ -92,6 +93,16 @@ public class AndroidPrinterPlugin extends Plugin {
     @PluginMethod
     public void printTesteDireto(PluginCall call) {
         Log.i(TAG, "printTesteDireto chamado (JS->Nativo)");
+        if (printerBridge == null) {
+            resolveError(call, safeStatus(), "Bridge de impressão não inicializada");
+            return;
+        }
+
+        if (!printerBridge.ensureConnected(2500)) {
+            resolveError(call, safeStatus(), "Serviço de impressão não conectou em 2.5s");
+            return;
+        }
+
         if (!isBridgeOk()) {
             resolveError(call, safeStatus(), "Impressora não conectada");
             return;
@@ -100,6 +111,7 @@ public class AndroidPrinterPlugin extends Plugin {
         boolean ok = false;
         try {
             ok = printerBridge.printTesteDireto();
+            Log.i(TAG, "printTesteDireto resultado ok=" + ok);
             resolveOk(call, ok, safeStatus(), ok ? null : "Falha no auto-teste");
         } catch (Throwable t) {
             Log.e(TAG, "printTesteDireto erro", t);
@@ -113,6 +125,16 @@ public class AndroidPrinterPlugin extends Plugin {
         String text = call.getString("text", "");
         if (text == null) text = "";
 
+        if (printerBridge == null) {
+            resolveError(call, safeStatus(), "Bridge de impressão não inicializada");
+            return;
+        }
+
+        if (!printerBridge.ensureConnected(2500)) {
+            resolveError(call, safeStatus(), "Serviço de impressão não conectou em 2.5s");
+            return;
+        }
+
         if (!isBridgeOk()) {
             resolveError(call, safeStatus(), "Impressora não conectada");
             return;
@@ -125,6 +147,7 @@ public class AndroidPrinterPlugin extends Plugin {
             Log.i(TAG, "printText solicitado. len=" + len + ", head=\"" + head + "\"");
 
             ok = printerBridge.printText(text);
+            Log.i(TAG, "printText resultado ok=" + ok);
             resolveOk(call, ok, safeStatus(), ok ? null : "Falha ao imprimir texto");
         } catch (Throwable t) {
             Log.e(TAG, "printText erro", t);
@@ -138,6 +161,16 @@ public class AndroidPrinterPlugin extends Plugin {
         String html = call.getString("html", "");
         if (html == null) html = "";
 
+        if (printerBridge == null) {
+            resolveError(call, safeStatus(), "Bridge de impressão não inicializada");
+            return;
+        }
+
+        if (!printerBridge.ensureConnected(2500)) {
+            resolveError(call, safeStatus(), "Serviço de impressão não conectou em 2.5s");
+            return;
+        }
+
         if (!isBridgeOk()) {
             resolveError(call, safeStatus(), "Impressora não conectada");
             return;
@@ -150,6 +183,7 @@ public class AndroidPrinterPlugin extends Plugin {
             Log.i(TAG, "printHtml solicitado. len=" + len + ", head=\"" + head + "\"");
 
             ok = printerBridge.printHtml(html);
+            Log.i(TAG, "printHtml resultado ok=" + ok);
             resolveOk(call, ok, safeStatus(), ok ? null : "Falha ao imprimir HTML");
         } catch (Throwable t) {
             Log.e(TAG, "printHtml erro", t);

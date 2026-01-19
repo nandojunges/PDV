@@ -8,10 +8,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
         // Registra o plugin de impressão
         registerPlugin(AndroidPrinterPlugin.class);
         Log.i("MainActivity", "PLUGIN REGISTRADO");
+
+        super.onCreate(savedInstanceState);
     }
 }
