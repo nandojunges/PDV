@@ -28,6 +28,40 @@ export async function printTesteDireto() {
   return AndroidPrinterPlugin.printTesteDireto({});
 }
 
+export async function debugPrintA_JSPlugin() {
+  if (!ensureAndroid()) return;
+  const result = await AndroidPrinterPlugin.printText({ text: "JS->PLUGIN OK\n" });
+  console.log("[PRINT][DIAG A] resultado", {
+    ok: result?.ok,
+    status: result?.status,
+    error: result?.error,
+  });
+  return result;
+}
+
+export async function debugPrintB_Native() {
+  if (!ensureAndroid()) return;
+  const result = await AndroidPrinterPlugin.printDebugFromNative({});
+  console.log("[PRINT][DIAG B] resultado", {
+    ok: result?.ok,
+    status: result?.status,
+    error: result?.error,
+  });
+  return result;
+}
+
+export async function debugPrintC_TicketFixo() {
+  const result = await imprimirVenda({
+    ticketText: "TICKET REAL OK\nItem 1: Pastel 10,00\nTotal: 10,00\n",
+  });
+  console.log("[PRINT][DIAG C] resultado", {
+    ok: result?.ok,
+    status: result?.status,
+    error: result?.error,
+  });
+  return result;
+}
+
 const listPluginKeys = (plugin) => {
   try {
     if (!plugin) return [];
@@ -74,7 +108,8 @@ export const getAndroidPrinterDiagnostics = () => {
     `AndroidPrinterPlugin keys: ${pluginKeys.length ? pluginKeys.join(", ") : "(vazio)"}\n` +
     `printText typeof: ${typeof plugin?.printText}\n` +
     `printHtml typeof: ${typeof plugin?.printHtml}\n` +
-    `printTesteDireto typeof: ${typeof plugin?.printTesteDireto}\n`
+    `printTesteDireto typeof: ${typeof plugin?.printTesteDireto}\n` +
+    `printDebugFromNative typeof: ${typeof plugin?.printDebugFromNative}\n`
   );
 };
 
@@ -85,6 +120,7 @@ export const logAndroidPrinterStatus = () => {
   const hasText = typeof plugin?.printText === "function";
   const hasHtml = typeof plugin?.printHtml === "function";
   const hasTest = typeof plugin?.printTesteDireto === "function";
+  const hasDebug = typeof plugin?.printDebugFromNative === "function";
 
   console.info(
     "[AndroidPrinterPlugin] status",
@@ -94,6 +130,7 @@ export const logAndroidPrinterStatus = () => {
         hasText,
         hasHtml,
         hasTest,
+        hasDebug,
       },
       null,
       2,
