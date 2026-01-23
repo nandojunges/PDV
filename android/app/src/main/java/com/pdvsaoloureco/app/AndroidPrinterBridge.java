@@ -9,9 +9,6 @@ import android.text.Html;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 import woyou.aidlservice.jiuiv5.ICallback;
 import woyou.aidlservice.jiuiv5.IWoyouService;
 
@@ -20,7 +17,7 @@ public class AndroidPrinterBridge {
 
     private final Context appContext;
     private IWoyouService printerService;
-    private volatile CountDownLatch connectionLatch = new CountDownLatch(1);
+    private volatile String lastError;
 
     private volatile boolean isBinding = false;
     private volatile boolean isBound = false;
@@ -35,9 +32,6 @@ public class AndroidPrinterBridge {
         isBinding = true;
 
         try {
-            if (printerService == null) {
-                connectionLatch = new CountDownLatch(1);
-            }
             Intent intent = new Intent("woyou.aidlservice.jiuiv5.IWoyouService");
             intent.setPackage("woyou.aidlservice.jiuiv5");
 
@@ -60,22 +54,19 @@ public class AndroidPrinterBridge {
         Log.i(TAG, "ensureConnected aguardando conexão. timeoutMs=" + timeoutMs);
         bindPrinterService();
 
-        CountDownLatch latch = connectionLatch;
-        boolean connected = false;
-        try {
-            if (latch != null) {
-                connected = latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+        long start = System.currentTimeMillis();
+        while (printerService == null && (System.currentTimeMillis() - start) < timeoutMs) {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.w(TAG, "ensureConnected interrompido.", e);
+                return false;
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            Log.w(TAG, "ensureConnected interrompido.", e);
-            return false;
         }
 
-        boolean ok = printerService != null || connected;
-        if (!ok) {
-            Log.w(TAG, "ensureConnected timeout após " + timeoutMs + "ms.");
-        }
+        boolean ok = printerService != null;
+        if (!ok) Log.w(TAG, "ensureConnected timeout após " + timeoutMs + "ms.");
         return ok;
     }
 
@@ -83,10 +74,6 @@ public class AndroidPrinterBridge {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             printerService = IWoyouService.Stub.asInterface(service);
-            CountDownLatch latch = connectionLatch;
-            if (latch != null) {
-                latch.countDown();
-            }
             Log.i(TAG, "onServiceConnected executado: " + name + " | printerService=" + (printerService != null));
             if (printerService != null) {
                 try {
@@ -103,7 +90,6 @@ public class AndroidPrinterBridge {
             Log.w(TAG, "onServiceDisconnected executado: " + name);
             printerService = null;
             isBound = false;
-            connectionLatch = new CountDownLatch(1);
         }
 
         @Override
@@ -111,7 +97,6 @@ public class AndroidPrinterBridge {
             Log.w(TAG, "onBindingDied: " + name);
             printerService = null;
             isBound = false;
-            connectionLatch = new CountDownLatch(1);
         }
 
         @Override
@@ -119,7 +104,6 @@ public class AndroidPrinterBridge {
             Log.e(TAG, "onNullBinding: " + name);
             printerService = null;
             isBound = false;
-            connectionLatch = new CountDownLatch(1);
         }
     };
 
@@ -137,6 +121,18 @@ public class AndroidPrinterBridge {
         return isConnected();
     }
 
+    public boolean isServiceConnected() {
+        return isConnected();
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
+    private void setLastError(String error) {
+        lastError = error;
+    }
+
     private final ICallback callbackNoop = new ICallback.Stub() {
         @Override public void onRunResult(boolean isSuccess) {}
 
@@ -151,22 +147,26 @@ public class AndroidPrinterBridge {
     public boolean printTesteDireto() {
         Log.i(TAG, "printTesteDireto() chamado. connected=" + isConnected());
         if (!isConnected()) {
+            setLastError("Serviço de impressão não conectado");
             Log.w(TAG, "printTesteDireto: não conectado.");
             return false;
         }
 
         try {
             printerService.printText(
-                    "=== TESTE DIRETO ===\n" +
-                            "Se saiu isso, OK.\n",
+                    "=== TESTE DIRETO APP ===\n" +
+                            "linha 1\n" +
+                            "linha 2\n",
                     callbackNoop
             );
 
             try { printerService.lineWrap(4, callbackNoop); } catch (Throwable ignored) {}
             Log.i(TAG, "printTesteDireto: enviado ao serviço.");
+            setLastError(null);
             return true;
         } catch (Throwable t) {
             Log.e(TAG, "printTesteDireto: erro", t);
+            setLastError("Falha no teste direto: " + (t.getMessage() != null ? t.getMessage() : t.toString()));
             return false;
         }
     }
@@ -175,6 +175,7 @@ public class AndroidPrinterBridge {
     public boolean printHtml(String html) {
         Log.i(TAG, "printHtml() chamado. len=" + (html == null ? 0 : html.length()) + " connected=" + isConnected());
         if (!isConnected()) {
+            setLastError("Serviço de impressão não conectado");
             Log.w(TAG, "printHtml: não conectado.");
             return false;
         }
@@ -182,11 +183,13 @@ public class AndroidPrinterBridge {
         try {
             String text = htmlToPlainText(html);
             text = normalizeTicketText(text);
-
-            Log.i(TAG, "printHtml: texto len=" + text.length());
+            String preview = text.substring(0, Math.min(60, text.length())).replace("\n", " ");
+            Log.i(TAG, "printHtml: texto len=" + text.length() + " preview=\"" + preview + "\"");
             if (text.trim().isEmpty()) {
+                String message = "HTML convertido em texto vazio";
                 Log.e(TAG, "printHtml: texto vazio (HTML virou vazio).");
-                return false;
+                setLastError(message);
+                throw new IllegalArgumentException(message);
             }
 
             try { printerService.setAlignment(0, callbackNoop); } catch (Throwable ignored) {}
@@ -196,9 +199,11 @@ public class AndroidPrinterBridge {
             try { printerService.lineWrap(4, callbackNoop); } catch (Throwable ignored) {}
 
             Log.i(TAG, "printHtml: enviado ao serviço.");
+            setLastError(null);
             return true;
         } catch (Throwable t) {
             Log.e(TAG, "printHtml: erro", t);
+            setLastError("Falha ao imprimir HTML: " + (t.getMessage() != null ? t.getMessage() : t.toString()));
             return false;
         }
     }
@@ -207,16 +212,18 @@ public class AndroidPrinterBridge {
     public boolean printText(String text) {
         Log.i(TAG, "printText() chamado. len=" + (text == null ? 0 : text.length()) + " connected=" + isConnected());
         if (!isConnected()) {
+            setLastError("Serviço de impressão não conectado");
             Log.w(TAG, "printText: não conectado.");
             return false;
         }
 
         try {
             String safe = normalizeTicketText(text);
-
-            Log.i(TAG, "printText: texto len=" + safe.length());
+            String preview = safe.substring(0, Math.min(60, safe.length())).replace("\n", " ");
+            Log.i(TAG, "printText: texto len=" + safe.length() + " preview=\"" + preview + "\"");
             if (safe.trim().isEmpty()) {
                 Log.e(TAG, "printText: texto vazio.");
+                setLastError("Texto vazio para impressão");
                 return false;
             }
 
@@ -229,9 +236,11 @@ public class AndroidPrinterBridge {
             try { printerService.lineWrap(4, callbackNoop); } catch (Throwable ignored) {}
 
             Log.i(TAG, "printText: enviado ao serviço.");
+            setLastError(null);
             return true;
         } catch (Throwable t) {
             Log.e(TAG, "printText: erro", t);
+            setLastError("Falha ao imprimir texto: " + (t.getMessage() != null ? t.getMessage() : t.toString()));
             return false;
         }
     }
