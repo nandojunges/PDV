@@ -92,7 +92,7 @@ public class AndroidPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void printTesteDireto(PluginCall call) {
-        Log.i(TAG, "printTesteDireto chamado (JS->Nativo)");
+        Log.i(TAG, "PLUGIN: printTesteDireto called");
         if (printerBridge == null) {
             resolveError(call, safeStatus(), "Bridge de impressão não inicializada");
             return;
@@ -121,7 +121,7 @@ public class AndroidPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void printText(PluginCall call) {
-        Log.i(TAG, "printText chamado (JS->Nativo)");
+        Log.i(TAG, "PLUGIN: printText called");
         String text = call.getString("text", "");
         if (text == null) text = "";
 
@@ -157,7 +157,7 @@ public class AndroidPrinterPlugin extends Plugin {
 
     @PluginMethod
     public void printHtml(PluginCall call) {
-        Log.i(TAG, "printHtml chamado (JS->Nativo)");
+        Log.i(TAG, "PLUGIN: printHtml called");
         String html = call.getString("html", "");
         if (html == null) html = "";
 

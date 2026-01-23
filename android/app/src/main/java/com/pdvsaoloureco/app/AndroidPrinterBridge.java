@@ -156,17 +156,9 @@ public class AndroidPrinterBridge {
         }
 
         try {
-            try { printerService.printerInit(callbackNoop); } catch (Throwable ignored) {}
-            try { printerService.setAlignment(0, callbackNoop); } catch (Throwable ignored) {}
-            try { printerService.setFontSize(24f, callbackNoop); } catch (Throwable ignored) {}
-
             printerService.printText(
-                    "=== TESTE DIRETO ===\n" +
-                            "Pastel ........ R$ 10,00\n" +
-                            "Refri ......... R$ 5,00\n" +
-                            "TOTAL ......... R$ 15,00\n" +
-                            "------------------------\n" +
-                            "Se isso saiu, Android/AIDL OK.\n",
+                    "### TESTE DO APP ###\n" +
+                            "Se saiu isso, OK.\n",
                     callbackNoop
             );
 
