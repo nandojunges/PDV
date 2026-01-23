@@ -203,4 +203,29 @@ public class AndroidPrinterPlugin extends Plugin {
             resolveError(call, buildStatus("printHtml"), "Exceção ao imprimir HTML: " + (t.getMessage() != null ? t.getMessage() : t.toString()));
         }
     }
+
+    @PluginMethod
+    public void printDebugFromNative(PluginCall call) {
+        Log.i(TAG, "PLUGIN: printDebugFromNative called");
+        if (printerBridge == null) {
+            resolveError(call, safeStatus(), "bridge nula");
+            return;
+        }
+
+        if (!printerBridge.ensureConnected(2500)) {
+            resolveError(call, buildStatus("printDebugFromNative"), "não conectou em 2.5s");
+            return;
+        }
+
+        boolean ok = false;
+        try {
+            ok = printerBridge.printText("NATIVE DEBUG OK\n");
+            Log.i(TAG, "printDebugFromNative resultado ok=" + ok);
+            String error = ok ? null : printerBridge.getLastError();
+            resolveOk(call, ok, buildStatus("printDebugFromNative"), ok ? null : (error != null ? error : "Falha ao imprimir debug nativo"));
+        } catch (Throwable t) {
+            Log.e(TAG, "printDebugFromNative erro", t);
+            resolveError(call, buildStatus("printDebugFromNative"), "Exceção no debug nativo: " + (t.getMessage() != null ? t.getMessage() : t.toString()));
+        }
+    }
 }

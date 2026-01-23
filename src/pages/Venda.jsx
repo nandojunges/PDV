@@ -7,7 +7,13 @@ import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { useConfig } from "../config/ConfigProvider";
 import { postSaleToMaster } from "../net/connectivity";
-import { imprimirVenda, testarImpressora } from "../utils/androidPrinter";
+import {
+  debugPrintA_JSPlugin,
+  debugPrintB_Native,
+  debugPrintC_TicketFixo,
+  imprimirVenda,
+  testarImpressora,
+} from "../utils/androidPrinter";
 import { buildTicketText, buildTicketsPerItem } from "../print/ticketBuilder";
 import {
   buildSaleSummaryFromSale,
@@ -521,6 +527,33 @@ export default function Venda({
     }
   }
 
+  const formatDiagError = (result) => {
+    const status = result?.status ? `status=${result.status}` : "status=?";
+    const error = result?.error ? `error=${result.error}` : "error=?";
+    return `${status}, ${error}`;
+  };
+
+  const runDiag = async (label, action) => {
+    if (isPrinting) return;
+    setAviso("");
+    setIsPrinting(true);
+    try {
+      const result = await action();
+      console.info(`[PRINT][DIAG] ${label}`, {
+        ok: result?.ok,
+        status: result?.status,
+        error: result?.error,
+      });
+      if (result?.ok) {
+        setAviso(`OK: ${label}`);
+      } else {
+        setAviso(`FALHA: ${label} (${formatDiagError(result)})`);
+      }
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   const itensConfirm = Array.isArray(vendaDraft?.carrinho) ? vendaDraft.carrinho : [];
 
   const produtoNomeClampStyle = {
@@ -746,6 +779,36 @@ export default function Venda({
             </Button>
             <Button variant="primary" onClick={finalizar} disabled={isPrinting}>
               Finalizar
+            </Button>
+          </div>
+        </div>
+
+        <div className="hr" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="muted" style={{ fontWeight: 800 }}>
+            Diagnóstico Impressora
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button
+              small
+              onClick={() => runDiag("Diag A (JS→Plugin)", debugPrintA_JSPlugin)}
+              disabled={isPrinting}
+            >
+              Diag A (JS→Plugin)
+            </Button>
+            <Button
+              small
+              onClick={() => runDiag("Diag B (Native)", debugPrintB_Native)}
+              disabled={isPrinting}
+            >
+              Diag B (Native)
+            </Button>
+            <Button
+              small
+              onClick={() => runDiag("Diag C (Ticket fixo)", debugPrintC_TicketFixo)}
+              disabled={isPrinting}
+            >
+              Diag C (Ticket fixo)
             </Button>
           </div>
         </div>
