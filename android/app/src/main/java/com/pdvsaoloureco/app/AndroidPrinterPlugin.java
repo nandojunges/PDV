@@ -125,6 +125,11 @@ public class AndroidPrinterPlugin extends Plugin {
         String text = call.getString("text", "");
         if (text == null) text = "";
 
+        if (text.trim().isEmpty()) {
+            resolveError(call, safeStatus(), "Texto vazio");
+            return;
+        }
+
         if (printerBridge == null) {
             resolveError(call, safeStatus(), "Bridge de impressão não inicializada");
             return;
@@ -143,7 +148,7 @@ public class AndroidPrinterPlugin extends Plugin {
         boolean ok = false;
         try {
             int len = text.length();
-            String head = text.substring(0, Math.min(40, len)).replace("\n", " ");
+            String head = text.substring(0, Math.min(120, len)).replace("\n", " ");
             Log.i(TAG, "printText solicitado. len=" + len + ", head=\"" + head + "\"");
 
             ok = printerBridge.printText(text);

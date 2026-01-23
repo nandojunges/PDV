@@ -1,6 +1,5 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { wrapThermal58 } from "../services/receiptTemplate58";
-import { buildTicketText } from "../print/ticketBuilder";
 
 export const AndroidPrinterPlugin = registerPlugin("AndroidPrinterPlugin");
 
@@ -278,24 +277,23 @@ export async function printAndroidSelfTest() {
 }
 
 export async function imprimirVenda(payload = {}) {
-  if (typeof payload === "string" || typeof payload === "number") {
-    return printTicketText(String(payload));
+  const ticketText =
+    typeof payload === "string" || typeof payload === "number"
+      ? String(payload)
+      : typeof payload?.ticketText === "string"
+        ? payload.ticketText
+        : "";
+
+  if (!ticketText || !ticketText.trim()) {
+    return { ok: false, mode: isAndroidRuntime() ? "android" : "browser", error: "Texto do ticket vazio." };
   }
 
   if (!isAndroidRuntime()) {
     return { ok: false, mode: "browser", error: "Impressão disponível apenas no Android." };
   }
 
-  const explicitTicket = typeof payload?.ticketText === "string" ? payload.ticketText : null;
-  const ticketText = explicitTicket ?? buildTicketText(payload);
-  if (!ticketText || !ticketText.trim()) {
-    return { ok: false, mode: "android", error: "Texto do ticket vazio." };
-  }
-
   const plugin = getAndroidPrinterPlugin();
-  const hasTextFn = typeof plugin?.printText === "function";
-
-  if (!hasTextFn) {
+  if (typeof plugin?.printText !== "function") {
     return {
       ok: false,
       mode: "android",
@@ -305,16 +303,7 @@ export async function imprimirVenda(payload = {}) {
 
   try {
     console.log("[PRINT] usando AndroidPrinterPlugin...");
-    const textResult = await printText(ticketText);
-    const okText = normalizeAndroidResult(textResult);
-    return okText
-      ? { ok: true, mode: "android", status: textResult?.status }
-      : {
-          ok: false,
-          mode: "android",
-          status: textResult?.status,
-          error: textResult?.error || "Falha ao imprimir venda.",
-        };
+    return await printText(ticketText);
   } catch (error) {
     return { ok: false, mode: "android", error: error?.message || String(error) };
   }
