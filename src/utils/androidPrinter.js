@@ -7,7 +7,15 @@ const ensureAndroid = () => Capacitor.getPlatform() === "android";
 
 export async function printText(text) {
   if (!ensureAndroid()) return;
-  return AndroidPrinterPlugin.printText({ text });
+  const payload = String(text ?? "");
+  console.log("[PRINT] ticketLen", payload.length, "preview", payload.slice(0, 60));
+  const result = await AndroidPrinterPlugin.printText({ text: payload });
+  console.log("[PRINT] printText result", {
+    ok: result?.ok,
+    status: result?.status,
+    error: result?.error,
+  });
+  return result;
 }
 
 export async function printHtml(html) {

@@ -340,6 +340,10 @@ export default function Venda({
       let lastResult = { ok: true };
       for (let index = 0; index < tickets.length; index += 1) {
         const ticketText = tickets[index];
+        if (!String(ticketText ?? "").trim()) {
+          console.warn("[PRINT] ticketText vazio no modo fichaPorItem.", { index });
+          return { ok: false, error: "Ticket vazio no modo fichaPorItem." };
+        }
         logTicketPreview(ticketText);
         const result = await imprimirVenda({ ticketText });
         logPrintResult(result, `item ${index + 1}/${tickets.length}`);
@@ -353,6 +357,10 @@ export default function Venda({
     }
 
     const ticketText = buildTicketText({ venda, ajustes, device });
+    if (!String(ticketText ?? "").trim()) {
+      console.warn("[PRINT] ticketText vazio para a venda.");
+      return { ok: false, error: "Ticket vazio para impressão." };
+    }
     logTicketPreview(ticketText);
     const result = await imprimirVenda({ ticketText });
     logPrintResult(result, "venda");
