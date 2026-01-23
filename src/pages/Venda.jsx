@@ -310,10 +310,13 @@ export default function Venda({
   });
 
   const logTicketPreview = (ticketText) => {
-    const preview = String(ticketText || "")
-      .replace(/\s+/g, " ")
-      .slice(0, 40);
-    console.info("[PRINT] ticket length", String(ticketText || "").length, "preview:", preview);
+    const text = String(ticketText ?? "");
+    console.info(
+      "[PRINT] sending ticketText chars=",
+      text.length,
+      "head=",
+      text.slice(0, 120),
+    );
   };
 
   const logPrintResult = (result, context = "imprimirVenda") => {
@@ -351,7 +354,7 @@ export default function Venda({
 
     const ticketText = buildTicketText({ venda, ajustes, device });
     logTicketPreview(ticketText);
-    const result = await imprimirVenda({ venda, ajustes, device, ticketText });
+    const result = await imprimirVenda({ ticketText });
     logPrintResult(result, "venda");
     return result;
   }

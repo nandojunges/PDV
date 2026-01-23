@@ -157,7 +157,7 @@ public class AndroidPrinterBridge {
 
         try {
             printerService.printText(
-                    "### TESTE DO APP ###\n" +
+                    "=== TESTE DIRETO ===\n" +
                             "Se saiu isso, OK.\n",
                     callbackNoop
             );
@@ -223,6 +223,8 @@ public class AndroidPrinterBridge {
             try { printerService.setAlignment(0, callbackNoop); } catch (Throwable ignored) {}
             try { printerService.setFontSize(24f, callbackNoop); } catch (Throwable ignored) {}
 
+            String head = safe.substring(0, Math.min(120, safe.length())).replace("\n", " ");
+            Log.i(TAG, "printText: enviando len=" + safe.length() + ", head=\"" + head + "\"");
             printerService.printText(safe, callbackNoop);
             try { printerService.lineWrap(4, callbackNoop); } catch (Throwable ignored) {}
 
