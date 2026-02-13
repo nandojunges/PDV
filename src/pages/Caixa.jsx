@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, toNumBR } from "../domain/math";
-import { imprimirTexto } from "../utils/androidPrinter";
+import { printSunmiText } from "../utils/sunmiPrinter";
 import {
   REPORT_LINE_WIDTH,
   REPORT_SEPARATOR,
@@ -531,7 +531,7 @@ export default function Caixa({
         saldoDinheiroFinal: fechamento.saldoDinheiroFinal,
         porDevice: fechamento.porDevice,
       });
-      const resultado = await imprimirTexto(texto);
+      const resultado = await printSunmiText(texto);
       if (!resultado?.ok) {
         const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
         alert(`Não foi possível imprimir o relatório.${erroMsg}`);

@@ -21,5 +21,11 @@ npm run build
 
 npx cap sync android
 
+
+
 npm run build -- --mode mobile
 npx cap sync android
+
+npm run build
+npx cap sync android
+npx cap open android

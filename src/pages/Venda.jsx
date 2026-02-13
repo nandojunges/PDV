@@ -7,7 +7,8 @@ import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { useConfig } from "../config/ConfigProvider";
 import { postSaleToMaster } from "../net/connectivity";
-import { imprimirVenda, testarImpressora } from "../utils/androidPrinter";
+import { printSunmiTest, printSunmiText } from "../utils/sunmiPrinter";
+import { buildTicketText, buildTicketsPerItem } from "../print/ticketBuilder";
 import {
   buildSaleSummaryFromSale,
   enqueuePendingSale,
@@ -39,55 +40,7 @@ function IconImg({ iconKey, size = 42 }) {
   );
 }
 
-const formatPrice = (value) => {
-  const num = Number(value || 0) || 0;
-  return num.toFixed(2).replace(".", ",");
-};
-
-function buildVendaPayload({ venda, ajustes }) {
-  const eventoNome =
-    String(ajustes?.nomeOrganizacao || venda?.eventoNome || "").trim() || "Evento";
-  const mensagemRodape = String(
-    ajustes?.textoRodape || "Obrigado pela preferência!",
-  ).trim();
-
-  const itens = Array.isArray(venda?.itens) ? venda.itens : [];
-  const itensFormatados = itens
-    .map((item) => {
-      const nome = String(item?.nome || "").trim();
-      if (!nome) return null;
-
-      const qtd = Number(item?.qtd || 0) || 0;
-      if (qtd <= 0) return null;
-
-      const unitario =
-        Number(item?.unitario ?? item?.preco ?? item?.valor ?? 0) || 0;
-      const subtotal = Number(item?.subtotal ?? item?.total ?? 0) || 0;
-      const precoFinal = unitario || (qtd > 0 ? subtotal / qtd : 0);
-
-      return { nome, qtd, preco: formatPrice(precoFinal) };
-    })
-    .filter(Boolean);
-
-  const total = formatPrice(
-    Number(venda?.total ?? totalDoCarrinho(itens) ?? 0) || 0,
-  );
-
-  const recebido =
-    venda?.recebido != null ? formatPrice(Number(venda.recebido || 0)) : null;
-  const troco =
-    venda?.troco != null ? formatPrice(Number(venda.troco || 0)) : null;
-
-  return {
-    cabecalho: eventoNome,
-    itens: itensFormatados,
-    total,
-    pagamento: venda?.pagamento ? String(venda.pagamento) : null,
-    recebido,
-    troco,
-    mensagemRodape,
-  };
-}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function Venda({
   evento = {},
@@ -351,6 +304,69 @@ export default function Venda({
     return dt.toLocaleString("pt-BR");
   }
 
+  const buildDeviceInfo = (sale) => ({
+    id: sale?.deviceId || deviceId,
+    name: sale?.deviceName || deviceName,
+  });
+
+  const logTicketPreview = (ticketText) => {
+    const text = String(ticketText ?? "");
+    console.info(
+      "[PRINT] sending ticketText chars=",
+      text.length,
+      "head=",
+      text.slice(0, 120),
+    );
+  };
+
+  const logPrintResult = (result, context = "printSunmiText") => {
+    console.info(`[PRINT] resultado (${context})`, {
+      ok: result?.ok,
+      status: result?.status,
+      error: result?.error,
+    });
+  };
+
+  async function imprimirTicketsDaVenda(venda) {
+    const device = buildDeviceInfo(venda);
+    const fichaPorItem = Boolean(ajustes?.fichaPorItem);
+
+    if (fichaPorItem) {
+      const tickets = buildTicketsPerItem({ venda, ajustes, device });
+      console.info("[PRINT] fichaPorItem ativo. Tickets:", tickets.length);
+      if (!tickets.length) {
+        return { ok: false, error: "Nenhum ticket gerado para impressão." };
+      }
+      let lastResult = { ok: true };
+      for (let index = 0; index < tickets.length; index += 1) {
+        const ticketText = tickets[index];
+        if (!String(ticketText ?? "").trim()) {
+          console.warn("[PRINT] ticketText vazio no modo fichaPorItem.", { index });
+          return { ok: false, error: "Ticket vazio no modo fichaPorItem." };
+        }
+        logTicketPreview(ticketText);
+        const result = await printSunmiText(ticketText);
+        logPrintResult(result, `item ${index + 1}/${tickets.length}`);
+        lastResult = result;
+        if (!result?.ok) return result;
+        if (index < tickets.length - 1) {
+          await delay(120);
+        }
+      }
+      return lastResult;
+    }
+
+    const ticketText = buildTicketText({ venda, ajustes, device });
+    if (!String(ticketText ?? "").trim()) {
+      console.warn("[PRINT] ticketText vazio para a venda.");
+      return { ok: false, error: "Ticket vazio para impressão." };
+    }
+    logTicketPreview(ticketText);
+    const result = await printSunmiText(ticketText);
+    logPrintResult(result, "venda");
+    return result;
+  }
+
   async function reimprimirVenda(venda) {
     if (!venda?.itens?.length) return;
     if (isPrinting) return;
@@ -358,8 +374,7 @@ export default function Venda({
     setAviso("");
     setIsPrinting(true);
     try {
-      const payload = buildVendaPayload({ venda, ajustes });
-      const resultado = await imprimirVenda(payload);
+      const resultado = await imprimirTicketsDaVenda(venda);
       if (!resultado?.ok) {
         const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
         setAviso(`Falha ao reimprimir venda.${erroMsg}`);
@@ -437,8 +452,7 @@ export default function Venda({
         setPendingSale(vendaFinal);
       }
 
-      const payload = buildVendaPayload({ venda: vendaFinal, ajustes });
-      const resultado = await imprimirVenda(payload);
+      const resultado = await imprimirTicketsDaVenda(vendaFinal);
       if (!resultado?.ok) {
         const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
         setAviso(`Falha ao imprimir venda.${erroMsg}`);
@@ -495,7 +509,7 @@ export default function Venda({
     setAviso("");
     setIsPrinting(true);
     try {
-      const resultado = await testarImpressora();
+      const resultado = await printSunmiTest();
       if (!resultado?.ok) {
         const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
         setAviso(`Não foi possível imprimir o teste.${erroMsg}`);

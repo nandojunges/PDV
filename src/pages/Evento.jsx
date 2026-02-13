@@ -7,7 +7,8 @@ import { getFlowState } from "../domain/eventoFlow";
 import { useConfig } from "../config/ConfigProvider";
 import { getOrCreateEventoKey, getOrCreateEventoPin, shortId } from "../rede/eventIdentity";
 import { PDV_PORT } from "../net/pdvNetConfig";
-import { imprimirTexto } from "../utils/androidPrinter";
+import TesteSunmi from "../components/TesteSunmi";
+import { printSunmiText } from "../utils/sunmiPrinter";
 import {
   REPORT_LINE_WIDTH,
   REPORT_SEPARATOR,
@@ -234,6 +235,7 @@ export default function Evento({
   const [statusConexao, setStatusConexao] = useState("Aguardando conexões");
   const [mostrarConectar, setMostrarConectar] = useState(false);
   const [mostrarConectividade, setMostrarConectividade] = useState(false);
+  const [mostrarTesteSunmi, setMostrarTesteSunmi] = useState(false);
   const [modoConectar, setModoConectar] = useState("manual");
   const [qrInput, setQrInput] = useState("");
   const [erroConectar, setErroConectar] = useState("");
@@ -982,7 +984,7 @@ export default function Evento({
     lines.push(centerText("FIM DO RELATÓRIO", REPORT_LINE_WIDTH));
 
     const texto = joinLines(lines);
-    const resultado = await imprimirTexto(texto);
+    const resultado = await printSunmiText(texto);
     if (!resultado?.ok) {
       const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
       alert(`Não foi possível imprimir o relatório.${erroMsg}`);
@@ -1112,6 +1114,13 @@ export default function Evento({
                 Conectar-se a um evento
               </button>
             )}
+
+            <button
+              style={{ ...btn("soft"), height: 34 }}
+              onClick={() => setMostrarTesteSunmi(true)}
+            >
+              🖨️ Testar Sunmi
+            </button>
 
             {eventoAberto && permitirMultiDispositivo && (
               <button
@@ -1510,6 +1519,8 @@ export default function Evento({
           </div>
         </div>
       )}
+
+      <TesteSunmi aberto={mostrarTesteSunmi} onClose={() => setMostrarTesteSunmi(false)} />
 
       {evExcluir && (
         <div style={overlay} onClick={() => setEvExcluir(null)}>

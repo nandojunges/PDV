@@ -10,7 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
     "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
