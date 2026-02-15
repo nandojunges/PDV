@@ -16,23 +16,8 @@ import { loadJSON, saveJSON } from "../storage/storage";
 import { ensureMigrations } from "../storage/migrate";
 import { resumoFinanceiroPorEvento } from "../domain/pos";
 import { getAllowedTabs, getFlowState } from "../domain/eventoFlow";
-import { stopMasterServer, postSaleToMaster, syncFromMaster } from "../net/connectivity";
-import { useConfig } from "../config/ConfigProvider";
-import {
-  buildSaleSummaryFromSale,
-  getOrCreateDeviceId,
-  readPendingSales,
-  removePendingSaleById,
-} from "../state/pdvStore";
 
 export default function App() {
-  const { config, permitirMultiDispositivo } = useConfig();
-  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
-  const deviceName = useMemo(() => {
-    if (typeof navigator === "undefined") return "Cliente";
-    return navigator?.userAgent || "Cliente";
-  }, []);
-
   useEffect(() => {
     ensureMigrations();
   }, []);
@@ -269,12 +254,6 @@ export default function App() {
   }
 
   async function encerrarEventoAtual(nextTab = "evento") {
-    try {
-      await stopMasterServer();
-    } catch (error) {
-      console.warn("Não foi possível encerrar o servidor local.", error);
-    }
-
     setEvento(null);
     setProdutos([]);
     setCaixa({ abertura: null, abertoEm: null, movimentos: [] });
@@ -347,112 +326,6 @@ export default function App() {
     });
   }, [podeVoltar]);
 
-  useEffect(() => {
-    if (!permitirMultiDispositivo) return undefined;
-    if (config?.modoMulti !== "client") return undefined;
-    if (!evento?.nome) return undefined;
-
-    const host = String(config?.masterHost || "").trim();
-    const port = String(config?.masterPort || "").trim();
-    const pin = String(config?.pinAtual || "").trim();
-    const eventId = String(config?.eventIdAtual || "").trim();
-
-    if (!host || !port || !pin || !eventId) return undefined;
-
-    const interval = setInterval(async () => {
-      const pendentes = readPendingSales();
-      if (pendentes.length === 0) return;
-      for (const item of pendentes) {
-        const summary =
-          item?.summary ||
-          (item?.sale
-            ? buildSaleSummaryFromSale({ sale: item.sale, deviceId, deviceName })
-            : null);
-        if (!summary) continue;
-        try {
-          await postSaleToMaster({
-            host,
-            port,
-            pin,
-            eventId,
-            deviceId,
-            deviceName,
-            summary,
-            sale: item?.sale || null,
-          });
-          removePendingSaleById(summary.saleId || summary.id);
-        } catch {
-          break;
-        }
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [
-    permitirMultiDispositivo,
-    config?.modoMulti,
-    config?.masterHost,
-    config?.masterPort,
-    config?.pinAtual,
-    config?.eventIdAtual,
-    evento?.nome,
-    deviceId,
-    deviceName,
-  ]);
-
-  useEffect(() => {
-    if (!permitirMultiDispositivo) return undefined;
-    if (config?.modoMulti !== "client") return undefined;
-    if (!evento?.nome) return undefined;
-
-    const host = String(config?.masterHost || "").trim();
-    const port = String(config?.masterPort || "").trim();
-    const pin = String(config?.pinAtual || "").trim();
-    const eventId = String(config?.eventIdAtual || "").trim();
-
-    if (!host || !port || !pin || !eventId) return undefined;
-
-    let cancelled = false;
-    const syncProdutos = async () => {
-      if (cancelled) return;
-      const since = loadJSON(LS_KEYS.produtosSyncAt, null);
-      try {
-        const response = await syncFromMaster({
-          host,
-          port,
-          pin,
-          eventId,
-          deviceId,
-          since,
-        });
-        const delta = response?.snapshotDelta || null;
-        if (Array.isArray(delta?.products)) {
-          setProdutos(delta.products);
-          saveJSON(LS_KEYS.produtosSyncAt, delta.updatedAt || new Date().toISOString());
-        } else if (delta?.updatedAt) {
-          saveJSON(LS_KEYS.produtosSyncAt, delta.updatedAt);
-        }
-      } catch {
-        // mantém offline
-      }
-    };
-
-    void syncProdutos();
-    const interval = setInterval(syncProdutos, 8000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [
-    permitirMultiDispositivo,
-    config?.modoMulti,
-    config?.masterHost,
-    config?.masterPort,
-    config?.pinAtual,
-    config?.eventIdAtual,
-    evento?.nome,
-    deviceId,
-  ]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#f5f6f8" }}>
