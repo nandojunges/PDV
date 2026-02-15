@@ -7,8 +7,7 @@ import { getFlowState } from "../domain/eventoFlow";
 import { useConfig } from "../config/ConfigProvider";
 import { getOrCreateEventoKey, getOrCreateEventoPin, shortId } from "../rede/eventIdentity";
 import { PDV_PORT } from "../net/pdvNetConfig";
-import TesteSunmi from "../components/TesteSunmi";
-import { printSunmiText } from "../utils/sunmiPrinter";
+import { imprimirTexto } from "../utils/sunmiPrinter";
 import {
   REPORT_LINE_WIDTH,
   REPORT_SEPARATOR,
@@ -62,7 +61,6 @@ function toBRDateTime(iso) {
 function fmtBRL(value) {
   return `R$ ${Number(value || 0).toFixed(2).replace(".", ",")}`;
 }
-
 
 const ITEM_LIST_KEYS = ["itens", "items", "produtos", "products", "carrinho", "cart"];
 const ITEM_NAME_KEYS = ["nome", "name", "titulo", "title", "descricao"];
@@ -235,7 +233,6 @@ export default function Evento({
   const [statusConexao, setStatusConexao] = useState("Aguardando conexões");
   const [mostrarConectar, setMostrarConectar] = useState(false);
   const [mostrarConectividade, setMostrarConectividade] = useState(false);
-  const [mostrarTesteSunmi, setMostrarTesteSunmi] = useState(false);
   const [modoConectar, setModoConectar] = useState("manual");
   const [qrInput, setQrInput] = useState("");
   const [erroConectar, setErroConectar] = useState("");
@@ -318,14 +315,13 @@ export default function Evento({
       });
     }
 
-    // também inclui eventos encerrados que ainda não tenham vendas (só se quiser aparecer)
-    // (se não quiser, pode remover este bloco)
+    // inclui eventos encerrados no histórico, mesmo sem vendas no array "vendas"
     for (const [nm] of encerradosMap.entries()) {
       if (!map.has(nm)) {
         const meta = encerradosMap.get(nm);
         map.set(nm, {
           nome: nm,
-          primeiraData: meta?.fechamento?.abertoEm || meta?.encerradoEm || null,
+          primeiraData: meta?.fechamento?.abertoEm || meta?.abertoEm || meta?.encerradoEm || null,
           ultimaData: meta?.encerradoEm || null,
           vendas: 0,
           total: 0,
@@ -792,9 +788,11 @@ export default function Evento({
   }
 
   function calcularCaixaDoEvento(nomeEv) {
+    const nomeEvLimpo = String(nomeEv || "").trim();
     const vs = Array.isArray(vendas) ? vendas : [];
+
     const evVendas = vs.filter(
-      (v) => String(v?.eventoNome || "").trim() === String(nomeEv || "").trim()
+      (v) => String(v?.eventoNome || "").trim() === nomeEvLimpo
     );
 
     const resumo = {
@@ -821,10 +819,11 @@ export default function Evento({
       }
     }
 
+    // ✅ caixaAtual só para evento ativo
     const nmAtual = String(evento?.nome || "").trim();
     const caixaAtual =
       nmAtual &&
-      nmAtual === String(nomeEv || "").trim() &&
+      nmAtual === nomeEvLimpo &&
       caixa &&
       typeof caixa === "object"
         ? caixa
@@ -841,23 +840,23 @@ export default function Evento({
 
     const saldoDinheiroEsperado = abertura + resumo.porPagamento.dinheiro + reforcos - sangrias;
 
+    // ===== Itens: vendas + produtos snapshot do evento (ATUAL ou ENCERRADO) =====
     const itensMap = new Map();
     const itensPorNome = new Map();
+
     const registrarItem = (item) => {
       if (!item) return;
       const nome = String(item.nome || "").trim();
       if (!nome) return;
+
       const precoNum = Number.isFinite(item.preco) ? Number(item.preco) : null;
       const precoKey = precoNum == null ? "sem-preco" : precoNum.toFixed(2);
       const chave = `${normalizeNameKey(nome)}__${precoKey}`;
+
       if (!itensMap.has(chave)) {
-        itensMap.set(chave, {
-          nome,
-          preco: precoNum,
-          qtd: 0,
-          total: 0,
-        });
+        itensMap.set(chave, { nome, preco: precoNum, qtd: 0, total: 0 });
       }
+
       const registro = itensMap.get(chave);
       registro.qtd += Number(item.qtd || 0) || 0;
       registro.total += Number(item.total || 0) || 0;
@@ -874,9 +873,11 @@ export default function Evento({
       }
     }
 
-    const metaEncerrado = encerradosMap.get(String(nomeEv || "").trim());
+    // ✅ Se for evento encerrado, tenta puxar produtos do cache (eventosMeta)
+    const metaEncerrado = encerradosMap.get(nomeEvLimpo);
+
     const produtosLista =
-      String(nomeEv || "").trim() === String(evento?.nome || "").trim()
+      nomeEvLimpo === String(evento?.nome || "").trim()
         ? produtosEvento
         : Array.isArray(metaEncerrado?.produtos)
           ? metaEncerrado.produtos
@@ -891,18 +892,14 @@ export default function Evento({
       const precoKey = info.preco == null ? "sem-preco" : info.preco.toFixed(2);
       const chave = `${nomeKey}__${precoKey}`;
 
+      // se não tem preço e já existe algum com mesmo nome, não duplica
       if (info.preco == null) {
         const existentes = itensPorNome.get(nomeKey);
         if (existentes && existentes.size > 0) continue;
       }
 
       if (!itensMap.has(chave)) {
-        itensMap.set(chave, {
-          nome: info.nome,
-          preco: info.preco,
-          qtd: 0,
-          total: 0,
-        });
+        itensMap.set(chave, { nome: info.nome, preco: info.preco, qtd: 0, total: 0 });
       }
     }
 
@@ -920,7 +917,7 @@ export default function Evento({
     const totalItens = Number(resumo.total || 0) || totalItensCalculado;
 
     return {
-      nome: nomeEv,
+      nome: nomeEvLimpo,
       resumo,
       caixaAtual: !!caixaAtual,
       abertura,
@@ -933,15 +930,20 @@ export default function Evento({
         itensComVenda,
         itensSemVenda,
       },
-      encerradoEm: encerradosMap.get(String(nomeEv || "").trim())?.encerradoEm || null,
+      encerradoEm: metaEncerrado?.encerradoEm || metaEncerrado?.fechamento?.encerradoEm || null,
+      abertoEm: metaEncerrado?.abertoEm || metaEncerrado?.fechamento?.abertoEm || null,
     };
   }
 
   async function imprimirResumoCaixa(resumoCaixa) {
     if (!resumoCaixa) return;
+
     const periodo = resumoCaixa.resumo.primeira
       ? `${toBRDateTime(resumoCaixa.resumo.primeira)} → ${toBRDateTime(resumoCaixa.resumo.ultima)}`
-      : "Sem vendas registradas.";
+      : resumoCaixa.abertoEm || resumoCaixa.encerradoEm
+        ? `${toBRDateTime(resumoCaixa.abertoEm || resumoCaixa.encerradoEm)} → ${toBRDateTime(resumoCaixa.encerradoEm || resumoCaixa.abertoEm)}`
+        : "Sem vendas registradas.";
+
     const impressoEm = toBRDateTime(new Date().toISOString());
     const lines = [];
 
@@ -951,11 +953,13 @@ export default function Evento({
       lines.push(`Encerrado em: ${toBRDateTime(resumoCaixa.encerradoEm)}`);
     }
     lines.push(REPORT_SEPARATOR);
+
     lines.push(formatSectionTitle("Totais"));
     lines.push(...formatRow("Total vendido", fmtBRL(resumoCaixa.resumo.total || 0)));
     lines.push(...formatRow("Dinheiro", fmtBRL(resumoCaixa.resumo.porPagamento.dinheiro || 0)));
     lines.push(...formatRow("Pix", fmtBRL(resumoCaixa.resumo.porPagamento.pix || 0)));
     lines.push(...formatRow("Cartão", fmtBRL(resumoCaixa.resumo.porPagamento.cartao || 0)));
+
     if (resumoCaixa.caixaAtual) {
       lines.push(...formatRow("Abertura", fmtBRL(resumoCaixa.abertura || 0)));
       lines.push(
@@ -964,8 +968,13 @@ export default function Evento({
           fmtBRL(resumoCaixa.saldoDinheiroEsperado || 0)
         )
       );
+    } else {
+      lines.push(...formatRow("Abertura", "-"));
+      lines.push(...formatRow("Saldo esperado (dinheiro)", "-"));
     }
+
     lines.push(REPORT_SEPARATOR);
+
     lines.push(formatSectionTitle("Itens do evento"));
     if (resumoCaixa.itensResumo && resumoCaixa.itensResumo.length > 0) {
       resumoCaixa.itensResumo.forEach((item) => {
@@ -976,6 +985,7 @@ export default function Evento({
     } else {
       lines.push("Nenhum item registrado.");
     }
+
     lines.push(
       ...formatRow("Total geral (itens)", fmtBRL(resumoCaixa.itensTotais?.totalItens || 0))
     );
@@ -984,10 +994,12 @@ export default function Evento({
     lines.push(centerText("FIM DO RELATÓRIO", REPORT_LINE_WIDTH));
 
     const texto = joinLines(lines);
-    const resultado = await printSunmiText(texto);
-    if (!resultado?.ok) {
-      const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
-      alert(`Não foi possível imprimir o relatório.${erroMsg}`);
+
+    try {
+      // ✅ CORRETO: imprime pelo driver Sunmi
+      await imprimirTexto(texto);
+    } catch (error) {
+      alert(`Não foi possível imprimir o relatório. (${error?.message || "erro desconhecido"})`);
     }
   }
 
@@ -1015,7 +1027,7 @@ export default function Evento({
       );
     }
 
-    // se estava ativo, limpa caixa (apenas se o pai mantiver isso)
+    // se estava ativo, limpa caixa
     const atual = String(evento?.nome || "").trim();
     if (atual && atual === nomeEv && typeof setCaixa === "function") {
       setCaixa((prev) => ({
@@ -1036,7 +1048,7 @@ export default function Evento({
   const inputStyle = {
     width: "100%",
     height: 44,
-    fontSize: 16, // iOS zoom fix
+    fontSize: 16,
     padding: "0 12px",
     borderRadius: 12,
     border: "1px solid #d1d5db",
@@ -1050,10 +1062,9 @@ export default function Evento({
     : serverErro
       ? "Erro ao iniciar"
       : "Não iniciado";
+
   const statusAtual = isCliente ? statusConexao : statusMaster;
-  const ipMestreLabel = isCliente
-    ? clienteHost || config?.masterHost || "-"
-    : serverIp || "-";
+  const ipMestreLabel = isCliente ? clienteHost || config?.masterHost || "-" : serverIp || "-";
   const mostrarAvisoIpMestre = isNative && !isCliente && !serverIp;
 
   return (
@@ -1107,20 +1118,10 @@ export default function Evento({
             )}
 
             {permitirMultiDispositivo && (
-              <button
-                style={{ ...btn("soft"), height: 34 }}
-                onClick={abrirModalConectar}
-              >
+              <button style={{ ...btn("soft"), height: 34 }} onClick={abrirModalConectar}>
                 Conectar-se a um evento
               </button>
             )}
-
-            <button
-              style={{ ...btn("soft"), height: 34 }}
-              onClick={() => setMostrarTesteSunmi(true)}
-            >
-              🖨️ Testar Sunmi
-            </button>
 
             {eventoAberto && permitirMultiDispositivo && (
               <button
@@ -1148,7 +1149,6 @@ export default function Evento({
               )}
             </div>
           </div>
-
         </div>
       </div>
 
@@ -1169,7 +1169,7 @@ export default function Evento({
               const isAtual = String(evento?.nome || "").trim() === nomeEv;
 
               const meta = encerradosMap.get(nomeEv);
-              const encerrado = Boolean(meta?.encerradoEm);
+              const encerrado = Boolean(meta?.encerradoEm || meta?.fechamento?.encerradoEm);
 
               return (
                 <div
@@ -1237,10 +1237,11 @@ export default function Evento({
 
                       <div style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>
                         {dt ? `Data: ${toBRDate(dt)}` : "Data: -"}
-                        {encerrado && meta?.encerradoEm ? (
+                        {encerrado && (meta?.encerradoEm || meta?.fechamento?.encerradoEm) ? (
                           <>
                             <span style={{ color: "#9ca3af" }}> • </span>
-                            Encerrado em: {toBRDateTime(meta.encerradoEm)}
+                            Encerrado em:{" "}
+                            {toBRDateTime(meta?.encerradoEm || meta?.fechamento?.encerradoEm)}
                           </>
                         ) : null}
                         <span style={{ color: "#9ca3af" }}> • </span>
@@ -1261,7 +1262,6 @@ export default function Evento({
                         Caixa
                       </button>
 
-                      {/* ✅ Excluir permitido mesmo se ENCERRADO */}
                       <button
                         style={{ ...btn("danger"), padding: "0 10px", height: 34, ...bloqueioStyle }}
                         onClick={() => {
@@ -1366,41 +1366,33 @@ export default function Evento({
               <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 10 }}>
                 {evResumo.resumo.primeira
                   ? `Período: ${toBRDateTime(evResumo.resumo.primeira)} → ${toBRDateTime(evResumo.resumo.ultima)}`
-                  : "Sem vendas registradas."}
+                  : evResumo.abertoEm || evResumo.encerradoEm
+                    ? `Período: ${toBRDateTime(evResumo.abertoEm || evResumo.encerradoEm)} → ${toBRDateTime(evResumo.encerradoEm || evResumo.abertoEm)}`
+                    : "Sem vendas registradas."}
                 {evResumo.encerradoEm ? (
-                  <>
-                    <div style={{ marginTop: 6 }}>
-                      <strong>Encerrado em:</strong> {toBRDateTime(evResumo.encerradoEm)}
-                    </div>
-                  </>
+                  <div style={{ marginTop: 6 }}>
+                    <strong>Encerrado em:</strong> {toBRDateTime(evResumo.encerradoEm)}
+                  </div>
                 ) : null}
               </div>
 
               <div style={{ display: "grid", gap: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ fontWeight: 900 }}>Total vendido</div>
-                  <div style={{ fontWeight: 950 }}>
-                    {fmtBRL(evResumo.resumo.total || 0)}
-                  </div>
+                  <div style={{ fontWeight: 950 }}>{fmtBRL(evResumo.resumo.total || 0)}</div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ color: "#6b7280" }}>Dinheiro</div>
-                  <div style={{ fontWeight: 900 }}>
-                    {fmtBRL(evResumo.resumo.porPagamento.dinheiro || 0)}
-                  </div>
+                  <div style={{ fontWeight: 900 }}>{fmtBRL(evResumo.resumo.porPagamento.dinheiro || 0)}</div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ color: "#6b7280" }}>Pix</div>
-                  <div style={{ fontWeight: 900 }}>
-                    {fmtBRL(evResumo.resumo.porPagamento.pix || 0)}
-                  </div>
+                  <div style={{ fontWeight: 900 }}>{fmtBRL(evResumo.resumo.porPagamento.pix || 0)}</div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ color: "#6b7280" }}>Cartão</div>
-                  <div style={{ fontWeight: 900 }}>
-                    {fmtBRL(evResumo.resumo.porPagamento.cartao || 0)}
-                  </div>
+                  <div style={{ fontWeight: 900 }}>{fmtBRL(evResumo.resumo.porPagamento.cartao || 0)}</div>
                 </div>
 
                 <div style={{ height: 1, background: "#e5e7eb", margin: "10px 0" }} />
@@ -1409,23 +1401,19 @@ export default function Evento({
                   <>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ color: "#6b7280" }}>Abertura</div>
-                      <div style={{ fontWeight: 900 }}>
-                        {fmtBRL(evResumo.abertura || 0)}
-                      </div>
+                      <div style={{ fontWeight: 900 }}>{fmtBRL(evResumo.abertura || 0)}</div>
                     </div>
 
                     <div style={{ height: 1, background: "#e5e7eb", margin: "10px 0" }} />
 
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ fontWeight: 900 }}>Saldo esperado (dinheiro)</div>
-                      <div style={{ fontWeight: 950 }}>
-                        {fmtBRL(evResumo.saldoDinheiroEsperado || 0)}
-                      </div>
+                      <div style={{ fontWeight: 950 }}>{fmtBRL(evResumo.saldoDinheiroEsperado || 0)}</div>
                     </div>
                   </>
                 ) : (
                   <div style={{ color: "#9ca3af", fontSize: 13 }}>
-                    Observação: abertura só fica no evento atual.
+                    Observação: abertura/saldo só ficam no evento atual.
                   </div>
                 )}
               </div>
@@ -1519,8 +1507,6 @@ export default function Evento({
           </div>
         </div>
       )}
-
-      <TesteSunmi aberto={mostrarTesteSunmi} onClose={() => setMostrarTesteSunmi(false)} />
 
       {evExcluir && (
         <div style={overlay} onClick={() => setEvExcluir(null)}>
@@ -1668,6 +1654,7 @@ export default function Evento({
                   {avisoConectar}
                 </div>
               )}
+
               {modoConectar === "qr" && (
                 <div style={{ marginTop: 8 }}>
                   <div
@@ -1731,6 +1718,7 @@ export default function Evento({
                   </div>
                 </div>
               )}
+
               {erroConectar && (
                 <div style={{ color: "#ef4444", fontSize: 12, marginTop: 10, fontWeight: 700 }}>
                   {erroConectar}

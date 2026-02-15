@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, toNumBR } from "../domain/math";
-import { printSunmiText } from "../utils/sunmiPrinter";
+import { imprimirTexto } from "../utils/sunmiPrinter";
 import {
   REPORT_LINE_WIDTH,
   REPORT_SEPARATOR,
@@ -15,26 +15,29 @@ import {
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
 
-/* ===================== máscara de moeda (digit shifting) ===================== */
+/* ===================== CONSTANTES ===================== */
+const REPORT_WIDTH = 32;
+
+/* ===================== HELPERS ===================== */
 function onlyDigits(s) {
   return String(s || "").replace(/\D/g, "");
 }
+
 function maskBRLFromDigits(raw) {
   const d = onlyDigits(raw);
   const n = Number(d || "0");
   const cents = n % 100;
   const ints = Math.floor(n / 100);
-
   const intsFmt = String(ints).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const centsFmt = String(cents).padStart(2, "0");
   return `${intsFmt},${centsFmt}`;
 }
 
-/* ===================== storage: status do evento ===================== */
 function loadEventosMeta() {
   const arr = loadJSON(LS_KEYS.eventosMeta, []);
   return Array.isArray(arr) ? arr : [];
 }
+
 function saveEventosMeta(arr) {
   saveJSON(LS_KEYS.eventosMeta, Array.isArray(arr) ? arr : []);
 }
@@ -66,46 +69,21 @@ function normalizePayment(pagamentoRaw) {
   return "dinheiro";
 }
 
-
 function safeNum(value) {
   return Number(value) || 0;
 }
 
 function extractItensFromVenda(venda) {
-  const itens =
-    venda?.itens ??
-    venda?.items ??
-    venda?.produtos ??
-    venda?.products ??
-    venda?.carrinho ??
-    venda?.cart ??
-    [];
+  const itens = venda?.itens ?? venda?.items ?? venda?.produtos ?? venda?.products ?? venda?.carrinho ?? venda?.cart ?? [];
   if (!Array.isArray(itens)) return [];
 
   return itens
     .map((it) => {
-      const nome =
-        it?.nome ??
-        it?.name ??
-        it?.titulo ??
-        it?.title ??
-        it?.descricao ??
-        it?.produto ??
-        "";
+      const nome = it?.nome ?? it?.name ?? it?.titulo ?? it?.title ?? it?.descricao ?? it?.produto ?? "";
       const qtd = safeNum(it?.qtd ?? it?.qty ?? it?.quantidade ?? it?.quantity) || 1;
-      const total =
-        safeNum(it?.subtotal ?? it?.total ?? it?.valorTotal ?? it?.valor_total ?? 0) || 0;
-      let preco = safeNum(
-        it?.unitario ??
-          it?.preco ??
-          it?.price ??
-          it?.valor ??
-          it?.unitPrice ??
-          it?.precoUnit
-      );
-      if (!preco && total && qtd) {
-        preco = total / qtd;
-      }
+      const total = safeNum(it?.subtotal ?? it?.total ?? it?.valorTotal ?? it?.valor_total ?? 0) || 0;
+      let preco = safeNum(it?.unitario ?? it?.preco ?? it?.price ?? it?.valor ?? it?.unitPrice ?? it?.precoUnit);
+      if (!preco && total && qtd) preco = total / qtd;
       if (!nome || (!total && !preco)) return null;
       const totalFinal = total || preco * qtd;
       if (!Number.isFinite(totalFinal) || !Number.isFinite(preco)) return null;
@@ -146,24 +124,15 @@ function aggregateItens(vendasLista) {
 }
 
 function getDeviceInfo(venda) {
-  const deviceId =
-    venda?.deviceId ??
-    venda?.deviceID ??
-    venda?.device?.id ??
-    venda?.maquininhaId ??
-    "local";
-  const deviceName =
-    venda?.deviceName ??
-    venda?.device?.name ??
-    venda?.device?.label ??
-    venda?.maquininhaName ??
-    "Local";
+  const deviceId = venda?.deviceId ?? venda?.deviceID ?? venda?.device?.id ?? venda?.maquininhaId ?? "local";
+  const deviceName = venda?.deviceName ?? venda?.device?.name ?? venda?.device?.label ?? venda?.maquininhaName ?? "Local";
   return {
     deviceId: String(deviceId || "local"),
     deviceName: String(deviceName || "Local"),
   };
 }
 
+// 🔥 FUNÇÃO CORRIGIDA - RELATÓRIO MAIS LIMPO
 function buildRelatorioText({
   eventoNome,
   abertoEm,
@@ -175,37 +144,46 @@ function buildRelatorioText({
   sangrias,
   totalSangrias,
   saldoDinheiroFinal,
-  porDevice,
 }) {
   const agora = new Date();
   const lines = [];
 
-  lines.push(centerText("RELATÓRIO DE FECHAMENTO", REPORT_LINE_WIDTH));
-  lines.push(`Evento: ${eventoNome || "-"}`);
+  // 🔥 CABEÇALHO
+  lines.push(centerText("FECHAMENTO DE CAIXA", REPORT_WIDTH));
+  lines.push(centerText(eventoNome || "EVENTO", REPORT_WIDTH));
+  lines.push(REPORT_SEPARATOR);
   lines.push(`Período: ${formatDateTime(abertoEm)} → ${formatDateTime(fechadoEm)}`);
   lines.push(REPORT_SEPARATOR);
 
-  lines.push(formatSectionTitle("Resumo geral"));
+  // 🔥 RESUMO GERAL (simplificado)
+  lines.push(formatSectionTitle("RESUMO"));
   lines.push(...formatRow("Abertura", fmtBRL(safeNum(abertura))));
   lines.push(...formatRow("Total vendido", fmtBRL(safeNum(totalVendidoGeral))));
+  lines.push(REPORT_SEPARATOR);
+
+  // 🔥 PAGAMENTOS (consolidado)
+  lines.push(formatSectionTitle("PAGAMENTOS"));
   lines.push(...formatRow("Dinheiro", fmtBRL(safeNum(pagamentosGeral?.dinheiro))));
   lines.push(...formatRow("Pix", fmtBRL(safeNum(pagamentosGeral?.pix))));
   lines.push(...formatRow("Cartão", fmtBRL(safeNum(pagamentosGeral?.cartao))));
   lines.push(REPORT_SEPARATOR);
 
-  lines.push(formatSectionTitle("Sangrias"));
+  // 🔥 SANGRIAS
+  lines.push(formatSectionTitle("SANGRIAS"));
   if (sangrias && sangrias.length > 0) {
     sangrias.forEach((s, index) => {
       lines.push(...formatRow(`Sangria ${index + 1}`, fmtBRL(safeNum(s?.valor))));
     });
+    lines.push(...formatRow("Total sangrias", fmtBRL(safeNum(totalSangrias))));
+    lines.push(...formatRow("Saldo final (dinheiro)", fmtBRL(safeNum(saldoDinheiroFinal))));
   } else {
     lines.push("Nenhuma sangria registrada.");
+    lines.push(...formatRow("Saldo final", fmtBRL(safeNum(saldoDinheiroFinal))));
   }
-  lines.push(...formatRow("Total sangrias", fmtBRL(safeNum(totalSangrias))));
-  lines.push(...formatRow("Saldo final (dinheiro)", fmtBRL(safeNum(saldoDinheiroFinal))));
   lines.push(REPORT_SEPARATOR);
 
-  lines.push(formatSectionTitle("Itens vendidos (geral)"));
+  // 🔥 ITENS VENDIDOS (apenas uma vez)
+  lines.push(formatSectionTitle("ITENS VENDIDOS"));
   if (itensGeral && itensGeral.length > 0) {
     itensGeral.forEach((it) => {
       lines.push(...formatRow(`${it.nome} x${it.qtd}`, fmtBRL(safeNum(it.total))));
@@ -213,34 +191,17 @@ function buildRelatorioText({
   } else {
     lines.push("Nenhum item registrado.");
   }
-
-  if (porDevice && porDevice.length > 0) {
-    porDevice.forEach((device) => {
-      const pagamentos = device?.pagamentos || {};
-      lines.push(REPORT_SEPARATOR);
-      lines.push(
-        `Por maquininha: ${device.deviceName || "Local"} (${device.deviceId || "local"})`
-      );
-      lines.push(...formatRow("Total vendido", fmtBRL(safeNum(device.totalVendido))));
-      lines.push(...formatRow("Dinheiro", fmtBRL(safeNum(pagamentos.dinheiro))));
-      lines.push(...formatRow("Pix", fmtBRL(safeNum(pagamentos.pix))));
-      lines.push(...formatRow("Cartão", fmtBRL(safeNum(pagamentos.cartao))));
-      lines.push(formatSectionTitle("Itens vendidos"));
-      if (device.itens && device.itens.length > 0) {
-        device.itens.forEach((it) => {
-          lines.push(...formatRow(`${it.nome} x${it.qtd}`, fmtBRL(safeNum(it.total))));
-        });
-      } else {
-        lines.push("Nenhum item registrado.");
-      }
-    });
-  }
-
   lines.push(REPORT_SEPARATOR);
+
+  // 🔥 RODAPÉ
   lines.push(`Impresso em: ${formatDateTime(agora.toISOString())}`);
-  lines.push(centerText("FIM DO RELATÓRIO", REPORT_LINE_WIDTH));
+  lines.push(centerText("FIM DO RELATÓRIO", REPORT_WIDTH));
 
   return joinLines(lines);
+}
+
+async function printSunmi(texto) {
+  return imprimirTexto(texto);
 }
 
 export default function Caixa({
@@ -255,7 +216,12 @@ export default function Caixa({
   onFinalizarCaixa,
   disabled = false,
 }) {
-  // ✅ blindagem
+  // ==================== ESTADOS ====================
+  const [aberturaTxt, setAberturaTxt] = useState("");
+  const [sangriaTxt, setSangriaTxt] = useState("");
+  const [aviso, setAviso] = useState({ type: "", message: "" });
+
+  // ==================== MEMOIZED VALUES ====================
   const caixaSafe = caixa && typeof caixa === "object" ? caixa : {};
   const abertura = Number(caixaSafe.abertura || 0) || 0;
   const abertoEm = caixaSafe.abertoEm || null;
@@ -272,10 +238,7 @@ export default function Caixa({
     const lista = Array.isArray(vendasLista) ? vendasLista : [];
     return lista.filter((v) => {
       const matchId = eventoRef?.id && v?.eventoId && v.eventoId === eventoRef.id;
-      const matchNome =
-        norm(v?.eventoNome) &&
-        norm(eventoRef?.nome) &&
-        norm(v.eventoNome) === norm(eventoRef.nome);
+      const matchNome = norm(v?.eventoNome) && norm(eventoRef?.nome) && norm(v.eventoNome) === norm(eventoRef.nome);
       return matchId || matchNome;
     });
   }, [vendasLista, eventoRef?.id, eventoRef?.nome]);
@@ -285,10 +248,7 @@ export default function Caixa({
     const itens = v?.itens ?? v?.carrinho ?? [];
     if (!Array.isArray(itens)) return 0;
     return itens.reduce(
-      (s, it) =>
-        s +
-        (Number(it?.subtotal) ||
-          (Number(it?.qtd) || 0) * (Number(it?.unitario ?? it?.preco) || 0)),
+      (s, it) => s + (Number(it?.subtotal) || (Number(it?.qtd) || 0) * (Number(it?.unitario ?? it?.preco) || 0)),
       0
     );
   }
@@ -310,45 +270,6 @@ export default function Caixa({
 
   const itensGeral = useMemo(() => aggregateItens(vendasEvento), [vendasEvento]);
 
-  const porDevice = useMemo(() => {
-    const mapa = new Map();
-    vendasEvento.forEach((venda) => {
-      const deviceInfo = getDeviceInfo(venda);
-      const atual =
-        mapa.get(deviceInfo.deviceId) || {
-          deviceId: deviceInfo.deviceId,
-          deviceName: deviceInfo.deviceName,
-          totalVendido: 0,
-          pagamentos: { dinheiro: 0, pix: 0, cartao: 0 },
-          vendas: [],
-        };
-      atual.totalVendido += totalFallback(venda);
-      const tipo = normalizePayment(venda?.pagamento ?? venda?.formaPagamento);
-      atual.pagamentos[tipo] += totalFallback(venda);
-      atual.vendas.push(venda);
-      mapa.set(deviceInfo.deviceId, atual);
-    });
-
-    return Array.from(mapa.values())
-      .map((device) => ({
-        deviceId: device.deviceId,
-        deviceName: device.deviceName,
-        totalVendido: device.totalVendido,
-        pagamentos: device.pagamentos,
-        itens: aggregateItens(device.vendas),
-      }))
-      .sort((a, b) => b.totalVendido - a.totalVendido);
-  }, [vendasEvento]);
-
-  // ✅ campo abertura com máscara “shift”
-  const [aberturaTxt, setAberturaTxt] = useState(() => {
-    if (aberturaJaDefinida) {
-      const cents = Math.round(abertura * 100);
-      return maskBRLFromDigits(String(cents));
-    }
-    return "";
-  });
-
   const aberturaValor = useMemo(() => {
     return Number(toNumBR(aberturaTxt) || 0) || 0;
   }, [aberturaTxt]);
@@ -367,15 +288,23 @@ export default function Caixa({
     return abertura + entrouDinheiro - totalSangrias;
   }, [abertura, entrouDinheiro, totalSangrias]);
 
-  const [sangriaTxt, setSangriaTxt] = useState("");
   const sangriaValor = useMemo(() => {
     return Number(toNumBR(sangriaTxt) || 0) || 0;
   }, [sangriaTxt]);
 
+  const bloqueiaZerarCaixa = vendasEvento.length > 0 || flowState === "CAIXA_ABERTO";
+
+  // ==================== FUNÇÕES ====================
   function abrirCaixa() {
     if (disabled) return;
-    if (!eventoAberto) return alert("Abra um evento antes de abrir o caixa.");
-    if (aberturaValor <= 0) return alert("Informe um valor válido para abrir o caixa.");
+    if (!eventoAberto) {
+      setAviso({ type: "warning", message: "Abra um evento primeiro." });
+      return;
+    }
+    if (aberturaValor <= 0) {
+      setAviso({ type: "warning", message: "Informe um valor válido." });
+      return;
+    }
 
     setCaixa((prev) => ({
       ...(prev && typeof prev === "object" ? prev : {}),
@@ -383,13 +312,12 @@ export default function Caixa({
       abertoEm: prev?.abertoEm || new Date().toISOString(),
     }));
 
+    setAviso({ type: "success", message: "Caixa aberto com sucesso!" });
     if (typeof onAbrirCaixaOk === "function") onAbrirCaixaOk();
   }
 
   function getCaixaStorageKey() {
-    if (LS_KEYS?.caixa) return LS_KEYS.caixa;
-    if (LS_KEYS?.caixaAtual) return LS_KEYS.caixaAtual;
-    return "caixa";
+    return LS_KEYS?.caixa || LS_KEYS?.caixaAtual || "caixa";
   }
 
   function createMovimentoId() {
@@ -401,9 +329,18 @@ export default function Caixa({
 
   function adicionarSangria() {
     if (disabled) return;
-    if (!eventoAberto) return alert("Abra um evento antes de lançar sangria.");
-    if (!aberturaJaDefinida) return alert("Abra o caixa antes de lançar sangria.");
-    if (sangriaValor <= 0) return alert("Informe um valor válido para a sangria.");
+    if (!eventoAberto) {
+      setAviso({ type: "warning", message: "Abra um evento primeiro." });
+      return;
+    }
+    if (!aberturaJaDefinida) {
+      setAviso({ type: "warning", message: "Abra o caixa primeiro." });
+      return;
+    }
+    if (sangriaValor <= 0) {
+      setAviso({ type: "warning", message: "Valor inválido." });
+      return;
+    }
 
     const novoMovimento = {
       id: createMovimentoId(),
@@ -414,47 +351,44 @@ export default function Caixa({
 
     setCaixa((prev) => {
       const prevSafe = prev && typeof prev === "object" ? prev : {};
-      const prevMovimentos = Array.isArray(prevSafe.movimentos)
-        ? prevSafe.movimentos
-        : [];
-      const nextCaixa = {
-        ...prevSafe,
-        movimentos: [...prevMovimentos, novoMovimento],
-      };
+      const prevMovimentos = Array.isArray(prevSafe.movimentos) ? prevSafe.movimentos : [];
+      const nextCaixa = { ...prevSafe, movimentos: [...prevMovimentos, novoMovimento] };
       saveJSON(getCaixaStorageKey(), nextCaixa);
       return nextCaixa;
     });
+    
     setSangriaTxt("");
+    setAviso({ type: "success", message: "Sangria registrada!" });
   }
 
   function removerSangria(id) {
     if (disabled) return;
     setCaixa((prev) => {
       const prevSafe = prev && typeof prev === "object" ? prev : {};
-      const prevMovimentos = Array.isArray(prevSafe.movimentos)
-        ? prevSafe.movimentos
-        : [];
+      const prevMovimentos = Array.isArray(prevSafe.movimentos) ? prevSafe.movimentos : [];
       const nextMovimentos = prevMovimentos.filter((mov) => mov?.id !== id);
-      const nextCaixa = {
-        ...prevSafe,
-        movimentos: nextMovimentos,
-      };
+      const nextCaixa = { ...prevSafe, movimentos: nextMovimentos };
       saveJSON(getCaixaStorageKey(), nextCaixa);
       return nextCaixa;
     });
+    setAviso({ type: "info", message: "Sangria removida." });
   }
 
   async function finalizarCaixa() {
     if (disabled) return;
-    if (!eventoAberto) return alert("Abra um evento antes de finalizar.");
-    if (!aberturaJaDefinida) return alert("Abra o caixa antes de finalizar.");
+    if (!eventoAberto) {
+      setAviso({ type: "warning", message: "Abra um evento primeiro." });
+      return;
+    }
+    if (!aberturaJaDefinida) {
+      setAviso({ type: "warning", message: "Abra o caixa primeiro." });
+      return;
+    }
 
     const fecharAgora = new Date().toISOString();
     const totalSangriasSafe = Number(totalSangrias || 0) || 0;
-    const saldoDinheiroFinal =
-      Number(abertura || 0) + Number(pagamentosGeral.dinheiro || 0) - totalSangriasSafe;
+    const saldoDinheiroFinal = Number(abertura || 0) + Number(pagamentosGeral.dinheiro || 0) - totalSangriasSafe;
 
-    // ✅ snapshot simples do fechamento (sem itens)
     const fechamento = {
       eventoNome,
       abertoEm: abertoEm || null,
@@ -474,22 +408,6 @@ export default function Caixa({
         qtd: Number(it.qtd || 0) || 0,
         total: Number(it.total || 0) || 0,
       })),
-      porDevice: porDevice.map((device) => ({
-        deviceId: device.deviceId,
-        deviceName: device.deviceName,
-        totalVendido: Number(device.totalVendido || 0) || 0,
-        pagamentos: {
-          dinheiro: Number(device.pagamentos?.dinheiro || 0) || 0,
-          pix: Number(device.pagamentos?.pix || 0) || 0,
-          cartao: Number(device.pagamentos?.cartao || 0) || 0,
-        },
-        itens: (device.itens || []).map((it) => ({
-          nome: it.nome,
-          preco: Number(it.preco || 0) || 0,
-          qtd: Number(it.qtd || 0) || 0,
-          total: Number(it.total || 0) || 0,
-        })),
-      })),
       sangrias: sangrias.map((mov) => ({
         id: mov?.id,
         valor: Number(mov?.valor) || 0,
@@ -499,9 +417,7 @@ export default function Caixa({
       saldoDinheiroFinal,
     };
 
-    // ✅ marca no cache como ENCERRADO
     const meta = loadEventosMeta();
-    // remove registro antigo do mesmo nome (evita duplicar)
     const semEsse = meta.filter((x) => String(x?.nome || "").trim() !== eventoNome);
     semEsse.unshift({
       nome: eventoNome,
@@ -515,46 +431,146 @@ export default function Caixa({
       encerradoEm: fecharAgora,
     }));
 
-    const cfg = loadJSON(LS_KEYS.config, loadJSON(LS_KEYS.ajustes, {}));
-    const isMaster = cfg?.modoMulti !== "client";
-    if (isMaster) {
-      const texto = buildRelatorioText({
-        eventoNome,
-        abertoEm: fechamento.abertoEm,
-        fechadoEm: fechamento.fechadoEm,
-        abertura: fechamento.abertura,
-        totalVendidoGeral: fechamento.totalVendidoGeral,
-        pagamentosGeral: fechamento.pagamentosGeral,
-        itensGeral: fechamento.itensGeral,
-        sangrias: fechamento.sangrias,
-        totalSangrias: fechamento.totalSangrias,
-        saldoDinheiroFinal: fechamento.saldoDinheiroFinal,
-        porDevice: fechamento.porDevice,
-      });
-      const resultado = await printSunmiText(texto);
-      if (!resultado?.ok) {
-        const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
-        alert(`Não foi possível imprimir o relatório.${erroMsg}`);
-      }
+    // 🔥 IMPRIMIR RELATÓRIO LIMPO
+    const texto = buildRelatorioText({
+      eventoNome,
+      abertoEm: fechamento.abertoEm,
+      fechadoEm: fechamento.fechadoEm,
+      abertura: fechamento.abertura,
+      totalVendidoGeral: fechamento.totalVendidoGeral,
+      pagamentosGeral: fechamento.pagamentosGeral,
+      itensGeral: fechamento.itensGeral,
+      sangrias: fechamento.sangrias,
+      totalSangrias: fechamento.totalSangrias,
+      saldoDinheiroFinal: fechamento.saldoDinheiroFinal,
+    });
+
+    try {
+      await printSunmi(texto);
+      setAviso({ type: "success", message: "Caixa finalizado com sucesso!" });
+    } catch (error) {
+      setAviso({ type: "error", message: `Erro ao imprimir: ${error?.message || "desconhecido"}` });
     }
 
-    // ✅ o "zerar relatório" é o pai limpar o evento atual.
-    // Aqui só disparamos o callback.
     if (typeof onFinalizarCaixa === "function") onFinalizarCaixa(fechamento);
   }
 
-  const bloqueiaZerarCaixa =
-    vendasEvento.length > 0 || flowState === "CAIXA_ABERTO";
+  // ==================== ESTILOS ====================
+  const styles = {
+    alert: {
+      info: { background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" },
+      success: { background: "#dcfce7", color: "#166534", border: "1px solid #86efac" },
+      warning: { background: "#fef9c3", color: "#854d0e", border: "1px solid #fde047" },
+      error: { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" },
+    },
+  };
 
   return (
-    <div className="split caixaRoot">
+    <div className="caixa-container">
       <style>{`
-        .caixaRoot input,
-        .caixaRoot select,
-        .caixaRoot textarea {
+        .caixa-container {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 12px;
+        }
+        .caixa-container input,
+        .caixa-container select,
+        .caixa-container textarea {
           font-size: 16px;
         }
+        .formGrid {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
+          align-items: end;
+        }
+        @media (max-width: 640px) {
+          .formGrid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .formActions {
+          display: flex;
+          justify-content: flex-end;
+        }
+        .row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 0;
+        }
+        .hr {
+          height: 1px;
+          background: #e5e7eb;
+          margin: 16px 0;
+        }
+        .muted {
+          color: #6b7280;
+          font-size: 13px;
+        }
+        .badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          background: #f3f4f6;
+          border: 1px solid #e5e7eb;
+          color: #4b5563;
+        }
+        .alert {
+          padding: 12px 16px;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          font-weight: 500;
+          animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .input {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          font-size: 15px;
+          outline: none;
+          transition: border-color 0.2s ease;
+        }
+        .input:focus {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+        .input:disabled {
+          background: #f3f4f6;
+          cursor: not-allowed;
+        }
+        .sangria-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px;
+          background: #f8fafc;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          margin-bottom: 8px;
+        }
       `}</style>
+
+      {/* Alerta */}
+      {aviso.message && (
+        <div className="alert" style={styles.alert[aviso.type]}>
+          {aviso.message}
+        </div>
+      )}
+
       <Card
         title="Caixa"
         subtitle="Abertura e encerramento do evento"
@@ -563,48 +579,46 @@ export default function Caixa({
             variant="danger"
             onClick={onZerarCaixa}
             disabled={disabled || bloqueiaZerarCaixa}
+            small
           >
-            Zerar caixa
+            Zerar
           </Button>
         }
       >
         {disabled && (
-          <>
-            <div className="hr" />
-            <div className="muted">Abra um evento para usar o Caixa.</div>
-          </>
+          <div className="badge" style={{ marginBottom: 16, background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
+            ⚠️ Abra um evento para usar o Caixa
+          </div>
         )}
 
         <div className="hr" />
 
-        {/* ===================== ABRIR CAIXA ===================== */}
-        <div className="muted" style={{ marginBottom: 8, fontWeight: 900 }}>
-          Abertura do caixa
-        </div>
-
-        <div className="formGrid">
-          <div>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              Valor (R$)
-            </div>
-            <input
-              className="input"
-              placeholder="0,00"
-              value={aberturaTxt}
-              onChange={(e) => setAberturaTxt(maskBRLFromDigits(e.target.value))}
-              inputMode="numeric"
-              disabled={disabled || aberturaJaDefinida}
-            />
-            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-              Dica: digite apenas números. Ex.: 5 → 0,05 | 50000 → 500,00
-            </div>
+        {/* ABERTURA DO CAIXA */}
+        <div>
+          <div className="muted" style={{ marginBottom: 8, fontWeight: 700 }}>
+            Abertura do caixa
           </div>
 
-          <div className="formActions">
+          <div className="formGrid">
+            <div>
+              <input
+                className="input"
+                placeholder="Valor inicial (R$)"
+                value={aberturaTxt}
+                onChange={(e) => setAberturaTxt(maskBRLFromDigits(e.target.value))}
+                inputMode="numeric"
+                disabled={disabled || aberturaJaDefinida}
+              />
+              <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>
+                Digite apenas números (ex: 5000 = R$ 50,00)
+              </div>
+            </div>
+
             <Button
               variant="primary"
               onClick={abrirCaixa}
               disabled={disabled || aberturaJaDefinida || aberturaValor <= 0 || !eventoAberto}
+              small
             >
               Abrir caixa
             </Button>
@@ -613,104 +627,92 @@ export default function Caixa({
 
         <div className="hr" />
 
-        {/* ===================== RESUMO DO CAIXA (SÓ DINHEIRO) ===================== */}
-        <div className="row space">
-          <div style={{ fontWeight: 900 }}>Abertura</div>
-          <div style={{ fontWeight: 900 }}>{fmtBRL(abertura)}</div>
-        </div>
-
-        <div className="row space">
-          <div className="muted">Entrou em dinheiro (vendas)</div>
-          <div style={{ fontWeight: 900 }}>{fmtBRL(entrouDinheiro)}</div>
-        </div>
-
-        <div className="row space" style={{ marginTop: 4 }}>
-          <div style={{ fontWeight: 900 }}>Total em caixa</div>
-          <div style={{ fontWeight: 900, fontSize: 18 }}>{fmtBRL(totalNoCaixaAgora)}</div>
+        {/* RESUMO DO CAIXA */}
+        <div>
+          <div className="row">
+            <span style={{ fontWeight: 600 }}>Abertura</span>
+            <span style={{ fontWeight: 700 }}>{fmtBRL(abertura)}</span>
+          </div>
+          <div className="row">
+            <span className="muted">Entrada em dinheiro</span>
+            <span style={{ fontWeight: 600 }}>{fmtBRL(entrouDinheiro)}</span>
+          </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Total em caixa</span>
+            <span style={{ fontWeight: 900, fontSize: 18, color: "#2563eb" }}>
+              {fmtBRL(totalNoCaixaAgora)}
+            </span>
+          </div>
         </div>
 
         <div className="hr" />
 
-        {/* ===================== SANGRIAS ===================== */}
-        <div className="muted" style={{ marginBottom: 8, fontWeight: 900 }}>
-          Sangrias
-        </div>
-
-        <div className="formGrid">
-          <div>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              Valor (R$)
-            </div>
-            <input
-              className="input"
-              placeholder="0,00"
-              value={sangriaTxt}
-              onChange={(e) => setSangriaTxt(maskBRLFromDigits(e.target.value))}
-              inputMode="numeric"
-              disabled={disabled || !aberturaJaDefinida || !eventoAberto}
-            />
-            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-              Dica: digite apenas números. Ex.: 5 → 0,05 | 50000 → 500,00
-            </div>
+        {/* SANGRIAS */}
+        <div>
+          <div className="muted" style={{ marginBottom: 8, fontWeight: 700 }}>
+            Sangrias
           </div>
 
-          <div className="formActions">
+          <div className="formGrid" style={{ marginBottom: 12 }}>
+            <div>
+              <input
+                className="input"
+                placeholder="Valor da sangria"
+                value={sangriaTxt}
+                onChange={(e) => setSangriaTxt(maskBRLFromDigits(e.target.value))}
+                inputMode="numeric"
+                disabled={disabled || !aberturaJaDefinida || !eventoAberto}
+              />
+            </div>
+
             <Button
               variant="primary"
               onClick={adicionarSangria}
-              disabled={
-                disabled ||
-                !aberturaJaDefinida ||
-                !eventoAberto ||
-                sangriaValor <= 0
-              }
+              disabled={disabled || !aberturaJaDefinida || !eventoAberto || sangriaValor <= 0}
+              small
             >
-              Adicionar sangria
+              Adicionar
             </Button>
           </div>
-        </div>
 
-        {sangrias.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {sangrias.map((mov, index) => (
-              <div key={mov?.id || `${mov?.criadoEm}-${index}`} className="row space">
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ fontWeight: 900 }}>Sangria {index + 1}</div>
-                  <div className="muted">
-                    {fmtBRL(Number(mov?.valor) || 0)} • {formatHora(mov?.criadoEm)}
+          {sangrias.length > 0 ? (
+            <div style={{ marginTop: 8 }}>
+              {sangrias.map((mov, index) => (
+                <div key={mov?.id || index} className="sangria-item">
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Sangria {index + 1}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {fmtBRL(Number(mov?.valor) || 0)} • {formatHora(mov?.criadoEm)}
+                    </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    small
+                    onClick={() => removerSangria(mov?.id)}
+                    disabled={disabled}
+                  >
+                    ✕
+                  </Button>
                 </div>
-
-                <Button
-                  variant="ghost"
-                  small
-                  onClick={() => removerSangria(mov?.id)}
-                  disabled={disabled}
-                >
-                  Remover
-                </Button>
+              ))}
+              
+              <div className="row" style={{ marginTop: 8 }}>
+                <span className="muted" style={{ fontWeight: 600 }}>Total sangrias</span>
+                <span style={{ fontWeight: 700 }}>{fmtBRL(totalSangrias)}</span>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="muted">Nenhuma sangria lançada.</div>
-        )}
-
-        <div className="row space" style={{ marginTop: 4 }}>
-          <div className="muted" style={{ fontWeight: 900 }}>
-            Total de sangrias
-          </div>
-          <div style={{ fontWeight: 900 }}>{fmtBRL(totalSangrias)}</div>
+            </div>
+          ) : (
+            <div className="muted" style={{ textAlign: "center", padding: 12 }}>
+              Nenhuma sangria registrada
+            </div>
+          )}
         </div>
 
         <div className="hr" />
 
-        {/* ===================== FINALIZAR ===================== */}
-        <div className="row space">
-          <div className="muted" style={{ fontWeight: 900 }}>
-            Encerramento
-          </div>
-
+        {/* ENCERRAMENTO */}
+        <div className="row">
+          <span className="muted" style={{ fontWeight: 700 }}>Encerramento</span>
           <Button
             variant="primary"
             onClick={finalizarCaixa}
@@ -720,8 +722,8 @@ export default function Caixa({
           </Button>
         </div>
 
-        <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Ao finalizar: o evento fica marcado como encerrado e o sistema deve limpar o evento atual (Relatório zera).
+        <div className="muted" style={{ marginTop: 12, fontSize: 11, textAlign: "center" }}>
+          Ao finalizar, o evento será encerrado e o relatório impresso
         </div>
       </Card>
     </div>

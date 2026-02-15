@@ -1,7 +1,6 @@
 {
-  "plugins": {
-    "PrinterBridge": {
-      "package": "br.com.sunmi.printerbridge.PrinterBridgePlugin"
-    }
-  }
+  "appId": "com.pdvsaoloureco.app",
+  "appName": "PDV Comunidade",
+  "webDir": "dist",
+  "bundledWebRuntime": false
 }

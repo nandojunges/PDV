@@ -1,5 +1,5 @@
 // src/pages/Venda.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, uid } from "../domain/math";
@@ -7,8 +7,8 @@ import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { useConfig } from "../config/ConfigProvider";
 import { postSaleToMaster } from "../net/connectivity";
-import { printSunmiTest, printSunmiText } from "../utils/sunmiPrinter";
-import { buildTicketText, buildTicketsPerItem } from "../print/ticketBuilder";
+import { imprimirTexto, imprimirBitmap } from "../utils/sunmiPrinter";
+import { buildTicketBitmapBase64 } from "../print/ticketBitmap";
 import {
   buildSaleSummaryFromSale,
   enqueuePendingSale,
@@ -16,12 +16,14 @@ import {
   persistSale,
 } from "../state/pdvStore";
 
-/* ===================== ícones (imagens realistas) ===================== */
-
+/* ===================== CONSTANTES ===================== */
 const BARRIL_LITROS = [5, 10, 15, 20, 30, 50];
 const DEFAULT_BARRIL_LITROS = 30;
+const DELAY_BETWEEN_PRINTS = 200;
+const MAX_RECENT_SALES = 5;
 
-function IconImg({ iconKey, size = 42 }) {
+/* ===================== COMPONENTES AUXILIARES ===================== */
+function IconImg({ iconKey, size = 36 }) {
   const src = ICONS[iconKey] || ICONS.ref_600;
   return (
     <img
@@ -33,6 +35,7 @@ function IconImg({ iconKey, size = 42 }) {
         objectFit: "contain",
         display: "block",
       }}
+      loading="lazy"
       onError={(e) => {
         e.currentTarget.style.display = "none";
       }}
@@ -42,6 +45,7 @@ function IconImg({ iconKey, size = 42 }) {
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/* ===================== COMPONENTE PRINCIPAL ===================== */
 export default function Venda({
   evento = {},
   produtos = [],
@@ -52,6 +56,18 @@ export default function Venda({
 }) {
   const { permitirMultiDispositivo, config } = useConfig();
 
+  // ==================== ESTADOS ====================
+  const [carrinho, setCarrinho] = useState([]);
+  const [pagamento, setPagamento] = useState("dinheiro");
+  const [recebidoTxt, setRecebidoTxt] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [vendaDraft, setVendaDraft] = useState(null);
+  const [pendingSale, setPendingSale] = useState(null);
+  const [aviso, setAviso] = useState({ type: "", message: "" });
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [maxUltimas, setMaxUltimas] = useState(MAX_RECENT_SALES);
+
+  // ==================== MEMOIZED VALUES ====================
   const deviceId = useMemo(() => getOrCreateDeviceId(), []);
   const deviceName = useMemo(() => {
     if (typeof navigator === "undefined") return "Cliente";
@@ -61,19 +77,6 @@ export default function Venda({
   const produtosAtivos = useMemo(() => {
     return Array.isArray(produtos) ? produtos.filter((p) => p?.ativo) : [];
   }, [produtos]);
-
-  const [carrinho, setCarrinho] = useState([]);
-  const [pagamento, setPagamento] = useState("dinheiro");
-  const [recebidoTxt, setRecebidoTxt] = useState("");
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [vendaDraft, setVendaDraft] = useState(null);
-  const [pendingSale, setPendingSale] = useState(null);
-  const [aviso, setAviso] = useState("");
-  const [isPrinting, setIsPrinting] = useState(false);
-  const [maxUltimas, setMaxUltimas] = useState(() => {
-    if (typeof window === "undefined") return 5;
-    return window.innerWidth < 720 ? 3 : 5;
-  });
 
   const itensCarrinho = useMemo(
     () => (Array.isArray(carrinho) ? carrinho : []),
@@ -91,15 +94,6 @@ export default function Venda({
     if (pagamento !== "dinheiro" || valorRecebidoNum <= 0) return null;
     return Math.max(0, valorRecebidoNum - total);
   }, [pagamento, valorRecebidoNum, total]);
-
-  useEffect(() => {
-    function onResize() {
-      if (typeof window === "undefined") return;
-      setMaxUltimas(window.innerWidth < 720 ? 3 : 5);
-    }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
 
   const vendasEvento = useMemo(() => {
     const nomeEvento = String(evento?.nome || "").trim();
@@ -124,85 +118,71 @@ export default function Venda({
     return lista.slice(0, maxUltimas);
   }, [vendasEvento, maxUltimas]);
 
-  const overlayStyle = {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-    padding: 16,
-  };
-
-  const modalCardStyle = {
-    background: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    width: "100%",
-    maxWidth: 720,
-    maxHeight: "90vh",
-    overflow: "auto",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-  };
-
-  const comboChipStyle = {
-    marginTop: 6,
-    padding: "3px 8px",
-    borderRadius: 999,
-    fontSize: 10,
-    fontWeight: 950,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    background: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    color: "#1d4ed8",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  };
+  // ==================== EFFECTS ====================
+  useEffect(() => {
+    function onResize() {
+      if (typeof window === "undefined") return;
+      setMaxUltimas(window.innerWidth < 720 ? 3 : MAX_RECENT_SALES);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (!confirmOpen) return undefined;
     function onKeyDown(e) {
       if (e.key === "Escape") {
-        setConfirmOpen(false);
-        setVendaDraft(null);
-        setPendingSale(null);
+        handleCancelConfirm();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [confirmOpen]);
 
-  function precisaEventoAberto() {
-    return !String(evento?.nome || "").trim();
-  }
+  useEffect(() => {
+    if (aviso.message) {
+      const timer = setTimeout(() => setAviso({ type: "", message: "" }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [aviso]);
 
-  function isBarrilProduto(produto) {
+  // ==================== VALIDAÇÕES ====================
+  const precisaEventoAberto = useCallback(() => {
+    return !String(evento?.nome || "").trim();
+  }, [evento?.nome]);
+
+  const isBarrilProduto = useCallback((produto) => {
     return (
       produto?.isBarril === true ||
       produto?.precoModo === "por_litro" ||
       /barril/i.test(produto?.nome || "")
     );
-  }
+  }, []);
 
-  function addProduto(p) {
+  // ==================== FUNÇÕES DO CARRINHO ====================
+  const addProduto = useCallback((p) => {
     if (!p) return;
     setCarrinho((prev = []) => {
       const barril = isBarrilProduto(p);
       const barrilLitros = barril ? DEFAULT_BARRIL_LITROS : null;
       const unitarioPorLitro = barril ? Number(p.preco || 0) : 0;
-      const unitario = barril ? unitarioPorLitro * barrilLitros : Number(p.preco || 0);
-      const cartKey = barril ? `${p.id}::${barrilLitros}` : `${p.id}`;
+      
+      const isCombo = p.tipo === "combo" || p.comboQtd;
+      const comboCount = isCombo ? Math.max(2, Number(p.comboQtd) || 2) : 1;
+      const precoTotal = Number(p.preco || 0);
+      const precoUnitario = isCombo ? precoTotal / comboCount : precoTotal;
+      
+      const cartKey = barril ? `${p.id}::${barrilLitros}` : isCombo ? `${p.id}::combo` : `${p.id}`;
       const idx = prev.findIndex((x) => x.cartKey === cartKey);
 
       if (idx >= 0) {
         const cp = [...prev];
         const novaQtd = cp[idx].qtd + 1;
-        const precoAtual = Number(cp[idx].unitario ?? cp[idx].preco ?? 0);
-        cp[idx] = { ...cp[idx], qtd: novaQtd, subtotal: novaQtd * precoAtual };
+        cp[idx] = { 
+          ...cp[idx], 
+          qtd: novaQtd, 
+          subtotal: novaQtd * cp[idx].unitario * cp[idx].comboCount 
+        };
         return cp;
       }
 
@@ -211,23 +191,24 @@ export default function Venda({
         {
           cartKey,
           produtoId: p.id,
-          nome: barril ? `Barril ${barrilLitros}L` : p.nome,
-          preco: unitario,
-          unitario,
+          nome: p.nome,
+          preco: precoUnitario,
+          unitario: precoUnitario,
           unitarioPorLitro: barril ? unitarioPorLitro : undefined,
           barrilLitros: barril ? barrilLitros : undefined,
           qtd: 1,
-          subtotal: unitario,
+          comboCount: isCombo ? comboCount : 1,
+          subtotal: isCombo ? precoTotal : precoUnitario,
           tipo: p.tipo || "simples",
-          comboQtd: p?.tipo === "combo" ? Math.max(2, Number(p.comboQtd || 2)) : null,
+          isCombo,
           img: p.img || "",
           iconKey: p.iconKey || "",
         },
       ];
     });
-  }
+  }, [isBarrilProduto]);
 
-  function alterarQtd(cartKey, delta) {
+  const alterarQtd = useCallback((cartKey, delta) => {
     setCarrinho((prev = []) => {
       const cp = prev.map((it) => ({ ...it }));
       const idx = cp.findIndex((x) => x.cartKey === cartKey);
@@ -237,13 +218,16 @@ export default function Venda({
       if (nova <= 0) return cp.filter((x) => x.cartKey !== cartKey);
 
       cp[idx].qtd = nova;
-      const precoAtual = Number(cp[idx].unitario ?? cp[idx].preco ?? 0);
-      cp[idx].subtotal = nova * precoAtual;
+      if (cp[idx].isCombo) {
+        cp[idx].subtotal = nova * cp[idx].unitario * cp[idx].comboCount;
+      } else {
+        cp[idx].subtotal = nova * cp[idx].unitario;
+      }
       return cp;
     });
-  }
+  }, []);
 
-  function alterarLitros(cartKey, litros) {
+  const alterarLitros = useCallback((cartKey, litros) => {
     setCarrinho((prev = []) => {
       const cp = prev.map((it) => ({ ...it }));
       const idx = cp.findIndex((x) => x.cartKey === cartKey);
@@ -288,112 +272,104 @@ export default function Venda({
       };
       return cp;
     });
-  }
+  }, []);
 
-  function limpar() {
+  const limparCarrinho = useCallback(() => {
     setCarrinho([]);
     setRecebidoTxt("");
     setPagamento("dinheiro");
-  }
+    setAviso({ type: "info", message: "Carrinho limpo" });
+  }, []);
 
-  function formatarDataHora(venda) {
-    const iso =
-      venda?.criadoEm || venda?.createdAt || venda?.data || new Date().toISOString();
-    const dt = new Date(iso);
-    if (Number.isNaN(dt.getTime())) return "--";
-    return dt.toLocaleString("pt-BR");
-  }
-
-  const buildDeviceInfo = (sale) => ({
-    id: sale?.deviceId || deviceId,
-    name: sale?.deviceName || deviceName,
-  });
-
-  const logTicketPreview = (ticketText) => {
-    const text = String(ticketText ?? "");
-    console.info(
-      "[PRINT] sending ticketText chars=",
-      text.length,
-      "head=",
-      text.slice(0, 120),
-    );
-  };
-
-  const logPrintResult = (result, context = "printSunmiText") => {
-    console.info(`[PRINT] resultado (${context})`, {
-      ok: result?.ok,
-      status: result?.status,
-      error: result?.error,
-    });
-  };
-
-  async function imprimirTicketsDaVenda(venda) {
-    const device = buildDeviceInfo(venda);
-    const fichaPorItem = Boolean(ajustes?.fichaPorItem);
-
-    if (fichaPorItem) {
-      const tickets = buildTicketsPerItem({ venda, ajustes, device });
-      console.info("[PRINT] fichaPorItem ativo. Tickets:", tickets.length);
-      if (!tickets.length) {
-        return { ok: false, error: "Nenhum ticket gerado para impressão." };
-      }
-      let lastResult = { ok: true };
-      for (let index = 0; index < tickets.length; index += 1) {
-        const ticketText = tickets[index];
-        if (!String(ticketText ?? "").trim()) {
-          console.warn("[PRINT] ticketText vazio no modo fichaPorItem.", { index });
-          return { ok: false, error: "Ticket vazio no modo fichaPorItem." };
-        }
-        logTicketPreview(ticketText);
-        const result = await printSunmiText(ticketText);
-        logPrintResult(result, `item ${index + 1}/${tickets.length}`);
-        lastResult = result;
-        if (!result?.ok) return result;
-        if (index < tickets.length - 1) {
-          await delay(120);
-        }
-      }
-      return lastResult;
+  // ==================== FUNÇÕES DE IMPRESSÃO ====================
+  const imprimirTicketsDaVenda = useCallback(async (venda) => {
+    const itens = Array.isArray(venda?.itens) ? venda.itens : [];
+    if (!itens.length) {
+      return { ok: false, error: "Nenhum item na venda para imprimir." };
     }
 
-    const ticketText = buildTicketText({ venda, ajustes, device });
-    if (!String(ticketText ?? "").trim()) {
-      console.warn("[PRINT] ticketText vazio para a venda.");
-      return { ok: false, error: "Ticket vazio para impressão." };
+    console.info(`[PRINT] Imprimindo ${itens.length} itens (bitmap por unidade)...`);
+
+    for (let i = 0; i < itens.length; i += 1) {
+      const it = itens[i];
+
+      const qtd = Number(it?.qtd ?? it?.quantidade ?? 0) || 0;
+      if (qtd <= 0) continue;
+
+      const unitario = Number(it?.unitario ?? it?.preco ?? it?.valor ?? 0) || 0;
+      const isCombo = it?.isCombo || false;
+      const comboCount = it?.comboCount || 1;
+
+      const totalFichas = isCombo ? qtd * comboCount : qtd;
+      const valorPorFicha = isCombo ? unitario : unitario;
+
+      console.log(`📦 Item: ${it.nome}, Combos: ${qtd}, Fichas por combo: ${comboCount}, Total fichas: ${totalFichas}, Valor/ficha: ${fmtBRL(valorPorFicha)}`);
+
+      for (let ficha = 0; ficha < totalFichas; ficha += 1) {
+        try {
+          // 🔥 AGORA PASSA O TAMANHO DA IMAGEM DOS AJUSTES
+          const base64 = await buildTicketBitmapBase64({
+            venda,
+            ajustes: {
+              ...ajustes,
+              // Garantir que o tamanho da imagem seja passado
+              logoImgMm: ajustes?.logoImgMm || 20,
+            },
+            item: {
+              nome: String(it?.nome || it?.produto || it?.name || "Item").trim(),
+              qtd: 1,
+              subtotal: valorPorFicha,
+              iconKey: it?.iconKey || it?.icone || "ref_600",
+            },
+          });
+
+          const imgResult = await imprimirBitmap(base64);
+          if (!imgResult?.ok) {
+            return { ok: false, error: imgResult?.error || "Falha ao imprimir bitmap." };
+          }
+
+          if (ficha < totalFichas - 1 || i < itens.length - 1) {
+            await delay(DELAY_BETWEEN_PRINTS);
+            await imprimirTexto("\n");
+          }
+        } catch (error) {
+          return { ok: false, error: error.message };
+        }
+      }
     }
-    logTicketPreview(ticketText);
-    const result = await printSunmiText(ticketText);
-    logPrintResult(result, "venda");
-    return result;
-  }
 
-  async function reimprimirVenda(venda) {
-    if (!venda?.itens?.length) return;
-    if (isPrinting) return;
+    return { ok: true };
+  }, [ajustes]);
 
-    setAviso("");
+  const reimprimirVenda = useCallback(async (venda) => {
+    if (!venda?.itens?.length || isPrinting) return;
+
+    setAviso({ type: "info", message: "Reimprimindo..." });
     setIsPrinting(true);
     try {
       const resultado = await imprimirTicketsDaVenda(venda);
       if (!resultado?.ok) {
-        const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
-        setAviso(`Falha ao reimprimir venda.${erroMsg}`);
-        return;
+        setAviso({ type: "error", message: `Falha ao reimprimir: ${resultado.error}` });
+      } else {
+        setAviso({ type: "success", message: "Reimpresso com sucesso!" });
       }
+    } catch (error) {
+      setAviso({ type: "error", message: `Erro: ${error.message}` });
     } finally {
       setIsPrinting(false);
     }
-  }
+  }, [isPrinting, imprimirTicketsDaVenda]);
 
-  function finalizar() {
+  // ==================== FUNÇÕES DE FINALIZAÇÃO ====================
+  const handleFinalizar = useCallback(() => {
     if (isPrinting) return;
 
     if (precisaEventoAberto()) {
-      setAviso("Abra um evento primeiro.");
+      setAviso({ type: "warning", message: "Abra um evento primeiro." });
       return;
     }
     if (itensCarrinho.length === 0) {
-      setAviso("Carrinho vazio.");
+      setAviso({ type: "warning", message: "Carrinho vazio." });
       return;
     }
 
@@ -409,42 +385,57 @@ export default function Venda({
       total,
     };
 
-    setAviso("");
     setVendaDraft(draft);
     setConfirmOpen(true);
-  }
+  }, [isPrinting, precisaEventoAberto, itensCarrinho, pagamento, valorRecebidoNum, troco, total, evento]);
 
-  function cancelarConfirmacao() {
-    if (isPrinting) return;
+  const handleCancelConfirm = useCallback(() => {
     setConfirmOpen(false);
     setVendaDraft(null);
     setPendingSale(null);
-  }
+  }, []);
 
-  async function confirmar() {
-    if (!vendaDraft) return;
-    if (isPrinting) return;
+  const handleConfirmVenda = useCallback(async () => {
+    if (!vendaDraft || isPrinting) return;
 
-    setAviso("");
+    setAviso({ type: "info", message: "Processando venda..." });
     setIsPrinting(true);
     try {
       let vendaFinal = pendingSale;
 
       if (!vendaFinal) {
-        const vendaBase = buildVenda({ id: uid(), ...vendaDraft });
-        const criadoEm =
-          vendaBase?.criadoEm || vendaBase?.createdAt || new Date().toISOString();
+        const itensVenda = [];
+        
+        vendaDraft.carrinho.forEach((item) => {
+          if (item.isCombo) {
+            itensVenda.push({
+              ...item,
+              totalFichas: item.qtd * item.comboCount,
+              valorFicha: item.unitario,
+            });
+          } else {
+            itensVenda.push(item);
+          }
+        });
+
+        const vendaBase = buildVenda({ 
+          id: uid(), 
+          ...vendaDraft,
+          itens: itensVenda,
+        });
+        
+        const criadoEm = new Date().toISOString();
 
         vendaFinal = {
           ...vendaBase,
           id: vendaBase?.id || uid(),
           criadoEm,
-          createdAt: vendaBase?.createdAt || criadoEm,
-          data: vendaBase?.data || criadoEm,
+          createdAt: criadoEm,
+          data: criadoEm,
           eventoNome: String(vendaBase?.eventoNome || vendaDraft?.eventoNome || "").trim(),
           total: Number(vendaBase?.total ?? vendaDraft?.total ?? 0) || 0,
           pagamento: String(vendaBase?.pagamento || vendaDraft?.pagamento || "dinheiro"),
-          itens: Array.isArray(vendaBase?.itens) ? vendaBase.itens : [],
+          itens: itensVenda,
           deviceId,
           deviceName,
         };
@@ -454,18 +445,18 @@ export default function Venda({
 
       const resultado = await imprimirTicketsDaVenda(vendaFinal);
       if (!resultado?.ok) {
-        const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
-        setAviso(`Falha ao imprimir venda.${erroMsg}`);
+        setAviso({ type: "error", message: `Falha ao imprimir: ${resultado.error}` });
         return;
       }
 
       persistSale({ sale: vendaFinal, setVendas });
 
-      limpar();
+      limparCarrinho();
       setTab("venda");
       setConfirmOpen(false);
       setVendaDraft(null);
       setPendingSale(null);
+      setAviso({ type: "success", message: "Venda finalizada com sucesso!" });
 
       if (permitirMultiDispositivo && config?.modoMulti === "client") {
         const host = String(config?.masterHost || "").trim();
@@ -498,74 +489,201 @@ export default function Venda({
           enqueuePendingSale({ summary, sale: vendaFinal });
         }
       }
+    } catch (error) {
+      setAviso({ type: "error", message: `Erro: ${error.message}` });
     } finally {
       setIsPrinting(false);
     }
-  }
+  }, [vendaDraft, isPrinting, pendingSale, deviceId, deviceName, imprimirTicketsDaVenda, limparCarrinho, setTab, setVendas, permitirMultiDispositivo, config]);
 
-  async function onTestarImpressora() {
-    if (isPrinting) return;
+  // ==================== UTILITÁRIOS ====================
+  const formatarDataHora = useCallback((venda) => {
+    const iso = venda?.criadoEm || venda?.createdAt || venda?.data || new Date().toISOString();
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "--";
+    return dt.toLocaleString("pt-BR");
+  }, []);
 
-    setAviso("");
-    setIsPrinting(true);
-    try {
-      const resultado = await printSunmiTest();
-      if (!resultado?.ok) {
-        const erroMsg = resultado?.error ? ` (${resultado.error})` : "";
-        setAviso(`Não foi possível imprimir o teste.${erroMsg}`);
-        return;
-      }
-      setAviso("Impresso.");
-    } finally {
-      setIsPrinting(false);
-    }
-  }
+  // ==================== ESTILOS ====================
+  const styles = {
+    produtoCard: {
+      border: "2px solid #e5e7eb",
+      borderRadius: 16,
+      background: "#fff",
+      padding: 12,
+      cursor: "pointer",
+      minHeight: 110,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 6,
+      transition: "all 0.2s ease",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+    },
+    produtoNome: {
+      fontWeight: 700,
+      fontSize: 13,
+      textAlign: "center",
+      maxWidth: "100%",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      display: "-webkit-box",
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: "vertical",
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      color: "#2563eb",
+      lineHeight: 1.3,
+      height: 34,
+    },
+    overlay: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 9999,
+      padding: 16,
+    },
+    modalCard: {
+      background: "#fff",
+      borderRadius: 16,
+      padding: 20,
+      width: "100%",
+      maxWidth: 600,
+      maxHeight: "80vh",
+      overflowY: "auto",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+    },
+    comboChip: {
+      marginTop: 4,
+      padding: "2px 6px",
+      borderRadius: 999,
+      fontSize: 9,
+      fontWeight: 700,
+      background: "#eff6ff",
+      border: "1px solid #bfdbfe",
+      color: "#1d4ed8",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    alert: {
+      info: { background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" },
+      success: { background: "#dcfce7", color: "#166534", border: "1px solid #86efac" },
+      warning: { background: "#fef9c3", color: "#854d0e", border: "1px solid #fde047" },
+      error: { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" },
+    },
+  };
 
   const itensConfirm = Array.isArray(vendaDraft?.carrinho) ? vendaDraft.carrinho : [];
 
-  const produtoNomeClampStyle = {
-    fontWeight: 950,
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 1.15,
-    maxWidth: "100%",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    whiteSpace: "normal",
-    wordBreak: "break-word",
-    color: "#2563eb",
-  };
-
   return (
-    <div
-      className="split vendaRoot"
-      style={{ transform: "none", zoom: 1, WebkitTextSizeAdjust: "100%" }}
-    >
+    <div className="venda-container">
       <style>{`
-        .vendaRoot input,
-        .vendaRoot select,
-        .vendaRoot textarea {
+        .venda-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 12px;
+        }
+        .venda-container input,
+        .venda-container select,
+        .venda-container textarea {
           font-size: 16px;
+        }
+        .grid-3 {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        @media (max-width: 640px) {
+          .grid-3 {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        .product-button:hover {
+          border-color: #2563eb !important;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.15) !important;
+        }
+        .product-button:active:not(:disabled) {
+          transform: translateY(0);
+        }
+        .modal-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
+        .modal-table th {
+          text-align: left;
+          padding: 8px 4px;
+          font-weight: 600;
+          color: #4b5563;
+          border-bottom: 2px solid #e5e7eb;
+        }
+        .modal-table td {
+          padding: 8px 4px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .cart-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px;
+          background: #f8fafc;
+          border-radius: 12px;
+          border: 1px solid #e5e7eb;
+          transition: all 0.2s ease;
+        }
+        .badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          background: #f3f4f6;
+          border: 1px solid #e5e7eb;
+          color: #4b5563;
+        }
+        .combo-info {
+          font-size: 11px;
+          color: #2563eb;
+          background: #eff6ff;
+          padding: 2px 8px;
+          border-radius: 999px;
+          display: inline-block;
+          margin-top: 4px;
         }
       `}</style>
 
-      <Card title="Produtos" subtitle="Toque para adicionar">
+      {/* Alerta */}
+      {aviso.message && (
+        <div className="alert" style={styles.alert[aviso.type]}>
+          {aviso.message}
+        </div>
+      )}
+
+      {/* Card de Produtos */}
+      <Card 
+        title="Produtos" 
+        subtitle="Selecione os itens"
+        right={
+          <span className="badge" style={{ background: "#2563eb", color: "white", borderColor: "#2563eb" }}>
+            {produtosAtivos.length} disponíveis
+          </span>
+        }
+      >
         {precisaEventoAberto() && (
-          <div style={{ marginBottom: 10 }}>
-            <span className="badge">Abra um evento antes de vender</span>
+          <div style={{ marginBottom: 16 }}>
+            <span className="badge" style={{ background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
+              ⚠️ Abra um evento antes de vender
+            </span>
           </div>
         )}
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: 8,
-          }}
-        >
+        <div className="grid-3">
           {produtosAtivos.map((p) => {
             const isCombo = p.tipo === "combo" || p.comboQtd;
             const comboCount = Math.max(2, Number(p.comboQtd) || 0);
@@ -575,57 +693,43 @@ export default function Venda({
             return (
               <button
                 key={p.id}
-                type="button"
+                className="product-button"
+                style={styles.produtoCard}
                 onClick={() => addProduto(p)}
                 disabled={isPrinting}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 18,
-                  background: "#fff",
-                  padding: 8,
-                  cursor: isPrinting ? "not-allowed" : "pointer",
-                  opacity: isPrinting ? 0.7 : 1,
-                  minHeight: 98,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 4,
-                  WebkitTapHighlightColor: "transparent",
-                }}
+                title={p.nome}
               >
                 {p.img ? (
                   <img
                     src={p.img}
                     alt={p.nome}
                     style={{
-                      width: 42,
-                      height: 42,
+                      width: 36,
+                      height: 36,
                       objectFit: "contain",
-                      display: "block",
                     }}
                   />
                 ) : (
-                  <IconImg iconKey={p.iconKey} size={42} />
+                  <IconImg iconKey={p.iconKey} size={36} />
                 )}
 
-                <div style={produtoNomeClampStyle} title={p.nome}>
+                <div style={styles.produtoNome}>
                   {p.nome}
                 </div>
 
                 {isCombo && (
-                  <div style={comboChipStyle}>
-                    {`COMBO${p.comboQtd ? ` x${p.comboQtd}` : ""}`}
+                  <div style={styles.comboChip}>
+                    {comboCount} itens
                   </div>
                 )}
 
-                <div style={{ fontWeight: 800, fontSize: 12, color: "#111827" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>
                   {fmtBRL(precoTotal)}
                 </div>
 
                 {isCombo && comboCount > 0 && (
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#4b5563" }}>
-                    {`(${fmtBRL(precoUnitario)} cada)`}
+                  <div style={{ fontSize: 9, color: "#6b7280" }}>
+                    ({fmtBRL(precoUnitario)}/ficha)
                   </div>
                 )}
               </button>
@@ -633,31 +737,43 @@ export default function Venda({
           })}
 
           {produtosAtivos.length === 0 && (
-            <div className="muted">Nenhum produto ativo. Vá em Produtos e cadastre.</div>
+            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 32, color: "#6b7280" }}>
+              Nenhum produto ativo. Vá em Produtos e cadastre.
+            </div>
           )}
         </div>
       </Card>
 
+      {/* Card do Carrinho */}
       <Card
         title="Carrinho"
-        subtitle="Revise e finalize"
-        right={<span className="badge">{itensCarrinho.length} itens</span>}
+        subtitle="Revise os itens"
+        right={
+          <span className="badge" style={{ background: "#2563eb", color: "white", borderColor: "#2563eb" }}>
+            {itensCarrinho.length} {itensCarrinho.length === 1 ? 'item' : 'itens'}
+          </span>
+        }
+        style={{ marginTop: 16 }}
       >
-        {aviso && (
-          <div style={{ marginBottom: 12 }}>
-            <span className="badge">{aviso}</span>
-          </div>
-        )}
-
         {itensCarrinho.length === 0 ? (
-          <div className="muted">Adicione produtos para começar.</div>
+          <div style={{ textAlign: "center", padding: 32, color: "#6b7280" }}>
+            🛒 Carrinho vazio. Adicione produtos para começar.
+          </div>
         ) : (
-          <div className="cartList">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {itensCarrinho.map((it) => (
-              <div key={it.cartKey || it.produtoId} className="cartRow">
-                <div className="cartLeft">
-                  <div className="cartName">{it.nome}</div>
-                  <div className="muted">{fmtBRL(it.preco)} cada</div>
+              <div key={it.cartKey || it.produtoId} className="cart-item">
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 2, fontSize: 14 }}>{it.nome}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    {fmtBRL(it.unitario)} {it.isCombo ? '/ficha' : 'cada'}
+                  </div>
+                  
+                  {it.isCombo && (
+                    <div className="combo-info">
+                      {it.qtd} combo(s) × {it.comboCount} fichas = {it.qtd * it.comboCount} fichas
+                    </div>
+                  )}
 
                   {it.barrilLitros && (
                     <div style={{ marginTop: 6 }}>
@@ -666,6 +782,7 @@ export default function Venda({
                         value={it.barrilLitros}
                         disabled={isPrinting}
                         onChange={(e) => alterarLitros(it.cartKey, e.target.value)}
+                        style={{ width: "auto", padding: "2px 6px", fontSize: 12 }}
                       >
                         {BARRIL_LITROS.map((litros) => (
                           <option key={litros} value={litros}>
@@ -677,11 +794,13 @@ export default function Venda({
                   )}
                 </div>
 
-                <div className="cartRight">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Button small onClick={() => alterarQtd(it.cartKey, -1)} disabled={isPrinting}>
-                    -
+                    −
                   </Button>
-                  <div className="cartQty">{it.qtd}</div>
+                  <span style={{ fontWeight: 700, minWidth: 24, textAlign: "center", fontSize: 14 }}>
+                    {it.qtd}
+                  </span>
                   <Button small onClick={() => alterarQtd(it.cartKey, +1)} disabled={isPrinting}>
                     +
                   </Button>
@@ -691,90 +810,116 @@ export default function Venda({
           </div>
         )}
 
-        <div className="hr" />
+        <div style={{ height: 1, background: "#e5e7eb", margin: "16px 0" }} />
 
-        <div className="row space">
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Total</div>
-          <div style={{ fontWeight: 900, fontSize: 18 }}>{fmtBRL(total)}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>Total</span>
+          <span style={{ fontWeight: 900, fontSize: 22, color: "#2563eb" }}>
+            {fmtBRL(total)}
+          </span>
         </div>
 
-        <div className="hr" />
+        <div style={{ height: 1, background: "#e5e7eb", margin: "16px 0" }} />
 
-        <div className="formGrid">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              Forma de pagamento
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>
+              Pagamento
             </div>
             <select
-              className="input inputLarge"
+              className="input"
               value={pagamento}
               disabled={isPrinting}
               onChange={(e) => setPagamento(e.target.value)}
+              style={{ width: "100%", padding: "8px" }}
             >
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">Pix</option>
-              <option value="cartao">Cartão</option>
+              <option value="dinheiro">💵 Dinheiro</option>
+              <option value="pix">📱 Pix</option>
+              <option value="cartao">💳 Cartão</option>
             </select>
           </div>
 
           {pagamento === "dinheiro" && (
             <div>
-              <div className="muted" style={{ marginBottom: 6 }}>
-                Valor recebido
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>
+                Recebido
               </div>
               <input
                 className="input"
-                placeholder="Ex: 50,00"
+                placeholder="0,00"
                 value={recebidoTxt}
                 disabled={isPrinting}
                 onChange={(e) => setRecebidoTxt(e.target.value)}
                 inputMode="decimal"
+                style={{ width: "100%", padding: "8px" }}
               />
-              <div className="row space" style={{ marginTop: 8 }}>
-                <div className="muted">Troco</div>
-                <div style={{ fontWeight: 900 }}>{troco != null ? fmtBRL(troco) : "—"}</div>
-              </div>
+              {troco !== null && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>Troco:</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#059669" }}>{fmtBRL(troco)}</span>
+                </div>
+              )}
             </div>
           )}
-
-          <div className="formActions">
-            <Button onClick={limpar} disabled={isPrinting}>
-              Limpar
-            </Button>
-            <Button onClick={onTestarImpressora} disabled={isPrinting}>
-              {isPrinting ? "Aguarde..." : "Teste Impressora"}
-            </Button>
-            <Button variant="primary" onClick={finalizar} disabled={isPrinting}>
-              Finalizar
-            </Button>
-          </div>
         </div>
 
-        <div className="hr" />
-        <div className="muted">
-          Dica: Pix/Cartão não usa troco. Dinheiro pode informar recebido para calcular troco.
+        <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+          <Button onClick={limparCarrinho} disabled={isPrinting} variant="secondary" small>
+            Limpar
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleFinalizar} 
+            disabled={isPrinting || itensCarrinho.length === 0}
+            style={{ minWidth: 100 }}
+            small
+          >
+            {isPrinting ? "..." : "Finalizar"}
+          </Button>
+        </div>
+
+        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 12, textAlign: "center" }}>
+          {pagamento === "dinheiro" 
+            ? "💰 Informe o valor recebido"
+            : "💳 Pix/Cartão não geram troco"}
         </div>
       </Card>
 
-      <Card title="Últimas vendas" subtitle="Reimprima rapidamente se necessário.">
+      {/* Últimas Vendas */}
+      <Card title="Últimas vendas" subtitle="Reimprima se necessário" style={{ marginTop: 16 }}>
         {ultimasVendas.length === 0 ? (
-          <div className="muted">Nenhuma venda ainda.</div>
+          <div style={{ textAlign: "center", padding: 24, color: "#6b7280", fontSize: 14 }}>
+            Nenhuma venda registrada.
+          </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {ultimasVendas.map((venda, index) => (
               <div
-                key={venda?.id || `${venda?.createdAt}-${venda?.total}-${index}`}
-                className="row space"
-                style={{ paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}
+                key={venda?.id || index}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: 10,
+                  background: "#f8fafc",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ fontWeight: 900 }}>{formatarDataHora(venda)}</div>
-                  <div className="muted" style={{ textTransform: "capitalize" }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{formatarDataHora(venda)}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
                     {fmtBRL(venda?.total || 0)} • {venda?.pagamento || "—"}
                   </div>
                 </div>
-                <Button small onClick={() => reimprimirVenda(venda)} disabled={isPrinting}>
-                  Reimprimir
+                <Button 
+                  small 
+                  onClick={() => reimprimirVenda(venda)} 
+                  disabled={isPrinting}
+                  variant="secondary"
+                  style={{ fontSize: 11, padding: "4px 8px" }}
+                >
+                  🔄 Reimprimir
                 </Button>
               </div>
             ))}
@@ -782,81 +927,101 @@ export default function Venda({
         )}
       </Card>
 
+      {/* Modal de Confirmação */}
       {confirmOpen && vendaDraft && (
-        <div style={overlayStyle} onClick={cancelarConfirmacao} role="presentation">
+        <div style={styles.overlay} onClick={handleCancelConfirm}>
           <div
-            style={modalCardStyle}
+            style={styles.modalCard}
             onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Confirmar pedido"
           >
-            <div className="row space" style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>Confirmar pedido</div>
-                <div className="muted" style={{ fontSize: 12 }}>
+                <h4 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Confirmar venda</h4>
+                <p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>
                   {new Date().toLocaleString("pt-BR")}
-                </div>
+                </p>
               </div>
-              <span className="badge">{vendaDraft.eventoNome}</span>
+              <span className="badge" style={{ background: "#2563eb", color: "white", fontSize: 11 }}>
+                {vendaDraft.eventoNome}
+              </span>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", paddingBottom: 8 }}>Item</th>
-                    <th style={{ textAlign: "center", paddingBottom: 8 }}>Qtd</th>
-                    <th style={{ textAlign: "right", paddingBottom: 8 }}>Unitário</th>
-                    <th style={{ textAlign: "right", paddingBottom: 8 }}>Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itensConfirm.map((it, idx) => (
-                    <tr key={`${it.cartKey ?? it.produtoId ?? it.id ?? idx}`}>
-                      <td style={{ padding: "6px 0" }}>{it.nome}</td>
-                      <td style={{ textAlign: "center" }}>{it.qtd}</td>
-                      <td style={{ textAlign: "right" }}>{fmtBRL(it.preco)}</td>
-                      <td style={{ textAlign: "right" }}>{fmtBRL(it.subtotal)}</td>
+            <table className="modal-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th style={{ textAlign: "center", width: 45 }}>Qtd</th>
+                  <th style={{ textAlign: "right", width: 70 }}>Unit.</th>
+                  <th style={{ textAlign: "right", width: 70 }}>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itensConfirm.map((it, idx) => {
+                  const unitarioExibicao = it.isCombo ? it.unitario : it.preco;
+                  const subtotalExibicao = it.isCombo ? it.qtd * it.unitario * it.comboCount : it.subtotal;
+                  
+                  return (
+                    <tr key={idx}>
+                      <td style={{ fontSize: 12, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {it.nome}
+                        {it.isCombo && (
+                          <span style={{ fontSize: 10, color: "#2563eb", marginLeft: 4 }}>
+                            ({it.qtd} combo × {it.comboCount} fichas)
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: "center", fontSize: 12 }}>{it.qtd}</td>
+                      <td style={{ textAlign: "right", fontSize: 12 }}>{fmtBRL(unitarioExibicao)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600, fontSize: 12 }}>{fmtBRL(subtotalExibicao)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div style={{ height: 1, background: "#e5e7eb", margin: "12px 0" }} />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>Total</span>
+              <span style={{ fontWeight: 900, fontSize: 18, color: "#2563eb" }}>
+                {fmtBRL(totalDoCarrinho(itensConfirm))}
+              </span>
             </div>
 
-            <div className="hr" />
-
-            <div className="row space" style={{ marginBottom: 8 }}>
-              <div style={{ fontWeight: 900 }}>Total</div>
-              <div style={{ fontWeight: 900 }}>{fmtBRL(totalDoCarrinho(itensConfirm))}</div>
-            </div>
-
-            <div className="row space" style={{ marginBottom: 6 }}>
-              <div className="muted">Pagamento</div>
-              <div style={{ fontWeight: 700, textTransform: "capitalize" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+              <span style={{ fontSize: 12, color: "#6b7280" }}>Pagamento</span>
+              <span style={{ fontWeight: 600, fontSize: 12, textTransform: "capitalize" }}>
+                {vendaDraft.pagamento === "dinheiro" && "💵 "}
+                {vendaDraft.pagamento === "pix" && "📱 "}
+                {vendaDraft.pagamento === "cartao" && "💳 "}
                 {vendaDraft.pagamento}
-              </div>
+              </span>
             </div>
 
-            {vendaDraft.pagamento === "dinheiro" && (
-              <div style={{ marginBottom: 12 }}>
-                <div className="row space">
-                  <div className="muted">Valor recebido</div>
-                  <div>{vendaDraft.recebido != null ? fmtBRL(vendaDraft.recebido) : "—"}</div>
+            {vendaDraft.pagamento === "dinheiro" && vendaDraft.recebido > 0 && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>Recebido</span>
+                  <span style={{ fontSize: 12 }}>{fmtBRL(vendaDraft.recebido)}</span>
                 </div>
-                <div className="row space">
-                  <div className="muted">Troco</div>
-                  <div>{vendaDraft.troco != null ? fmtBRL(vendaDraft.troco) : "—"}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>Troco</span>
+                  <span style={{ fontWeight: 600, fontSize: 12, color: "#059669" }}>{fmtBRL(vendaDraft.troco)}</span>
                 </div>
-              </div>
+              </>
             )}
 
-            <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-              <Button onClick={cancelarConfirmacao} disabled={isPrinting}>
+            <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+              <Button onClick={handleCancelConfirm} disabled={isPrinting} variant="secondary" small>
                 Cancelar
               </Button>
-              <Button variant="primary" onClick={confirmar} disabled={isPrinting}>
-                {isPrinting ? "Imprimindo..." : "Confirmar + Imprimir"}
+              <Button 
+                variant="primary" 
+                onClick={handleConfirmVenda} 
+                disabled={isPrinting}
+                small
+              >
+                {isPrinting ? "Imprimindo..." : "Confirmar"}
               </Button>
             </div>
           </div>

@@ -1,13 +1,102 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pvd-comunidade</title>
+    
+    <!-- 🔥 METAS OTIMIZADAS PARA ANDROID -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src * self blob: data: gap:; style-src * self 'unsafe-inline' blob: data:; script-src * self 'unsafe-eval' 'unsafe-inline' blob: data:; object-src 'none';">
+    <meta name="theme-color" content="#f5f6f8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    
+    <title>PDV Comunidade</title>
+    
+    <!-- 🔥 ESTILOS GLOBAIS PARA PERFORMANCE -->
+    <style>
+      /* Reset e otimizações */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow-x: hidden;
+        background-color: #f5f6f8;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        -webkit-overflow-scrolling: touch; /* Scroll suave */
+      }
+      
+      /* Forçar aceleração de hardware em todos os elementos */
+      body, #root, div, section, main, article, header, footer, nav, aside, 
+      button, .button, .card, [class*="card"], img, svg, canvas {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        -webkit-perspective: 1000;
+        perspective: 1000;
+        will-change: transform;
+      }
+      
+      /* Garantir que imagens não distorçam */
+      img {
+        max-width: 100%;
+        height: auto;
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+      }
+      
+      /* Esconder scrollbar mas manter funcionalidade */
+      ::-webkit-scrollbar {
+        width: 0;
+        background: transparent;
+      }
+      
+      /* Animações suaves */
+      .fade-in {
+        -webkit-animation: fadeIn 0.2s ease-in;
+        animation: fadeIn 0.2s ease-in;
+      }
+      
+      @-webkit-keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    </style>
   </head>
+  
   <body>
-    <div id="root"></div>
+    <div id="root" class="hardware-accelerated"></div>
+    
+    <!-- 🔥 SCRIPTS OTIMIZADOS -->
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- 🔥 SCRIPT DE DIAGNÓSTICO (opcional, pode remover depois) -->
+    <script>
+      // Detectar se está rodando no Android e aplicar otimizações extras
+      if (/Android/i.test(navigator.userAgent)) {
+        document.documentElement.style.webkitTransform = 'translateZ(0)';
+        document.documentElement.style.transform = 'translateZ(0)';
+        
+        // Log de diagnóstico
+        console.log('📱 Rodando em Android - Otimizações ativadas');
+      }
+    </script>
   </body>
 </html>

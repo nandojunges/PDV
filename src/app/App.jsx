@@ -24,7 +24,6 @@ import {
   readPendingSales,
   removePendingSaleById,
 } from "../state/pdvStore";
-import { logSunmiPrinterStatus } from "../utils/sunmiPrinter";
 
 export default function App() {
   const { config, permitirMultiDispositivo } = useConfig();
@@ -38,9 +37,6 @@ export default function App() {
     ensureMigrations();
   }, []);
 
-  useEffect(() => {
-    logSunmiPrinterStatus();
-  }, []);
 
   function getFlowTargetTab(flowValue) {
     if (flowValue === "ITENS_NAO_FINALIZADOS") return "produtos";
