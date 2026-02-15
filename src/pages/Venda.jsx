@@ -5,13 +5,9 @@ import Button from "../components/Button";
 import { fmtBRL, uid } from "../domain/math";
 import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
-import { useConfig } from "../config/ConfigProvider";
-import { postSaleToMaster } from "../net/connectivity";
 import { imprimirTexto, imprimirBitmap } from "../utils/sunmiPrinter";
 import { buildTicketBitmapBase64 } from "../print/ticketBitmap";
 import {
-  buildSaleSummaryFromSale,
-  enqueuePendingSale,
   getOrCreateDeviceId,
   persistSale,
 } from "../state/pdvStore";
@@ -54,7 +50,6 @@ export default function Venda({
   setTab = () => {},
   ajustes = {},
 }) {
-  const { permitirMultiDispositivo, config } = useConfig();
 
   // ==================== ESTADOS ====================
   const [carrinho, setCarrinho] = useState([]);
@@ -457,44 +452,12 @@ export default function Venda({
       setVendaDraft(null);
       setPendingSale(null);
       setAviso({ type: "success", message: "Venda finalizada com sucesso!" });
-
-      if (permitirMultiDispositivo && config?.modoMulti === "client") {
-        const host = String(config?.masterHost || "").trim();
-        const port = String(config?.masterPort || "").trim();
-        const pin = String(config?.pinAtual || "").trim();
-        const eventId = String(config?.eventIdAtual || "").trim();
-
-        const summary = buildSaleSummaryFromSale({
-          sale: vendaFinal,
-          deviceId,
-          deviceName,
-        });
-
-        if (host && port && pin && eventId) {
-          try {
-            await postSaleToMaster({
-              host,
-              port,
-              pin,
-              eventId,
-              deviceId,
-              deviceName,
-              summary,
-              sale: vendaFinal,
-            });
-          } catch {
-            enqueuePendingSale({ summary, sale: vendaFinal });
-          }
-        } else {
-          enqueuePendingSale({ summary, sale: vendaFinal });
-        }
-      }
     } catch (error) {
       setAviso({ type: "error", message: `Erro: ${error.message}` });
     } finally {
       setIsPrinting(false);
     }
-  }, [vendaDraft, isPrinting, pendingSale, deviceId, deviceName, imprimirTicketsDaVenda, limparCarrinho, setTab, setVendas, permitirMultiDispositivo, config]);
+  }, [vendaDraft, isPrinting, pendingSale, deviceId, deviceName, imprimirTicketsDaVenda, limparCarrinho, setTab, setVendas]);
 
   // ==================== UTILITÁRIOS ====================
   const formatarDataHora = useCallback((venda) => {

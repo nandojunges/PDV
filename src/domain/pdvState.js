@@ -1,4 +1,10 @@
-import { gerarCaixaIdCurto, gerarPin } from "../net/pdvNetConfig";
+function gerarCaixaIdCurto() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function gerarPin() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
 export function createMockState() {
   return {
