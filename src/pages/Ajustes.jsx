@@ -4,7 +4,6 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
 import { ICONS } from "../domain/icons";
-import { useConfig } from "../config/ConfigProvider";
 
 /* ===================== CONSTANTES ===================== */
 const LOGO_SLOT_MM = 35;
@@ -26,8 +25,7 @@ export default function Ajustes({
   const [rodape, setRodape] = useState(ajustes?.textoRodape || "");
   const [logoFileName, setLogoFileName] = useState("");
   const [aviso, setAviso] = useState({ type: "", message: "" });
-  
-  const { permitirMultiDispositivo, setPermitirMultiDispositivo } = useConfig();
+
 
   // ==================== REFS ====================
   const fileRef = useRef(null);
@@ -764,37 +762,6 @@ export default function Ajustes({
                   />
                   <span className="range-value">{logoAlturaMm.toFixed(1)}mm</span>
                 </div>
-              </div>
-
-              {/* Impressão econômica */}
-              <div className="fullRow">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(ajustes?.impressaoEcoImagem)}
-                    onChange={(e) =>
-                      setAjustes((p) => ({
-                        ...(p || {}),
-                        impressaoEcoImagem: e.target.checked,
-                      }))
-                    }
-                    disabled={readOnly}
-                  />
-                  <span>Economia de tinta (impressão térmica)</span>
-                </label>
-              </div>
-
-              {/* Multi-dispositivo */}
-              <div className="fullRow">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(permitirMultiDispositivo)}
-                    onChange={(e) => setPermitirMultiDispositivo(e.target.checked)}
-                    disabled={readOnly}
-                  />
-                  <span>Permitir uso em múltiplos dispositivos</span>
-                </label>
               </div>
             </div>
 

@@ -23,14 +23,33 @@ function drawCenteredText(ctx, text, y, size = 24, bold = false) {
   ctx.fillText(text, WIDTH / 2, y);
 }
 
+function drawLeftText(ctx, text, y, size = 20, bold = false) {
+  ctx.font = `${bold ? "900" : "700"} ${size}px Arial`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#000";
+  ctx.fillText(text, PADDING + 10, y);
+}
+
 function drawDivider(ctx, y) {
   ctx.fillStyle = "#000";
   ctx.fillRect(PADDING, y, WIDTH - PADDING * 2, 2);
 }
 
-async function loadImage(iconKey) {
+async function loadImage(iconKeyOrUrl) {
   return new Promise((resolve) => {
-    const url = ICONS[iconKey] || null;
+    // Se já for uma URL de dados (base64), usa direto
+    if (iconKeyOrUrl && iconKeyOrUrl.startsWith('data:image')) {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = iconKeyOrUrl;
+      return;
+    }
+    
+    // Caso contrário, busca no ICONS
+    const url = ICONS[iconKeyOrUrl] || null;
     if (!url) return resolve(null);
 
     const img = new Image();
@@ -82,7 +101,7 @@ function toMonochrome(ctx, w, h) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-    const v = lum < 200 ? 0 : 255; // ajuste fino aqui (180~220)
+    const v = lum < 200 ? 0 : 255;
     d[i] = v;
     d[i + 1] = v;
     d[i + 2] = v;
@@ -127,34 +146,111 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   drawDivider(ctx, y);
   y += 26;
 
-  // 4) Ícone grande centralizado - 🔥 CÁLCULO CORRIGIDO
-  const img = await loadImage(item?.iconKey);
-  if (img) {
-    // 🔥 CONVERSÃO CORRETA: 1mm = 8px (para 203 DPI)
-    // A largura do ticket é 58mm = 384px, então 1mm = 384/58 ≈ 6.62px
-    const pixelsPorMm = WIDTH / 58; // ≈ 6.62px por mm
+  // ==================== 🔥 ESCOLHA DO CONTEÚDO DO TOPO ====================
+  const modoImagem = ajustes?.ticketImagemModo || "produto";
+  
+  // 🔥 VERIFICA SE TEM TEXTO PERSONALIZADO
+  const textoPersonalizado = ajustes?.ticketTopoTexto || "";
+  const textoPersonalizadoBold = ajustes?.ticketTopoTextoBold || false;
+  
+  if (modoImagem === "logo") {
+    // Usar a logo do evento (upload)
+    const imagemParaImprimir = ajustes?.logoDataUrl;
+    console.log("📷 Usando logo do evento");
     
-    const alturaDesejadaMm = Number(ajustes?.logoImgMm || 20);
-    const alturaDesejadaPx = Math.round(alturaDesejadaMm * pixelsPorMm);
+    if (imagemParaImprimir) {
+      const img = await loadImage(imagemParaImprimir);
+      if (img) {
+        // Conversão mm → px
+        const pixelsPorMm = WIDTH / 58; // ≈ 6.62px por mm
+        
+        const alturaDesejadaMm = Number(ajustes?.logoImgMm || 20);
+        const alturaDesejadaPx = Math.round(alturaDesejadaMm * pixelsPorMm);
+        
+        // Limitar ao tamanho máximo do espaço disponível
+        const alturaMaximaPx = 180;
+        const alturaFinal = Math.min(alturaDesejadaPx, alturaMaximaPx);
+        
+        // Calcula a escala mantendo a proporção
+        const scale = alturaFinal / img.height;
+        const w = Math.round(img.width * scale);
+        const h = alturaFinal;
+        const x = Math.round((WIDTH - w) / 2);
+
+        console.log(`📏 Logo: ${alturaDesejadaMm}mm → ${h}px`);
+
+        // desenha a imagem
+        ctx.drawImage(img, x, y, w, h);
+
+        y += h + 26;
+      } else {
+        y += 16;
+      }
+    } else {
+      y += 16;
+    }
     
-    // Limitar ao tamanho máximo do espaço disponível
-    const alturaMaximaPx = 180; // espaço máximo para a imagem
-    const alturaFinal = Math.min(alturaDesejadaPx, alturaMaximaPx);
+  } else if (modoImagem === "produto") {
+    // Usar o ícone do produto
+    const imagemParaImprimir = item?.iconKey;
+    console.log("🖼️ Usando ícone do produto:", item?.iconKey);
     
-    // Calcula a escala mantendo a proporção
-    const scale = alturaFinal / img.height;
-    const w = Math.round(img.width * scale);
-    const h = alturaFinal;
-    const x = Math.round((WIDTH - w) / 2);
+    if (imagemParaImprimir) {
+      const img = await loadImage(imagemParaImprimir);
+      if (img) {
+        // Conversão mm → px
+        const pixelsPorMm = WIDTH / 58; // ≈ 6.62px por mm
+        
+        const alturaDesejadaMm = Number(ajustes?.logoImgMm || 20);
+        const alturaDesejadaPx = Math.round(alturaDesejadaMm * pixelsPorMm);
+        
+        // Limitar ao tamanho máximo do espaço disponível
+        const alturaMaximaPx = 180;
+        const alturaFinal = Math.min(alturaDesejadaPx, alturaMaximaPx);
+        
+        // Calcula a escala mantendo a proporção
+        const scale = alturaFinal / img.height;
+        const w = Math.round(img.width * scale);
+        const h = alturaFinal;
+        const x = Math.round((WIDTH - w) / 2);
 
-    console.log(`📏 Imagem: ${alturaDesejadaMm}mm → ${h}px (escala: ${scale.toFixed(2)})`);
+        console.log(`📏 Ícone: ${alturaDesejadaMm}mm → ${h}px`);
 
-    // desenha em cima de branco
-    ctx.drawImage(img, x, y, w, h);
+        // desenha a imagem
+        ctx.drawImage(img, x, y, w, h);
 
-    y += h + 26;
+        y += h + 26;
+      } else {
+        y += 16;
+      }
+    } else {
+      y += 16;
+    }
+    
+  } else if (modoImagem === "texto" && textoPersonalizado) {
+    // 🔥 MODO TEXTO - Imprime a frase personalizada
+    console.log("📝 Modo texto - imprimindo frase:", textoPersonalizado);
+    
+    // Divide o texto em linhas (máx 2)
+    const linhas = textoPersonalizado.split('\n').filter(linha => linha.trim());
+    
+    // Tamanho da fonte baseado na altura configurada
+    const tamanhoFonte = Math.max(18, Math.min(32, Math.round(alturaDesejadaMm * 1.2)));
+    
+    let espacoUsado = 0;
+    
+    linhas.forEach((linha, index) => {
+      const yLinha = y + (index * (tamanhoFonte + 8));
+      drawCenteredText(ctx, linha, yLinha, tamanhoFonte, textoPersonalizadoBold);
+      espacoUsado += tamanhoFonte + 8;
+    });
+    
+    y += Math.max(espacoUsado + 10, 60); // Espaço mínimo de 60px
+    console.log(`📏 Texto: ${espacoUsado}px de altura`);
+    
   } else {
-    // se não tiver imagem, só dá espaço “bonito”
+    // Nenhum conteúdo no topo
+    console.log("📝 Modo texto - sem conteúdo");
     y += 16;
   }
 
@@ -184,22 +280,22 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   drawCenteredText(ctx, rodape, y, 20, true);
   y += 34;
 
-  // ✅ final do “conteúdo principal” (onde a moldura deve fechar)
+  // final do conteúdo principal
   const frameBottomY = y + 18;
 
-  // 9) Moldura em volta de TODO o ticket (exceto área do corte)
+  // 9) Moldura
   drawFrame(ctx, frameTopY, frameBottomY);
 
-  // 10) espaço entre moldura e área de corte
+  // 10) Espaço para corte
   y = frameBottomY + FRAME_GAP_AFTER;
 
-  // 11) Corte (fora da moldura, para ficar claro na bobina)
+  // 11) Corte
   drawDivider(ctx, y);
   y += 22;
   drawCenteredText(ctx, "CORTE AQUI", y, 18, true);
   y += 36;
 
-  // ✅ converte para monocromático (melhora MUITO em térmica)
+  // converte para monocromático
   toMonochrome(ctx, canvas.width, canvas.height);
 
   // recorta altura final
@@ -209,6 +305,6 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   const fctx = finalCanvas.getContext("2d");
   fctx.drawImage(canvas, 0, 0);
 
-  // base64 PNG (sem prefixo)
+  // base64 PNG
   return finalCanvas.toDataURL("image/png").split(",")[1];
 }
