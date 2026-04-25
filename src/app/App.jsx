@@ -1,15 +1,23 @@
 // src/app/App.jsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import TopBar from "../components/TopBar";
 import Button from "../components/Button";
 
-import Evento from "../pages/Evento";
-import Produtos from "../pages/Produtos";
-import Venda from "../pages/Venda";
-import Caixa from "../pages/Caixa";
-import Relatorio from "../pages/Relatorio";
-import Ajustes from "../pages/Ajustes";
+const Evento = lazy(() => import("../pages/Evento"));
+const Produtos = lazy(() => import("../pages/Produtos"));
+const Venda = lazy(() => import("../pages/Venda"));
+const Caixa = lazy(() => import("../pages/Caixa"));
+const Relatorio = lazy(() => import("../pages/Relatorio"));
+const Ajustes = lazy(() => import("../pages/Ajustes"));
 
 import { LS_KEYS } from "../storage/keys";
 import { loadJSON, saveJSON } from "../storage/storage";
@@ -348,114 +356,129 @@ export default function App() {
           </div>
         )}
         {tab === "evento" && (
-          <Evento
-            evento={evento}
-            abrirEvento={abrirEvento}
-            vendas={vendas}
-            caixa={caixa}
-            flowState={flowState}
-            readOnly={readOnlyWizard}
-            setEvento={setEvento}
-            setCaixa={setCaixa}
-            setVendas={setVendas}
-            setProdutos={setProdutos}
-            ajustes={ajustes}
-            setAjustes={setAjustes}
-          />
+          <Suspense fallback={loadingFallback}>
+            <Evento
+              evento={evento}
+              abrirEvento={abrirEvento}
+              vendas={vendas}
+              caixa={caixa}
+              flowState={flowState}
+              readOnly={readOnlyWizard}
+              setEvento={setEvento}
+              setCaixa={setCaixa}
+              setVendas={setVendas}
+              setProdutos={setProdutos}
+              ajustes={ajustes}
+              setAjustes={setAjustes}
+            />
+          </Suspense>
         )}
 
         {tab === "produtos" && (
-          <Produtos
-            produtos={produtos}
-            setProdutos={setProdutos}
-            setTab={goToTab}
-            readOnly={readOnlyWizard}
-            itensFinalizados={Boolean(evento?.itensFinalizados)}
-            onSalvarOfertaDoEvento={(novosProdutos) =>
-              setEvento((prev) => ({
-                ...prev,
-                produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
-                itensFinalizados: true,
-                produtosConfirmados: true,
-                ajustesConfirmados: false,
-              }))
-            }
-            onFinalizarItens={() => {
-              goToTab("ajustes");
-            }}
-          />
+          <Suspense fallback={loadingFallback}>
+            <Produtos
+              produtos={produtos}
+              setProdutos={setProdutos}
+              setTab={goToTab}
+              readOnly={readOnlyWizard}
+              itensFinalizados={Boolean(evento?.itensFinalizados)}
+              onSalvarOfertaDoEvento={(novosProdutos) =>
+                setEvento((prev) => ({
+                  ...prev,
+                  produtos: Array.isArray(novosProdutos) ? novosProdutos : [],
+                  itensFinalizados: true,
+                  produtosConfirmados: true,
+                  ajustesConfirmados: false,
+                }))
+              }
+              onFinalizarItens={() => {
+                goToTab("ajustes");
+              }}
+            />
+          </Suspense>
         )}
 
         {tab === "venda" && (
-          <Venda
-            evento={evento}
-            produtos={produtos}
-            vendas={vendas}
-            setVendas={setVendas}
-            setTab={goToTab}
-            ajustes={ajustes}
-          />
+          <Suspense fallback={loadingFallback}>
+            <Venda
+              evento={evento}
+              produtos={produtos}
+              vendas={vendas}
+              setVendas={setVendas}
+              setTab={goToTab}
+              ajustes={ajustes}
+            />
+          </Suspense>
         )}
 
         {tab === "caixa" && (
-          <Caixa
-            evento={evento}
-            caixa={caixa}
-            setCaixa={setCaixa}
-            resumoEvento={resumoEvento}
-            vendas={vendas}
-            flowState={flowState}
-            disabled={!hasEventoAberto}
-            onZerarCaixa={zerarCaixaEvento}
-            onAbrirCaixaOk={() => {
-              setEvento((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      caixaAberto: true,
-                    }
-                  : prev
-              );
-              goToTab("venda");
-            }}
-            onFinalizarCaixa={finalizarCaixaEvento}
-          />
+          <Suspense fallback={loadingFallback}>
+            <Caixa
+              evento={evento}
+              caixa={caixa}
+              setCaixa={setCaixa}
+              resumoEvento={resumoEvento}
+              vendas={vendas}
+              flowState={flowState}
+              disabled={!hasEventoAberto}
+              onZerarCaixa={zerarCaixaEvento}
+              onAbrirCaixaOk={() => {
+                setEvento((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        caixaAberto: true,
+                      }
+                    : prev
+                );
+                goToTab("venda");
+              }}
+              onFinalizarCaixa={finalizarCaixaEvento}
+            />
+          </Suspense>
         )}
 
         {tab === "relatorio" && (
-          <Relatorio
-            evento={evento}
-            vendas={vendas}
-            produtos={produtos}
-            caixa={caixa}
-            ajustes={ajustes}
-            resumoEvento={resumoEvento}
-            onZerarVendas={zerarVendasEvento}
-            disabled={!hasEventoAberto}
-          />
+          <Suspense fallback={loadingFallback}>
+            <Relatorio
+              evento={evento}
+              vendas={vendas}
+              produtos={produtos}
+              caixa={caixa}
+              ajustes={ajustes}
+              resumoEvento={resumoEvento}
+              onZerarVendas={zerarVendasEvento}
+              disabled={!hasEventoAberto}
+            />
+          </Suspense>
         )}
 
         {tab === "ajustes" && (
-          <Ajustes
-            ajustes={ajustes}
-            setAjustes={setAjustes}
-            hasEventoAberto={hasEventoAberto}
-            readOnly={readOnlyWizard}
-            onSalvar={() => {
-              setEvento((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      ajustesSalvos: true,
-                      ajustesConfirmados: true,
-                    }
-                  : prev
-              );
-              goToTab("caixa");
-            }}
-          />
+          <Suspense fallback={loadingFallback}>
+            <Ajustes
+              ajustes={ajustes}
+              setAjustes={setAjustes}
+              hasEventoAberto={hasEventoAberto}
+              readOnly={readOnlyWizard}
+              onSalvar={() => {
+                setEvento((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        ajustesSalvos: true,
+                        ajustesConfirmados: true,
+                      }
+                    : prev
+                );
+                goToTab("caixa");
+              }}
+            />
+          </Suspense>
         )}
       </main>
     </div>
   );
 }
+  const loadingFallback = (
+    <div style={{ padding: 12, color: "#6b7280", fontWeight: 700 }}>Carregando tela…</div>
+  );

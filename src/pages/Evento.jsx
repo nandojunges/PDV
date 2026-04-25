@@ -14,6 +14,7 @@ import {
 } from "../services/reportText";
 
 const SENHA_EXCLUIR = "123456";
+const INITIAL_HISTORY_LIMIT = 25;
 
 /* ===================== storage: status do evento ===================== */
 function loadEventosMeta() {
@@ -202,6 +203,7 @@ export default function Evento({
   const [evExcluir, setEvExcluir] = useState(null);
   const [senha, setSenha] = useState("");
   const [erroSenha, setErroSenha] = useState("");
+  const [historyLimit, setHistoryLimit] = useState(INITIAL_HISTORY_LIMIT);
 
   // ✅ mapa de encerrados (cache)
   const encerradosMap = useMemo(() => {
@@ -297,6 +299,10 @@ export default function Evento({
 
     return arr;
   }, [vendas, evento, encerradosMap]);
+  const historicoVisivel = useMemo(
+    () => historico.slice(0, historyLimit),
+    [historico, historyLimit]
+  );
 
   const eventoAberto = Boolean(String(evento?.nome || "").trim());
   const produtosEvento = Array.isArray(evento?.produtos) ? evento.produtos : [];
@@ -665,7 +671,7 @@ export default function Evento({
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
-            {historico.map((ev) => {
+            {historicoVisivel.map((ev) => {
               const dt = ev.primeiraData || ev.ultimaData || null;
               const nomeEv = String(ev.nome || "").trim();
               const isAtual = String(evento?.nome || "").trim() === nomeEv;
@@ -676,6 +682,7 @@ export default function Evento({
               return (
                 <div
                   key={ev.nome}
+                  className="evento-history-card"
                   style={{
                     background: "#fff",
                     border: "1px solid #e5e7eb",
@@ -692,9 +699,10 @@ export default function Evento({
                       gap: 10,
                     }}
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div
+                          className="evento-nome"
                           style={{
                             fontWeight: 950,
                             fontSize: 16,
@@ -756,7 +764,7 @@ export default function Evento({
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div className="evento-acoes" style={{ display: "flex", gap: 8 }}>
                       <button
                         style={{ ...btn("soft"), padding: "0 10px", height: 34 }}
                         onClick={() => setEvResumo(calcularCaixaDoEvento(ev.nome))}
@@ -781,9 +789,34 @@ export default function Evento({
                 </div>
               );
             })}
+            {historico.length > historicoVisivel.length && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
+                <button style={btn("soft")} onClick={() => setHistoryLimit((prev) => prev + INITIAL_HISTORY_LIMIT)}>
+                  Carregar mais histórico ({historico.length - historicoVisivel.length} restantes)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
+      <style>{`
+        .evento-history-card {
+          overflow-x: hidden;
+        }
+        .evento-nome {
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal !important;
+        }
+        .evento-acoes {
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          max-width: 100%;
+        }
+        .evento-acoes > button {
+          white-space: nowrap;
+        }
+      `}</style>
       {evResumo && (
         <div style={overlay} onClick={() => setEvResumo(null)}>
           <div style={modalCard} onClick={(e) => e.stopPropagation()}>

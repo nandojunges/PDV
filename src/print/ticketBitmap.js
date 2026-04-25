@@ -4,6 +4,10 @@ import { toBRDateTime } from "../domain/math";
 
 const WIDTH = 384; // 58mm Sunmi (geralmente 384px)
 const PADDING = 18;
+const MAX_IMAGE_HEIGHT_PX = 140;
+const DEFAULT_IMAGE_MM = 20;
+const DEV = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
+const imageCache = new Map();
 
 /* ===================== MOLDURA / BORDA ===================== */
 const FRAME_RADIUS = 22; // canto arredondado (px)
@@ -20,7 +24,7 @@ function drawCenteredText(ctx, text, y, size = 24, bold = false) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#000";
-  ctx.fillText(text, WIDTH / 2, y);
+  ctx.fillText(text, ctx.canvas.width / 2, y);
 }
 
 function drawLeftText(ctx, text, y, size = 20, bold = false) {
@@ -33,13 +37,18 @@ function drawLeftText(ctx, text, y, size = 20, bold = false) {
 
 function drawDivider(ctx, y) {
   ctx.fillStyle = "#000";
-  ctx.fillRect(PADDING, y, WIDTH - PADDING * 2, 2);
+  ctx.fillRect(PADDING, y, ctx.canvas.width - PADDING * 2, 2);
 }
 
 async function loadImage(iconKeyOrUrl) {
-  return new Promise((resolve) => {
+  if (!iconKeyOrUrl) return null;
+  if (imageCache.has(iconKeyOrUrl)) {
+    return imageCache.get(iconKeyOrUrl);
+  }
+
+  const promise = new Promise((resolve) => {
     // Se já for uma URL de dados (base64), usa direto
-    if (iconKeyOrUrl && iconKeyOrUrl.startsWith('data:image')) {
+    if (iconKeyOrUrl && iconKeyOrUrl.startsWith("data:image")) {
       const img = new Image();
       img.crossOrigin = "Anonymous";
       img.onload = () => resolve(img);
@@ -47,7 +56,7 @@ async function loadImage(iconKeyOrUrl) {
       img.src = iconKeyOrUrl;
       return;
     }
-    
+
     // Caso contrário, busca no ICONS
     const url = ICONS[iconKeyOrUrl] || null;
     if (!url) return resolve(null);
@@ -58,6 +67,31 @@ async function loadImage(iconKeyOrUrl) {
     img.onerror = () => resolve(null);
     img.src = url;
   });
+  imageCache.set(iconKeyOrUrl, promise);
+
+  return promise;
+}
+
+function calcImageHeightPx(targetWidth, ajustes) {
+  const pixelsPorMm = targetWidth / 58;
+  const alturaDesejadaMm = Number(ajustes?.logoImgMm || DEFAULT_IMAGE_MM);
+  const alturaDesejadaPx = Math.round(alturaDesejadaMm * pixelsPorMm);
+  return Math.min(alturaDesejadaPx, MAX_IMAGE_HEIGHT_PX);
+}
+
+function devLog(...args) {
+  if (!DEV) return;
+  console.info(...args);
+}
+
+function drawScaledImage(ctx, img, y, targetWidth, ajustes) {
+  const alturaFinal = calcImageHeightPx(targetWidth, ajustes);
+  const scale = alturaFinal / img.height;
+  const w = Math.min(Math.round(img.width * scale), targetWidth - PADDING * 2);
+  const h = Math.round((img.height * w) / img.width);
+  const x = Math.round((targetWidth - w) / 2);
+  ctx.drawImage(img, x, y, w, h);
+  return h;
 }
 
 /* ===================== DESENHO: RETÂNGULO ARREDONDADO ===================== */
@@ -80,7 +114,7 @@ function drawFrame(ctx, topY, bottomY) {
   // desenha uma borda arredondada em volta do ticket “principal”
   const x = FRAME_INSET;
   const y = topY;
-  const w = WIDTH - FRAME_INSET * 2;
+  const w = ctx.canvas.width - FRAME_INSET * 2;
   const h = Math.max(1, bottomY - topY);
 
   ctx.save();
@@ -111,9 +145,13 @@ function toMonochrome(ctx, w, h) {
 }
 
 export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
+  const targetWidth = Math.max(
+    280,
+    Math.min(WIDTH, Number(ajustes?.printerWidthPx || WIDTH) || WIDTH)
+  );
   // canvas “grande” e depois a gente recorta
   const canvas = document.createElement("canvas");
-  canvas.width = WIDTH;
+  canvas.width = targetWidth;
   canvas.height = 900;
 
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -127,9 +165,7 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   let y = frameTopY + 46;
 
   // 1) Título
-  const titulo = normalizeText(
-    ajustes?.nomeOrganizacao || venda?.eventoNome || "COMUNIDADE"
-  ).toUpperCase();
+  const titulo = normalizeText(ajustes?.nomeOrganizacao || venda?.eventoNome || "COMUNIDADE").toUpperCase();
   drawCenteredText(ctx, titulo, y, 34, true);
   y += 42;
 
@@ -156,32 +192,12 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   if (modoImagem === "logo") {
     // Usar a logo do evento (upload)
     const imagemParaImprimir = ajustes?.logoDataUrl;
-    console.log("📷 Usando logo do evento");
+    devLog("📷 Usando logo do evento");
     
     if (imagemParaImprimir) {
       const img = await loadImage(imagemParaImprimir);
       if (img) {
-        // Conversão mm → px
-        const pixelsPorMm = WIDTH / 58; // ≈ 6.62px por mm
-        
-        const alturaDesejadaMm = Number(ajustes?.logoImgMm || 20);
-        const alturaDesejadaPx = Math.round(alturaDesejadaMm * pixelsPorMm);
-        
-        // Limitar ao tamanho máximo do espaço disponível
-        const alturaMaximaPx = 180;
-        const alturaFinal = Math.min(alturaDesejadaPx, alturaMaximaPx);
-        
-        // Calcula a escala mantendo a proporção
-        const scale = alturaFinal / img.height;
-        const w = Math.round(img.width * scale);
-        const h = alturaFinal;
-        const x = Math.round((WIDTH - w) / 2);
-
-        console.log(`📏 Logo: ${alturaDesejadaMm}mm → ${h}px`);
-
-        // desenha a imagem
-        ctx.drawImage(img, x, y, w, h);
-
+        const h = drawScaledImage(ctx, img, y, targetWidth, ajustes);
         y += h + 26;
       } else {
         y += 16;
@@ -193,32 +209,12 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   } else if (modoImagem === "produto") {
     // Usar o ícone do produto
     const imagemParaImprimir = item?.iconKey;
-    console.log("🖼️ Usando ícone do produto:", item?.iconKey);
+    devLog("🖼️ Usando ícone do produto:", item?.iconKey);
     
     if (imagemParaImprimir) {
       const img = await loadImage(imagemParaImprimir);
       if (img) {
-        // Conversão mm → px
-        const pixelsPorMm = WIDTH / 58; // ≈ 6.62px por mm
-        
-        const alturaDesejadaMm = Number(ajustes?.logoImgMm || 20);
-        const alturaDesejadaPx = Math.round(alturaDesejadaMm * pixelsPorMm);
-        
-        // Limitar ao tamanho máximo do espaço disponível
-        const alturaMaximaPx = 180;
-        const alturaFinal = Math.min(alturaDesejadaPx, alturaMaximaPx);
-        
-        // Calcula a escala mantendo a proporção
-        const scale = alturaFinal / img.height;
-        const w = Math.round(img.width * scale);
-        const h = alturaFinal;
-        const x = Math.round((WIDTH - w) / 2);
-
-        console.log(`📏 Ícone: ${alturaDesejadaMm}mm → ${h}px`);
-
-        // desenha a imagem
-        ctx.drawImage(img, x, y, w, h);
-
+        const h = drawScaledImage(ctx, img, y, targetWidth, ajustes);
         y += h + 26;
       } else {
         y += 16;
@@ -229,10 +225,11 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
     
   } else if (modoImagem === "texto" && textoPersonalizado) {
     // 🔥 MODO TEXTO - Imprime a frase personalizada
-    console.log("📝 Modo texto - imprimindo frase:", textoPersonalizado);
+    devLog("📝 Modo texto - imprimindo frase:", textoPersonalizado);
     
     // Divide o texto em linhas (máx 2)
-    const linhas = textoPersonalizado.split('\n').filter(linha => linha.trim());
+    const linhas = textoPersonalizado.split("\n").filter((linha) => linha.trim());
+    const alturaDesejadaMm = Number(ajustes?.logoImgMm || DEFAULT_IMAGE_MM);
     
     // Tamanho da fonte baseado na altura configurada
     const tamanhoFonte = Math.max(18, Math.min(32, Math.round(alturaDesejadaMm * 1.2)));
@@ -246,11 +243,11 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
     });
     
     y += Math.max(espacoUsado + 10, 60); // Espaço mínimo de 60px
-    console.log(`📏 Texto: ${espacoUsado}px de altura`);
+    devLog(`📏 Texto: ${espacoUsado}px de altura`);
     
   } else {
     // Nenhum conteúdo no topo
-    console.log("📝 Modo texto - sem conteúdo");
+    devLog("📝 Modo texto - sem conteúdo");
     y += 16;
   }
 
@@ -300,7 +297,7 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
 
   // recorta altura final
   const finalCanvas = document.createElement("canvas");
-  finalCanvas.width = WIDTH;
+  finalCanvas.width = targetWidth;
   finalCanvas.height = Math.max(260, Math.ceil(y + 10));
   const fctx = finalCanvas.getContext("2d");
   fctx.drawImage(canvas, 0, 0);

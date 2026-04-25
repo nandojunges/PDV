@@ -1,6 +1,5 @@
 // src/pages/Produtos.jsx
-import React, { useMemo, useRef, useState, useEffect, Component } from "react";
-import Select from "react-select";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import Card from "../components/Card";
 import { ICONS } from "../domain/icons";
 
@@ -90,47 +89,9 @@ const btnSoft = {
   background: "#f8fafc",
 };
 
-/* ===================== REACT-SELECT CONFIG ===================== */
-const rsStyles = {
-  container: (b) => ({ ...b, width: "100%" }),
-  control: (base, state) => ({
-    ...base,
-    minHeight: 44,
-    height: 44,
-    borderRadius: 14,
-    borderColor: state.isFocused ? "#111827" : "#cbd5e1",
-    boxShadow: state.isFocused ? "0 0 0 1px #111827" : "none",
-    ":hover": { borderColor: "#111827" },
-    fontSize: 15,
-    fontWeight: 800,
-    background: "#fff",
-  }),
-  valueContainer: (b) => ({ ...b, padding: "0 12px" }),
-  indicatorsContainer: (b) => ({ ...b, height: 44 }),
-  menuPortal: (b) => ({ ...b, zIndex: 999999 }),
-};
-
-/* ===================== ERROR BOUNDARY ===================== */
-class SelectErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(err) {
-    console.error("react-select quebrou, usando fallback nativo:", err);
-  }
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
-}
-
 /* ===================== COMPONENTES AUXILIARES ===================== */
 function TipoSelectSafe({ value, onChange, disabled }) {
-  const fallback = (
+  return (
     <select
       className="input"
       value={value?.value || "unitario"}
@@ -147,19 +108,6 @@ function TipoSelectSafe({ value, onChange, disabled }) {
         </option>
       ))}
     </select>
-  );
-
-  return (
-    <SelectErrorBoundary fallback={fallback}>
-      <Select
-        options={TIPO_OPTIONS}
-        value={value}
-        onChange={onChange}
-        styles={rsStyles}
-        menuPortalTarget={document.body}
-        isDisabled={disabled}
-      />
-    </SelectErrorBoundary>
   );
 }
 

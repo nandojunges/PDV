@@ -17,6 +17,8 @@ const BARRIL_LITROS = [5, 10, 15, 20, 30, 50];
 const DEFAULT_BARRIL_LITROS = 30;
 const DELAY_BETWEEN_PRINTS = 200;
 const MAX_RECENT_SALES = 5;
+const INITIAL_PRODUCT_RENDER_LIMIT = 60;
+const DEV = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
 
 /* ===================== COMPONENTES AUXILIARES ===================== */
 function IconImg({ iconKey, size = 30 }) {
@@ -61,6 +63,7 @@ export default function Venda({
   const [aviso, setAviso] = useState({ type: "", message: "" });
   const [isPrinting, setIsPrinting] = useState(false);
   const [maxUltimas, setMaxUltimas] = useState(MAX_RECENT_SALES);
+  const [productsRenderLimit, setProductsRenderLimit] = useState(INITIAL_PRODUCT_RENDER_LIMIT);
 
   // ==================== MEMOIZED VALUES ====================
   const deviceId = useMemo(() => getOrCreateDeviceId(), []);
@@ -72,6 +75,10 @@ export default function Venda({
   const produtosAtivos = useMemo(() => {
     return Array.isArray(produtos) ? produtos.filter((p) => p?.ativo) : [];
   }, [produtos]);
+  const produtosAtivosVisiveis = useMemo(
+    () => produtosAtivos.slice(0, productsRenderLimit),
+    [produtosAtivos, productsRenderLimit]
+  );
 
   const itensCarrinho = useMemo(
     () => (Array.isArray(carrinho) ? carrinho : []),
@@ -118,7 +125,9 @@ export default function Venda({
     function onResize() {
       if (typeof window === "undefined") return;
       setMaxUltimas(window.innerWidth < 720 ? 3 : MAX_RECENT_SALES);
+      setProductsRenderLimit(window.innerWidth < 720 ? 36 : INITIAL_PRODUCT_RENDER_LIMIT);
     }
+    onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -283,7 +292,9 @@ export default function Venda({
       return { ok: false, error: "Nenhum item na venda para imprimir." };
     }
 
-    console.info(`[PRINT] Imprimindo ${itens.length} itens (bitmap por unidade)...`);
+    if (DEV) {
+      console.info(`[PRINT] Imprimindo ${itens.length} itens (bitmap por unidade)...`);
+    }
 
     for (let i = 0; i < itens.length; i += 1) {
       const it = itens[i];
@@ -298,7 +309,11 @@ export default function Venda({
       const totalFichas = isCombo ? qtd * comboCount : qtd;
       const valorPorFicha = isCombo ? unitario : unitario;
 
-      console.log(`📦 Item: ${it.nome}, Combos: ${qtd}, Fichas por combo: ${comboCount}, Total fichas: ${totalFichas}, Valor/ficha: ${fmtBRL(valorPorFicha)}`);
+      if (DEV) {
+        console.debug(
+          `📦 Item: ${it.nome}, Combos: ${qtd}, Fichas por combo: ${comboCount}, Total fichas: ${totalFichas}, Valor/ficha: ${fmtBRL(valorPorFicha)}`
+        );
+      }
 
       for (let ficha = 0; ficha < totalFichas; ficha += 1) {
         try {
@@ -469,7 +484,7 @@ export default function Venda({
   }, []);
 
   // ==================== ESTILOS ====================
-  const styles = {
+  const styles = useMemo(() => ({
     produtoCard: {
       border: "2px solid #e5e7eb",
       borderRadius: 14,
@@ -537,7 +552,7 @@ export default function Venda({
       warning: { background: "#fef9c3", color: "#854d0e", border: "1px solid #fde047" },
       error: { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" },
     },
-  };
+  }), []);
 
   const itensConfirm = Array.isArray(vendaDraft?.carrinho) ? vendaDraft.carrinho : [];
 
@@ -575,6 +590,10 @@ export default function Venda({
           transform: translateY(-2px);
           box-shadow: 0 6px 16px rgba(37, 99, 235, 0.15) !important;
         }
+        .low-performance .product-button:hover {
+          transform: none;
+          box-shadow: none !important;
+        }
         .product-button:active:not(:disabled) {
           transform: translateY(0);
         }
@@ -603,6 +622,20 @@ export default function Venda({
           border-radius: 12px;
           border: 1px solid #e5e7eb;
           transition: all 0.2s ease;
+        }
+        .cart-item > div:first-child {
+          min-width: 0;
+        }
+        .cart-item > div:first-child > div:first-child {
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          overflow: hidden;
+        }
+        .low-performance .cart-item,
+        .low-performance .modal-table,
+        .low-performance .product-button {
+          transition: none !important;
+          box-shadow: none !important;
         }
         .badge {
           display: inline-block;
@@ -651,7 +684,7 @@ export default function Venda({
         )}
 
         <div className="grid-3">
-          {produtosAtivos.map((p) => {
+          {produtosAtivosVisiveis.map((p) => {
             const isCombo = p.tipo === "combo" || p.comboQtd;
             const comboCount = Math.max(2, Number(p.comboQtd) || 0);
             const precoTotal = Number(p.preco) || 0;
@@ -670,6 +703,8 @@ export default function Venda({
                   <img
                     src={p.img}
                     alt={p.nome}
+                    loading="lazy"
+                    decoding="async"
                     style={{
                       width: 30,
                       height: 30,
@@ -706,6 +741,19 @@ export default function Venda({
           {produtosAtivos.length === 0 && (
             <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 32, color: "#6b7280" }}>
               Nenhum produto ativo. Vá em Produtos e cadastre.
+            </div>
+          )}
+
+          {produtosAtivos.length > produtosAtivosVisiveis.length && (
+            <div style={{ gridColumn: "1/-1", display: "flex", justifyContent: "center", paddingTop: 8 }}>
+              <Button
+                small
+                variant="secondary"
+                onClick={() => setProductsRenderLimit((prev) => prev + INITIAL_PRODUCT_RENDER_LIMIT)}
+                disabled={isPrinting}
+              >
+                Carregar mais produtos ({produtosAtivos.length - produtosAtivosVisiveis.length} restantes)
+              </Button>
             </div>
           )}
         </div>

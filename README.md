@@ -1,31 +1,32 @@
-# React + Vite
+# PDV Comunidade (Vite + Capacitor)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação de PDV focada em operação offline com Android/Sunmi.
 
-Currently, two official plugins are available:
+## Fluxo de build para produção (Android)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Use este fluxo para gerar o web build e sincronizar no projeto Android:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-
-npm run dev -- --host
-
-npm run build
-
-npx cap sync android
-
-
-
-npm run build -- --mode mobile
-npx cap sync android
-
+```bash
 npm run build
 npx cap sync android
+```
+
+Atalho equivalente:
+
+```bash
+npm run android:build
+```
+
+## Scripts úteis
+
+- `npm run dev` — desenvolvimento local (Vite).
+- `npm run build` — build de produção web.
+- `npm run build:mobile` — build mobile sem PWA.
+- `npm run android:sync` — sincroniza `dist` no projeto Android (Capacitor).
+- `npm run android:build` — roda `build + cap sync android`.
+
+## Abrir no Android Studio
+
+```bash
 npx cap open android
+```
