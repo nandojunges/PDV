@@ -19,7 +19,7 @@ const DELAY_BETWEEN_PRINTS = 200;
 const MAX_RECENT_SALES = 5;
 
 /* ===================== COMPONENTES AUXILIARES ===================== */
-function IconImg({ iconKey, size = 36 }) {
+function IconImg({ iconKey, size = 30 }) {
   const src = ICONS[iconKey] || ICONS.ref_600;
   return (
     <img
@@ -472,34 +472,31 @@ export default function Venda({
   const styles = {
     produtoCard: {
       border: "2px solid #e5e7eb",
-      borderRadius: 16,
+      borderRadius: 14,
       background: "#fff",
-      padding: 12,
+      padding: 8,
       cursor: "pointer",
-      minHeight: 110,
+      minHeight: 88,
       display: "flex",
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
-      gap: 6,
+      gap: 4,
       transition: "all 0.2s ease",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+      minWidth: 0,
+      overflow: "hidden",
     },
     produtoNome: {
       fontWeight: 700,
-      fontSize: 13,
+      fontSize: 11,
       textAlign: "center",
       maxWidth: "100%",
       overflow: "hidden",
       textOverflow: "ellipsis",
-      display: "-webkit-box",
-      WebkitLineClamp: 2,
-      WebkitBoxOrient: "vertical",
-      whiteSpace: "normal",
-      wordBreak: "break-word",
+      whiteSpace: "nowrap",
       color: "#2563eb",
-      lineHeight: 1.3,
-      height: 34,
+      lineHeight: 1.2,
     },
     overlay: {
       position: "fixed",
@@ -559,13 +556,19 @@ export default function Venda({
         }
         .grid-3 {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
         }
         @media (max-width: 640px) {
           .grid-3 {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
           }
+        }
+        .product-button {
+          min-width: 0;
+          width: 100%;
+          overflow: hidden;
         }
         .product-button:hover {
           border-color: #2563eb !important;
@@ -668,13 +671,13 @@ export default function Venda({
                     src={p.img}
                     alt={p.nome}
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 30,
+                      height: 30,
                       objectFit: "contain",
                     }}
                   />
                 ) : (
-                  <IconImg iconKey={p.iconKey} size={36} />
+                  <IconImg iconKey={p.iconKey} size={30} />
                 )}
 
                 <div style={styles.produtoNome}>
@@ -687,12 +690,12 @@ export default function Venda({
                   </div>
                 )}
 
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: "#111827" }}>
                   {fmtBRL(precoTotal)}
                 </div>
 
                 {isCombo && comboCount > 0 && (
-                  <div style={{ fontSize: 9, color: "#6b7280" }}>
+                  <div style={{ fontSize: 8, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
                     ({fmtBRL(precoUnitario)}/ficha)
                   </div>
                 )}
