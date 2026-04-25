@@ -279,3 +279,25 @@ html { scroll-padding-top: var(--sticky-offset, 140px); }
 .cartName { font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cartRight { display: flex; gap: 8px; align-items: center; }
 .cartQty { width: 26px; text-align: center; font-weight: 900; }
+
+/* ===== MODO LEVE (Android/Sunmi) ===== */
+.low-performance *,
+.low-performance *::before,
+.low-performance *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.08s !important;
+}
+
+.low-performance .card,
+.low-performance .miniCard,
+.low-performance .atalhoCard {
+  box-shadow: none !important;
+}
+
+.low-performance .atalhoCard:hover,
+.low-performance .product-button:hover,
+.low-performance button:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
