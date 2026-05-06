@@ -314,7 +314,7 @@ export default function App() {
   }
 
   function finalizarCaixaEvento() {
-    void encerrarEventoAtual("venda");
+    void encerrarEventoAtual("evento");
   }
 
   const podeVoltar =
@@ -381,7 +381,7 @@ export default function App() {
               setProdutos={setProdutos}
               setTab={goToTab}
               readOnly={false}
-              senhaObrigatoria={hasEventoAberto}
+              senhaObrigatoria={caixaAberto}
               vendasEvento={vendasEvento}
               itensFinalizados={Boolean(evento?.itensFinalizados)}
               onSalvarOfertaDoEvento={(novosProdutos) =>
