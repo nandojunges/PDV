@@ -298,7 +298,9 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   // recorta altura final
   const finalCanvas = document.createElement("canvas");
   finalCanvas.width = targetWidth;
-  finalCanvas.height = Math.max(260, Math.ceil(y + 10));
+  const autoHeight = ajustes?.ticketAutoHeight !== false;
+  const minHeight = Number(ajustes?.ticketMinHeightPx || 260) || 260;
+  finalCanvas.height = autoHeight ? Math.max(260, Math.ceil(y + 10)) : Math.max(260, Math.ceil(minHeight), Math.ceil(y + 10));
   const fctx = finalCanvas.getContext("2d");
   fctx.drawImage(canvas, 0, 0);
 

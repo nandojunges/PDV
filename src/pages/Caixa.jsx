@@ -89,6 +89,7 @@ function extractItensFromVenda(venda) {
       if (!Number.isFinite(totalFinal) || !Number.isFinite(preco)) return null;
       return {
         nome: String(nome).trim(),
+        categoria: String(it?.categoria ?? it?.category ?? "").trim(),
         qtd: qtd || 1,
         preco,
         total: totalFinal,
@@ -103,10 +104,12 @@ function aggregateItens(vendasLista) {
     extractItensFromVenda(venda).forEach((it) => {
       const nomeNormalizado = String(it.nome).trim().toLowerCase();
       const precoCentavos = Math.round(safeNum(it.preco) * 100);
-      const key = `${nomeNormalizado}|${precoCentavos}`;
+      const categoriaNormalizada = String(it.categoria || "").trim().toLowerCase();
+      const key = `${nomeNormalizado}|${precoCentavos}|${categoriaNormalizada}`;
       const atual = mapa.get(key) || {
         nome: it.nome,
         preco: safeNum(it.preco),
+        categoria: it.categoria || "",
         qtd: 0,
         total: 0,
       };
@@ -405,6 +408,7 @@ export default function Caixa({
       itensGeral: itensGeral.map((it) => ({
         nome: it.nome,
         preco: Number(it.preco || 0) || 0,
+        categoria: it.categoria || "",
         qtd: Number(it.qtd || 0) || 0,
         total: Number(it.total || 0) || 0,
       })),
