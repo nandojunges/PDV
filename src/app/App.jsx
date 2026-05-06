@@ -463,6 +463,7 @@ export default function App() {
               hasEventoAberto={hasEventoAberto}
               readOnly={false}
               onSalvar={() => {
+                const deveAvancarParaCaixa = !caixaAberto && !evento?.ajustesConfirmados;
                 setEvento((prev) =>
                   prev
                     ? {
@@ -472,7 +473,9 @@ export default function App() {
                       }
                     : prev
                 );
-                goToTab("caixa");
+                if (deveAvancarParaCaixa) {
+                  goToTab("caixa");
+                }
               }}
             />
           </Suspense>

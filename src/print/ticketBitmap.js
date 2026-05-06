@@ -27,14 +27,6 @@ function drawCenteredText(ctx, text, y, size = 24, bold = false) {
   ctx.fillText(text, ctx.canvas.width / 2, y);
 }
 
-function drawLeftText(ctx, text, y, size = 20, bold = false) {
-  ctx.font = `${bold ? "900" : "700"} ${size}px Arial`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#000";
-  ctx.fillText(text, PADDING + 10, y);
-}
-
 function drawDivider(ctx, y) {
   ctx.fillStyle = "#000";
   ctx.fillRect(PADDING, y, ctx.canvas.width - PADDING * 2, 2);
@@ -145,10 +137,7 @@ function toMonochrome(ctx, w, h) {
 }
 
 export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
-  const targetWidth = Math.max(
-    280,
-    Math.min(WIDTH, Number(ajustes?.printerWidthPx || WIDTH) || WIDTH)
-  );
+  const targetWidth = WIDTH;
   // canvas “grande” e depois a gente recorta
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
@@ -298,9 +287,7 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   // recorta altura final
   const finalCanvas = document.createElement("canvas");
   finalCanvas.width = targetWidth;
-  const autoHeight = ajustes?.ticketAutoHeight !== false;
-  const minHeight = Number(ajustes?.ticketMinHeightPx || 260) || 260;
-  finalCanvas.height = autoHeight ? Math.max(260, Math.ceil(y + 10)) : Math.max(260, Math.ceil(minHeight), Math.ceil(y + 10));
+  finalCanvas.height = Math.ceil(y + 10);
   const fctx = finalCanvas.getContext("2d");
   fctx.drawImage(canvas, 0, 0);
 

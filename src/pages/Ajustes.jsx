@@ -12,12 +12,6 @@ const TEXT_MAX_CHARS_PER_LINE = 22;
 const LOGO_MIN_MM = 10;
 const LOGO_MAX_MM = 30;
 const LOGO_STEP_MM = 0.5;
-const TICKET_WIDTH_MIN_PX = 280;
-const TICKET_WIDTH_MAX_PX = 384;
-const TICKET_WIDTH_STEP_PX = 8;
-const TICKET_MIN_HEIGHT_MIN_PX = 260;
-const TICKET_MIN_HEIGHT_MAX_PX = 620;
-const TICKET_MIN_HEIGHT_STEP_PX = 10;
 
 export default function Ajustes({
   ajustes,
@@ -40,14 +34,6 @@ export default function Ajustes({
   const logoAlturaMm = Number.isFinite(Number(ajustes?.logoImgMm))
     ? Number(ajustes?.logoImgMm)
     : 20;
-  const ticketWidthPx = Number.isFinite(Number(ajustes?.printerWidthPx))
-    ? Number(ajustes?.printerWidthPx)
-    : 384;
-  const ticketMinHeightPx = Number.isFinite(Number(ajustes?.ticketMinHeightPx))
-    ? Number(ajustes?.ticketMinHeightPx)
-    : 300;
-  const ticketAutoHeight = ajustes?.ticketAutoHeight !== false;
-
   const textoTopoTicket = (ajustes?.ticketTopoTexto || "").toUpperCase();
   const textoTopoTicketBold = Boolean(ajustes?.ticketTopoTextoBold);
 
@@ -91,15 +77,6 @@ export default function Ajustes({
     if (!Number.isFinite(Number(ajustes?.logoImgMm))) {
       next.logoImgMm = 20;
     }
-    if (!Number.isFinite(Number(ajustes?.printerWidthPx))) {
-      next.printerWidthPx = 384;
-    }
-    if (!Number.isFinite(Number(ajustes?.ticketMinHeightPx))) {
-      next.ticketMinHeightPx = 300;
-    }
-    if (typeof ajustes?.ticketAutoHeight !== "boolean") {
-      next.ticketAutoHeight = true;
-    }
     if (typeof ajustes?.impressaoEcoImagem !== "boolean") {
       next.impressaoEcoImagem = false;
     }
@@ -111,9 +88,6 @@ export default function Ajustes({
     }
   }, [
     ajustes?.logoImgMm,
-    ajustes?.printerWidthPx,
-    ajustes?.ticketMinHeightPx,
-    ajustes?.ticketAutoHeight,
     ajustes?.impressaoEcoImagem,
     ajustes?.ticketTopoTextoBold,
     setAjustes,
@@ -132,9 +106,6 @@ export default function Ajustes({
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
-      printerWidthPx: ticketWidthPx,
-      ticketMinHeightPx,
-      ticketAutoHeight,
       ticketImagemModo: ajustes?.ticketImagemModo || "produto",
       ticketTopoTexto: (ajustes?.ticketTopoTexto || "").toUpperCase(),
       ticketTopoTextoBold: Boolean(ajustes?.ticketTopoTextoBold),
@@ -168,15 +139,12 @@ export default function Ajustes({
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
       logoImgMm: logoAlturaMm,
-      printerWidthPx: ticketWidthPx,
-      ticketMinHeightPx,
-      ticketAutoHeight,
       iconKey: "ref_lata",
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm, ticketWidthPx, ticketMinHeightPx, ticketAutoHeight]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm]);
 
   const rawModoImagem = String(ajustes?.ticketImagemModo || "").toLowerCase();
   const modoImagem = rawModoImagem
@@ -208,10 +176,8 @@ export default function Ajustes({
     },
     ticket: {
       container: {
-        width: `${Math.round((preview.printerWidthPx || 384) / 384 * 58)}mm`,
+        width: "58mm",
         maxWidth: "100%",
-        minHeight: `${Math.round((preview.ticketMinHeightPx || 300) / 384 * 58)}mm`,
-        height: preview.ticketAutoHeight ? "auto" : `${Math.round((preview.ticketMinHeightPx || 300) / 384 * 58)}mm`,
         margin: "0 auto",
         background: "#fff",
         border: "2px solid #e5e7eb",
@@ -764,28 +730,6 @@ export default function Ajustes({
                 )}
               </div>
 
-              {/* Tamanho do ticket */}
-              <div className="fullRow">
-                <div className="muted" style={{ marginBottom: 8 }}>
-                  Tamanho do ticket (largura da impressão)
-                </div>
-                <div className="range-container">
-                  <input
-                    type="range"
-                    min={TICKET_WIDTH_MIN_PX}
-                    max={TICKET_WIDTH_MAX_PX}
-                    step={TICKET_WIDTH_STEP_PX}
-                    value={ticketWidthPx}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setAjustes((p) => ({ ...(p || {}), printerWidthPx: v }));
-                    }}
-                    className="range-input"
-                  />
-                  <span className="range-value">{ticketWidthPx}px</span>
-                </div>
-              </div>
-
               {/* Altura da imagem/ícone */}
               <div className="fullRow">
                 <div className="muted" style={{ marginBottom: 8 }}>
@@ -808,42 +752,6 @@ export default function Ajustes({
                 </div>
               </div>
 
-              {/* Altura automática */}
-              <div className="fullRow">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={ticketAutoHeight}
-                    onChange={(e) =>
-                      setAjustes((p) => ({ ...(p || {}), ticketAutoHeight: e.target.checked }))
-                    }
-                  />
-                  <span>Altura automática do ticket</span>
-                </label>
-              </div>
-
-              {!ticketAutoHeight && (
-                <div className="fullRow">
-                  <div className="muted" style={{ marginBottom: 8 }}>
-                    Altura fixa mínima do ticket
-                  </div>
-                  <div className="range-container">
-                    <input
-                      type="range"
-                      min={TICKET_MIN_HEIGHT_MIN_PX}
-                      max={TICKET_MIN_HEIGHT_MAX_PX}
-                      step={TICKET_MIN_HEIGHT_STEP_PX}
-                      value={ticketMinHeightPx}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setAjustes((p) => ({ ...(p || {}), ticketMinHeightPx: v }));
-                      }}
-                      className="range-input"
-                    />
-                    <span className="range-value">{ticketMinHeightPx}px</span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Botões de ação - AGORA NO FINAL */}
@@ -915,7 +823,7 @@ export default function Ajustes({
             </div>
 
             <div className="muted" style={{ marginTop: 12, fontSize: 12, textAlign: "center" }}>
-              {ticketWidthPx}px • {ticketAutoHeight ? "altura automática" : `${ticketMinHeightPx}px mínimos`} • Visualização aproximada
+              Visualização aproximada — o ticket acompanha o tamanho do ícone/imagem
             </div>
           </div>
         </div>
