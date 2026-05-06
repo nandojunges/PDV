@@ -174,7 +174,7 @@ export default function Produtos({
     (tipo?.value !== "combo" || (parseInt(comboQtd, 10) || 0) >= 2);
 
   const bloqueadoEdicao = readOnly;
-  const eventoAbertoComSenha = Boolean(senhaObrigatoria);
+  const vendaEmAndamentoComSenha = Boolean(senhaObrigatoria);
   const barrilAtual = useMemo(() => {
     const nomeNormalizado = String(nome || "").toLowerCase();
     return nomeNormalizado.includes("barril") || atalhoKey === "barril";
@@ -240,7 +240,7 @@ export default function Produtos({
   }
 
   function executarAcaoSensivel(acao, callback) {
-    if (!eventoAbertoComSenha) {
+    if (!vendaEmAndamentoComSenha) {
       callback();
       return;
     }
@@ -585,9 +585,9 @@ export default function Produtos({
           </span>
         }
       >
-        {eventoAbertoComSenha && (
+        {vendaEmAndamentoComSenha && (
           <div className="badge" style={{ marginBottom: 16, background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }}>
-            🔒 Evento aberto: adicionar, editar, excluir, inativar ou reativar exige senha
+            🔒 Venda em andamento: adicionar, editar, excluir, inativar ou reativar exige senha
           </div>
         )}
         {itensFinalizados && (
