@@ -73,8 +73,19 @@ export default function Venda({
   }, []);
 
   const produtosAtivos = useMemo(() => {
-    return Array.isArray(produtos) ? produtos.filter((p) => p?.ativo) : [];
-  }, [produtos]);
+    const eventoId = evento?.id ?? null;
+    const eventoNome = String(evento?.nome || "").trim();
+    return Array.isArray(produtos)
+      ? produtos.filter((p) => {
+          if (p?.ativo === false) return false;
+          const produtoEventoId = p?.eventoId ?? null;
+          const produtoEventoNome = String(p?.eventoNome || "").trim();
+          if (produtoEventoId && eventoId) return String(produtoEventoId) === String(eventoId);
+          if (produtoEventoNome && eventoNome) return produtoEventoNome === eventoNome;
+          return true;
+        })
+      : [];
+  }, [evento?.id, evento?.nome, produtos]);
   const produtosAtivosVisiveis = useMemo(
     () => produtosAtivos.slice(0, productsRenderLimit),
     [produtosAtivos, productsRenderLimit]
@@ -200,6 +211,7 @@ export default function Venda({
           unitario: precoUnitario,
           unitarioPorLitro: barril ? unitarioPorLitro : undefined,
           barrilLitros: barril ? barrilLitros : undefined,
+          categoria: p.categoria || p.category || "",
           qtd: 1,
           comboCount: isCombo ? comboCount : 1,
           subtotal: isCombo ? precoTotal : precoUnitario,

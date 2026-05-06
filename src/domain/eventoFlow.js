@@ -12,7 +12,7 @@ function getEncerradoMeta(nome) {
   return getEventosMeta().find((m) => String(m?.nome || "").trim() === nm) || null;
 }
 
-export function getFlowState({ evento, produtos, caixa, vendas }) {
+export function getFlowState({ evento, produtos, caixa }) {
   const nomeEvento = String(evento?.nome || "").trim();
   if (!nomeEvento) return "SEM_EVENTO";
 
@@ -45,13 +45,13 @@ export function getAllowedTabs(flowState, evento, hasEventoAberto) {
     return ["evento", "produtos", "relatorio"];
   }
   if (flowState === "PRODUTOS_FINALIZADOS") {
-    return ["evento", "ajustes", "relatorio"];
+    return ["evento", "produtos", "ajustes", "relatorio"];
   }
   if (flowState === "AJUSTES_CONFIRMADOS") {
-    return ["evento", "ajustes", "caixa", "relatorio"];
+    return ["evento", "produtos", "ajustes", "caixa", "relatorio"];
   }
   if (flowState === "CAIXA_ABERTO") {
-    return ["evento", "ajustes", "caixa", "venda", "relatorio"];
+    return ["evento", "produtos", "ajustes", "caixa", "venda", "relatorio"];
   }
   if (!String(evento?.nome || "").trim()) return baseTabs;
   return baseTabs;

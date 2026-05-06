@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import Card from "../components/Card";
 import { ICONS } from "../domain/icons";
+import { executarComSenha } from "../domain/security";
 
 /* ===================== CONSTANTES ===================== */
 const TIPO_OPTIONS = [
@@ -138,6 +139,8 @@ export default function Produtos({
   onSalvarOfertaDoEvento,
   onFinalizarItens,
   readOnly = false,
+  senhaObrigatoria = false,
+  vendasEvento = [],
   itensFinalizados = false,
 }) {
   // ==================== ESTADOS ====================
@@ -146,6 +149,7 @@ export default function Produtos({
   const [tipo, setTipo] = useState(TIPO_OPTIONS[0]);
   const [comboQtd, setComboQtd] = useState("4");
   const [atalhoKey, setAtalhoKey] = useState("");
+  const [editingId, setEditingId] = useState(null);
   const [aviso, setAviso] = useState({ type: "", message: "" });
 
   // ==================== REFS ====================
@@ -170,6 +174,7 @@ export default function Produtos({
     (tipo?.value !== "combo" || (parseInt(comboQtd, 10) || 0) >= 2);
 
   const bloqueadoEdicao = readOnly;
+  const eventoAbertoComSenha = Boolean(senhaObrigatoria);
   const barrilAtual = useMemo(() => {
     const nomeNormalizado = String(nome || "").toLowerCase();
     return nomeNormalizado.includes("barril") || atalhoKey === "barril";
@@ -224,18 +229,80 @@ export default function Produtos({
     return keyByName || atalhoKey || "";
   }
 
+  function itemFoiVendidoNoEvento(id) {
+    const produtoId = String(id || "");
+    if (!produtoId) return false;
+    return (Array.isArray(vendasEvento) ? vendasEvento : []).some((venda) =>
+      (Array.isArray(venda?.itens) ? venda.itens : []).some(
+        (item) => String(item?.produtoId ?? item?.id ?? "") === produtoId,
+      ),
+    );
+  }
+
+  function executarAcaoSensivel(acao, callback) {
+    if (!eventoAbertoComSenha) {
+      callback();
+      return;
+    }
+    executarComSenha({ acao, onConfirmar: callback });
+  }
+
   function limparTopo() {
     setNome("");
     setPrecoDigits("");
     setTipo(TIPO_OPTIONS[0]);
     setComboQtd("4");
     setAtalhoKey("");
+    setEditingId(null);
     
     setTimeout(() => {
       if (nomeRef.current && !bloqueadoEdicao) {
         nomeRef.current.focus();
       }
     }, 100);
+  }
+
+  function salvarItemConfirmado() {
+    const nm = String(nome || "").trim();
+    const t = tipo?.value === "combo" ? "combo" : "unitario";
+    const qtdCombo =
+      t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
+    const varKey = `${nm}__${t}__${qtdCombo ?? ""}`;
+    const iconKey = getIconKeyForItem(nm) || "ref_600";
+    const barril = barrilAtual || iconKey === "barril";
+
+    setProdutos((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      const idx = editingId
+        ? arr.findIndex((p) => String(p?.id || "") === String(editingId))
+        : arr.findIndex((p) => String(p?.varKey || "") === varKey);
+
+      const payload = {
+        id: idx >= 0 ? arr[idx].id : mkId(),
+        nome: nm,
+        preco: precoNum,
+        ativo: idx >= 0 ? arr[idx]?.ativo !== false : true,
+        tipo: t,
+        comboQtd: qtdCombo,
+        varKey,
+        iconKey: iconKey || "ref_600",
+        isBarril: barril,
+        precoModo: barril ? "por_litro" : "unitario",
+        atualizadoEm: new Date().toISOString(),
+      };
+
+      if (idx >= 0) {
+        const cp = [...arr];
+        cp[idx] = { ...cp[idx], ...payload };
+        setAviso({ type: "success", message: `✅ "${nm}" atualizado` });
+        return cp;
+      }
+      
+      setAviso({ type: "success", message: `✅ "${nm}" adicionado` });
+      return [...arr, { ...payload, criadoEm: new Date().toISOString() }];
+    });
+
+    limparTopo();
   }
 
   function adicionarItemAoEvento() {
@@ -247,64 +314,58 @@ export default function Produtos({
       setAviso({ type: "warning", message: "⚠️ Preencha todos os campos" });
       return;
     }
+    executarAcaoSensivel(editingId ? "editar produto/alterar preço" : "adicionar produto", salvarItemConfirmado);
+  }
 
-    const nm = String(nome || "").trim();
-    const t = tipo?.value === "combo" ? "combo" : "unitario";
-    const qtdCombo =
-      t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
-    const varKey = `${nm}__${t}__${qtdCombo ?? ""}`;
-    const iconKey = getIconKeyForItem(nm) || "ref_600";
-    const barril = barrilAtual || iconKey === "barril";
-
-    setProdutos((prev) => {
-      const arr = Array.isArray(prev) ? prev : [];
-      const idx = arr.findIndex((p) => String(p?.varKey || "") === varKey);
-
-      const payload = {
-        id: idx >= 0 ? arr[idx].id : mkId(),
-        nome: nm,
-        preco: precoNum,
-        ativo: true,
-        tipo: t,
-        comboQtd: qtdCombo,
-        varKey,
-        iconKey: iconKey || "ref_600",
-        isBarril: barril,
-        precoModo: barril ? "por_litro" : "unitario",
-      };
-
-      if (idx >= 0) {
-        const cp = [...arr];
-        cp[idx] = { ...cp[idx], ...payload };
-        setAviso({ type: "success", message: `✅ "${nm}" atualizado` });
-        return cp;
-      }
-      
-      setAviso({ type: "success", message: `✅ "${nm}" adicionado` });
-      return [...arr, payload];
+  function editarItem(p) {
+    if (!p || bloqueadoEdicao) return;
+    executarAcaoSensivel("editar produto/alterar preço", () => {
+      setEditingId(p.id);
+      setNome(p.nome || "");
+      setPrecoDigits(String(Math.round((Number(p.preco) || 0) * 100)));
+      setTipo(TIPO_OPTIONS.find((opt) => opt.value === p.tipo) || TIPO_OPTIONS[0]);
+      setComboQtd(String(p.comboQtd || "4"));
+      setAtalhoKey(p.iconKey || "");
+      setAviso({ type: "info", message: `✏️ Editando "${p.nome}"` });
+      scrollToTopAndFocusPrice();
     });
-
-    limparTopo();
   }
 
   function removerItem(id) {
     if (bloqueadoEdicao) return;
     const item = itensEvento.find(p => p.id === id);
-    if (item && confirm(`Remover "${item.nome}"?`)) {
-      setProdutos((prev) =>
-        (Array.isArray(prev) ? prev : []).filter((x) => x.id !== id)
-      );
-      setAviso({ type: "info", message: `🗑️ "${item.nome}" removido` });
-    }
+    if (!item) return;
+    executarAcaoSensivel("excluir produto", () => {
+      if (itemFoiVendidoNoEvento(id)) {
+        setAviso({
+          type: "warning",
+          message: `⚠️ "${item.nome}" já teve vendas neste evento. Inative para não quebrar o relatório.`,
+        });
+        return;
+      }
+      if (confirm(`Remover "${item.nome}"?`)) {
+        setProdutos((prev) =>
+          (Array.isArray(prev) ? prev : []).filter((x) => x.id !== id)
+        );
+        setAviso({ type: "info", message: `🗑️ "${item.nome}" removido` });
+      }
+    });
   }
 
   function toggleAtivo(id) {
     if (bloqueadoEdicao) return;
-    setProdutos((prev) =>
-      (Array.isArray(prev) ? prev : []).map((p) =>
-        p.id === id ? { ...p, ativo: !p.ativo } : p
-      )
-    );
+    const item = itensEvento.find((p) => p.id === id);
+    const acao = item?.ativo === false ? "reativar produto" : "inativar produto";
+    executarAcaoSensivel(acao, () => {
+      setProdutos((prev) =>
+        (Array.isArray(prev) ? prev : []).map((p) =>
+          p.id === id ? { ...p, ativo: !p.ativo, atualizadoEm: new Date().toISOString() } : p
+        )
+      );
+      if (item) {
+        setAviso({ type: "success", message: item.ativo === false ? `✅ "${item.nome}" reativado` : `⏸️ "${item.nome}" inativado` });
+      }
+    });
   }
 
   function limparItensEvento() {
@@ -524,9 +585,9 @@ export default function Produtos({
           </span>
         }
       >
-        {readOnly && (
-          <div className="badge" style={{ marginBottom: 16, background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
-            ⚠️ Edição bloqueada
+        {eventoAbertoComSenha && (
+          <div className="badge" style={{ marginBottom: 16, background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }}>
+            🔒 Evento aberto: adicionar, editar, excluir, inativar ou reativar exige senha
           </div>
         )}
         {itensFinalizados && (
@@ -642,7 +703,7 @@ export default function Produtos({
               opacity: podeAdicionar && !bloqueadoEdicao ? 1 : 0.55,
             }}
           >
-            Adicionar
+            {editingId ? "Salvar edição" : "Adicionar"}
           </button>
         </div>
       </Card>
@@ -670,7 +731,8 @@ export default function Produtos({
                   padding: 12,
                   borderRadius: 16,
                   border: "1px solid #e5e7eb",
-                  background: "#fff",
+                  background: p.ativo === false ? "#f3f4f6" : "#fff",
+                  opacity: p.ativo === false ? 0.65 : 1,
                 }}
               >
                 <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
@@ -715,19 +777,33 @@ export default function Produtos({
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     type="button"
-                    onClick={() => toggleAtivo(p.id)}
-                    style={btnSoft}
+                    onClick={() => editarItem(p)}
+                    style={{ ...btnSoft, minWidth: 44, padding: "0 10px" }}
                     disabled={bloqueadoEdicao}
+                    title="Editar produto"
+                    aria-label={`Editar ${p.nome}`}
                   >
-                    {p.ativo ? "Inativar" : "Ativar"}
+                    ✏️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleAtivo(p.id)}
+                    style={{ ...btnSoft, minWidth: 44, padding: "0 10px" }}
+                    disabled={bloqueadoEdicao}
+                    title={p.ativo ? "Inativar produto" : "Reativar produto"}
+                    aria-label={p.ativo ? `Inativar ${p.nome}` : `Reativar ${p.nome}`}
+                  >
+                    {p.ativo ? "⏸️" : "▶️"}
                   </button>
                   <button
                     type="button"
                     onClick={() => removerItem(p.id)}
-                    style={btnDanger}
+                    style={{ ...btnDanger, minWidth: 44, padding: "0 10px" }}
                     disabled={bloqueadoEdicao}
+                    title="Excluir produto"
+                    aria-label={`Excluir ${p.nome}`}
                   >
-                    Remover
+                    🗑️
                   </button>
                 </div>
               </div>

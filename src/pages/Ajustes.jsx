@@ -12,12 +12,17 @@ const TEXT_MAX_CHARS_PER_LINE = 22;
 const LOGO_MIN_MM = 10;
 const LOGO_MAX_MM = 30;
 const LOGO_STEP_MM = 0.5;
+const TICKET_WIDTH_MIN_PX = 280;
+const TICKET_WIDTH_MAX_PX = 384;
+const TICKET_WIDTH_STEP_PX = 8;
+const TICKET_MIN_HEIGHT_MIN_PX = 260;
+const TICKET_MIN_HEIGHT_MAX_PX = 620;
+const TICKET_MIN_HEIGHT_STEP_PX = 10;
 
 export default function Ajustes({
   ajustes,
   setAjustes,
   hasEventoAberto,
-  readOnly = false,
   onSalvar,
 }) {
   // ==================== ESTADOS ====================
@@ -35,6 +40,13 @@ export default function Ajustes({
   const logoAlturaMm = Number.isFinite(Number(ajustes?.logoImgMm))
     ? Number(ajustes?.logoImgMm)
     : 20;
+  const ticketWidthPx = Number.isFinite(Number(ajustes?.printerWidthPx))
+    ? Number(ajustes?.printerWidthPx)
+    : 384;
+  const ticketMinHeightPx = Number.isFinite(Number(ajustes?.ticketMinHeightPx))
+    ? Number(ajustes?.ticketMinHeightPx)
+    : 300;
+  const ticketAutoHeight = ajustes?.ticketAutoHeight !== false;
 
   const textoTopoTicket = (ajustes?.ticketTopoTexto || "").toUpperCase();
   const textoTopoTicketBold = Boolean(ajustes?.ticketTopoTextoBold);
@@ -61,7 +73,7 @@ export default function Ajustes({
       setLogoFileName(file.name || "logo");
       setAviso({ type: "success", message: "✅ Logo carregada com sucesso" });
     } catch (error) {
-      setAviso({ type: "error", message: "❌ Erro ao carregar imagem" });
+      setAviso({ type: "error", message: `❌ Erro ao carregar imagem: ${error.message}` });
     }
   }
 
@@ -79,6 +91,15 @@ export default function Ajustes({
     if (!Number.isFinite(Number(ajustes?.logoImgMm))) {
       next.logoImgMm = 20;
     }
+    if (!Number.isFinite(Number(ajustes?.printerWidthPx))) {
+      next.printerWidthPx = 384;
+    }
+    if (!Number.isFinite(Number(ajustes?.ticketMinHeightPx))) {
+      next.ticketMinHeightPx = 300;
+    }
+    if (typeof ajustes?.ticketAutoHeight !== "boolean") {
+      next.ticketAutoHeight = true;
+    }
     if (typeof ajustes?.impressaoEcoImagem !== "boolean") {
       next.impressaoEcoImagem = false;
     }
@@ -90,6 +111,9 @@ export default function Ajustes({
     }
   }, [
     ajustes?.logoImgMm,
+    ajustes?.printerWidthPx,
+    ajustes?.ticketMinHeightPx,
+    ajustes?.ticketAutoHeight,
     ajustes?.impressaoEcoImagem,
     ajustes?.ticketTopoTextoBold,
     setAjustes,
@@ -108,6 +132,9 @@ export default function Ajustes({
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
+      printerWidthPx: ticketWidthPx,
+      ticketMinHeightPx,
+      ticketAutoHeight,
       ticketImagemModo: ajustes?.ticketImagemModo || "produto",
       ticketTopoTexto: (ajustes?.ticketTopoTexto || "").toUpperCase(),
       ticketTopoTextoBold: Boolean(ajustes?.ticketTopoTextoBold),
@@ -141,12 +168,15 @@ export default function Ajustes({
       logo: ajustes?.logoDataUrl || "",
       rodape: (rodape || "").trim() || "Obrigado pela preferência!",
       logoImgMm: logoAlturaMm,
+      printerWidthPx: ticketWidthPx,
+      ticketMinHeightPx,
+      ticketAutoHeight,
       iconKey: "ref_lata",
       qtd: 1,
       produto: "Refrigerante lata",
       valor: 5,
     };
-  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm]);
+  }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm, ticketWidthPx, ticketMinHeightPx, ticketAutoHeight]);
 
   const rawModoImagem = String(ajustes?.ticketImagemModo || "").toLowerCase();
   const modoImagem = rawModoImagem
@@ -168,8 +198,6 @@ export default function Ajustes({
         : "";
 
   const previewTextoTopo = modoImagem === "texto" ? textoTopoTicket.trim() : "";
-  const logoTextFontSizePx = Math.round(logoAlturaMm * 0.9) + 6;
-
   // ==================== ESTILOS ====================
   const styles = {
     alert: {
@@ -180,9 +208,10 @@ export default function Ajustes({
     },
     ticket: {
       container: {
-        width: "58mm",
+        width: `${Math.round((preview.printerWidthPx || 384) / 384 * 58)}mm`,
         maxWidth: "100%",
-        height: "80mm",
+        minHeight: `${Math.round((preview.ticketMinHeightPx || 300) / 384 * 58)}mm`,
+        height: preview.ticketAutoHeight ? "auto" : `${Math.round((preview.ticketMinHeightPx || 300) / 384 * 58)}mm`,
         margin: "0 auto",
         background: "#fff",
         border: "2px solid #e5e7eb",
@@ -195,7 +224,7 @@ export default function Ajustes({
       inner: {
         width: "52mm",
         margin: "0 auto",
-        height: "100%",
+        minHeight: "100%",
         display: "flex",
         flexDirection: "column",
       },
@@ -547,15 +576,9 @@ export default function Ajustes({
         title="Configurações do Ticket" 
         subtitle="Personalize a aparência do cupom"
       >
-        {readOnly ? (
-          <div className="badge" style={{ marginBottom: 20, background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
-            ⚠️ Ajustes bloqueados - Caixa aberto ou vendas registradas
-          </div>
-        ) : (
-          <div className="badge" style={{ marginBottom: 20, background: "#dbeafe", color: "#1e40af", borderColor: "#bfdbfe" }}>
-            ✏️ Modo de edição
-          </div>
-        )}
+        <div className="badge" style={{ marginBottom: 20, background: hasEventoAberto ? "#dcfce7" : "#dbeafe", color: hasEventoAberto ? "#166534" : "#1e40af", borderColor: hasEventoAberto ? "#86efac" : "#bfdbfe" }}>
+          ✏️ Ajustes editáveis {hasEventoAberto ? "com evento/venda aberta" : "antes da abertura"}
+        </div>
 
         <div style={{ display: "grid", gridTemplateColumns: isWide ? "1.2fr 0.8fr" : "1fr", gap: 24 }}>
           {/* ===== FORMULÁRIO ===== */}
@@ -571,7 +594,7 @@ export default function Ajustes({
                   value={nomeOrg}
                   onChange={(e) => setNomeOrg(e.target.value)}
                   placeholder="Ex: Festa da Linguiça"
-                  disabled={readOnly}
+                  disabled={false}
                 />
               </div>
 
@@ -585,7 +608,7 @@ export default function Ajustes({
                   value={rodape}
                   onChange={(e) => setRodape(e.target.value)}
                   placeholder="Ex: Obrigado pela preferência!"
-                  disabled={readOnly}
+                  disabled={false}
                 />
               </div>
 
@@ -608,7 +631,7 @@ export default function Ajustes({
                           ticketImagemModo: "logo",
                         }))
                       }
-                      disabled={readOnly}
+                      disabled={false}
                     />
                     <span>📷 Logo (upload)</span>
                   </label>
@@ -625,7 +648,7 @@ export default function Ajustes({
                           ticketImagemModo: "produto",
                         }))
                       }
-                      disabled={readOnly}
+                      disabled={false}
                     />
                     <span>🖼️ Ícone do produto</span>
                   </label>
@@ -642,7 +665,7 @@ export default function Ajustes({
                           ticketImagemModo: "texto",
                         }))
                       }
-                      disabled={readOnly}
+                      disabled={false}
                     />
                     <span>📝 Texto personalizado</span>
                   </label>
@@ -657,7 +680,7 @@ export default function Ajustes({
                       accept="image/*"
                       style={{ display: "none" }}
                       onChange={(e) => pickLogo(e.target.files?.[0])}
-                      disabled={readOnly}
+                      disabled={false}
                     />
 
                     <div className="logo-upload-card">
@@ -674,7 +697,7 @@ export default function Ajustes({
                           variant="primary"
                           small
                           onClick={() => fileRef.current?.click()}
-                          disabled={readOnly}
+                          disabled={false}
                         >
                           Escolher arquivo
                         </Button>
@@ -684,7 +707,7 @@ export default function Ajustes({
                             variant="danger"
                             small
                             onClick={removerLogo}
-                            disabled={readOnly}
+                            disabled={false}
                           >
                             Remover
                           </Button>
@@ -716,7 +739,7 @@ export default function Ajustes({
                           }))
                         }
                         placeholder="Digite o texto..."
-                        disabled={readOnly}
+                        disabled={false}
                         style={{ flex: 1 }}
                       />
                       <Button
@@ -728,7 +751,7 @@ export default function Ajustes({
                             ticketTopoTextoBold: !p?.ticketTopoTextoBold,
                           }))
                         }
-                        disabled={readOnly}
+                        disabled={false}
                         style={{ height: 80 }}
                       >
                         <strong>B</strong>
@@ -741,10 +764,32 @@ export default function Ajustes({
                 )}
               </div>
 
-              {/* Altura da imagem */}
+              {/* Tamanho do ticket */}
               <div className="fullRow">
                 <div className="muted" style={{ marginBottom: 8 }}>
-                  Altura da imagem (mm)
+                  Tamanho do ticket (largura da impressão)
+                </div>
+                <div className="range-container">
+                  <input
+                    type="range"
+                    min={TICKET_WIDTH_MIN_PX}
+                    max={TICKET_WIDTH_MAX_PX}
+                    step={TICKET_WIDTH_STEP_PX}
+                    value={ticketWidthPx}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setAjustes((p) => ({ ...(p || {}), printerWidthPx: v }));
+                    }}
+                    className="range-input"
+                  />
+                  <span className="range-value">{ticketWidthPx}px</span>
+                </div>
+              </div>
+
+              {/* Altura da imagem/ícone */}
+              <div className="fullRow">
+                <div className="muted" style={{ marginBottom: 8 }}>
+                  Tamanho do ícone/imagem (mm)
                 </div>
                 <div className="range-container">
                   <input
@@ -757,12 +802,48 @@ export default function Ajustes({
                       const v = Number(e.target.value);
                       setAjustes((p) => ({ ...(p || {}), logoImgMm: v }));
                     }}
-                    disabled={readOnly}
                     className="range-input"
                   />
                   <span className="range-value">{logoAlturaMm.toFixed(1)}mm</span>
                 </div>
               </div>
+
+              {/* Altura automática */}
+              <div className="fullRow">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={ticketAutoHeight}
+                    onChange={(e) =>
+                      setAjustes((p) => ({ ...(p || {}), ticketAutoHeight: e.target.checked }))
+                    }
+                  />
+                  <span>Altura automática do ticket</span>
+                </label>
+              </div>
+
+              {!ticketAutoHeight && (
+                <div className="fullRow">
+                  <div className="muted" style={{ marginBottom: 8 }}>
+                    Altura fixa mínima do ticket
+                  </div>
+                  <div className="range-container">
+                    <input
+                      type="range"
+                      min={TICKET_MIN_HEIGHT_MIN_PX}
+                      max={TICKET_MIN_HEIGHT_MAX_PX}
+                      step={TICKET_MIN_HEIGHT_STEP_PX}
+                      value={ticketMinHeightPx}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setAjustes((p) => ({ ...(p || {}), ticketMinHeightPx: v }));
+                      }}
+                      className="range-input"
+                    />
+                    <span className="range-value">{ticketMinHeightPx}px</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Botões de ação - AGORA NO FINAL */}
@@ -770,7 +851,7 @@ export default function Ajustes({
               <Button 
                 variant="primary" 
                 onClick={salvar} 
-                disabled={readOnly}
+                disabled={false}
                 style={{ minWidth: 200 }}
               >
                 💾 Salvar configurações
@@ -834,7 +915,7 @@ export default function Ajustes({
             </div>
 
             <div className="muted" style={{ marginTop: 12, fontSize: 12, textAlign: "center" }}>
-              58mm x 80mm • Visualização aproximada
+              {ticketWidthPx}px • {ticketAutoHeight ? "altura automática" : `${ticketMinHeightPx}px mínimos`} • Visualização aproximada
             </div>
           </div>
         </div>

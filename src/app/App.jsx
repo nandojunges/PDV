@@ -380,7 +380,9 @@ export default function App() {
               produtos={produtos}
               setProdutos={setProdutos}
               setTab={goToTab}
-              readOnly={readOnlyWizard}
+              readOnly={false}
+              senhaObrigatoria={hasEventoAberto}
+              vendasEvento={vendasEvento}
               itensFinalizados={Boolean(evento?.itensFinalizados)}
               onSalvarOfertaDoEvento={(novosProdutos) =>
                 setEvento((prev) => ({
@@ -459,7 +461,7 @@ export default function App() {
               ajustes={ajustes}
               setAjustes={setAjustes}
               hasEventoAberto={hasEventoAberto}
-              readOnly={readOnlyWizard}
+              readOnly={false}
               onSalvar={() => {
                 setEvento((prev) =>
                   prev

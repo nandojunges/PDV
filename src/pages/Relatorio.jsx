@@ -22,6 +22,7 @@ function extrairItensVenda(v) {
       qtd,
       unitario,
       subtotal,
+      categoria: i?.categoria ?? i?.category ?? "",
       barrilLitros: i?.barrilLitros ?? null,
       unitarioPorLitro: i?.unitarioPorLitro ?? null,
     };
@@ -38,7 +39,7 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
   const metaEvento = useMemo(() => {
     if (!evento?.nome || !Array.isArray(eventosMeta)) return null;
     return eventosMeta.find((item) => norm(item?.nome) === norm(evento.nome)) || null;
-  }, [eventosMeta, evento?.nome]);
+  }, [eventosMeta, evento]);
 
   const fechamento = metaEvento?.fechamento || null;
   const usandoFechamento = Boolean(fechamento?.fechadoEm || metaEvento?.encerradoEm);
@@ -57,11 +58,14 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
     extrairItensVenda(v).forEach((it) => {
       if (!it.nome) return;
       const nomeBase = it.nome;
-      const key = it.barrilLitros ? `${nomeBase}::${it.barrilLitros}` : nomeBase;
+      const precoCentavos = Math.round((Number(it.unitario) || 0) * 100);
+      const categoria = String(it.categoria || "").trim();
+      const key = [norm(evento?.id || evento?.nome), norm(nomeBase), precoCentavos, norm(categoria), it.barrilLitros || ""].join("::");
       const cur = mapa.get(key) || {
         nome: nomeBase,
         qtd: 0,
         unitario: it.unitario,
+        categoria,
         total: 0,
         barrilLitros: it.barrilLitros,
       };
@@ -179,7 +183,7 @@ export default function Relatorio({ evento: eventoProp, vendas: vendasProp, caix
                   {linhas.map((it) => {
                     const unitario = Number(it.unitario ?? it.preco ?? 0);
                     return (
-                      <tr key={it.nome}>
+                      <tr key={`${it.nome}-${unitario}-${it.categoria || ""}-${it.barrilLitros || ""}`}>
                         <td style={{ fontWeight: 900 }}>{it.nome}</td>
                         <td style={{ textAlign: "right" }}>{it.qtd}</td>
                         <td style={{ textAlign: "right" }}>
