@@ -98,6 +98,8 @@ export default function App() {
       nomeOrganizacao: "Comunidade",
       logoImgMm: 20,
       ticketImagemModo: "logo",
+      ticketTopoTexto: "",
+      ticketTopoTextoBold: false,
     })
   );
 
@@ -280,6 +282,9 @@ export default function App() {
       textoRodape: "Obrigado pela preferência!",
       nomeOrganizacao: "Comunidade",
       logoImgMm: 20,
+      ticketImagemModo: "logo",
+      ticketTopoTexto: "",
+      ticketTopoTextoBold: false,
     });
   }
 

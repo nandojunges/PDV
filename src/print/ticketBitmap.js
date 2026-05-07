@@ -19,6 +19,14 @@ function normalizeText(v) {
   return String(v ?? "").trim();
 }
 
+function normalizeTicketImagemModo(value) {
+  const raw = String(value || "").toLowerCase();
+  if (/texto|personalizado/.test(raw)) return "texto";
+  if (/logo/.test(raw)) return "logo";
+  if (/produto|icone|ícone|icon|product/.test(raw)) return "produto";
+  return "produto";
+}
+
 function drawCenteredText(ctx, text, y, size = 24, bold = false) {
   ctx.font = `${bold ? "900" : "700"} ${size}px Arial`;
   ctx.textAlign = "center";
@@ -172,11 +180,11 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
   y += 26;
 
   // ==================== 🔥 ESCOLHA DO CONTEÚDO DO TOPO ====================
-  const modoImagem = ajustes?.ticketImagemModo || "produto";
+  const modoImagem = normalizeTicketImagemModo(ajustes?.ticketImagemModo);
   
   // 🔥 VERIFICA SE TEM TEXTO PERSONALIZADO
-  const textoPersonalizado = ajustes?.ticketTopoTexto || "";
-  const textoPersonalizadoBold = ajustes?.ticketTopoTextoBold || false;
+  const textoPersonalizado = normalizeText(ajustes?.ticketTopoTexto);
+  const textoPersonalizadoBold = Boolean(ajustes?.ticketTopoTextoBold);
   
   if (modoImagem === "logo") {
     // Usar a logo do evento (upload)
@@ -217,22 +225,26 @@ export async function buildTicketBitmapBase64({ venda, ajustes, item }) {
     devLog("📝 Modo texto - imprimindo frase:", textoPersonalizado);
     
     // Divide o texto em linhas (máx 2)
-    const linhas = textoPersonalizado.split("\n").filter((linha) => linha.trim());
+    const linhas = textoPersonalizado
+      .split("\n")
+      .map((linha) => linha.trim())
+      .filter(Boolean)
+      .slice(0, 2);
     const alturaDesejadaMm = Number(ajustes?.logoImgMm || DEFAULT_IMAGE_MM);
     
     // Tamanho da fonte baseado na altura configurada
     const tamanhoFonte = Math.max(18, Math.min(32, Math.round(alturaDesejadaMm * 1.2)));
-    
-    let espacoUsado = 0;
+    const lineHeight = tamanhoFonte + 8;
+    const blocoAltura = linhas.length * lineHeight;
+    const slotAltura = Math.max(blocoAltura, 60);
+    const yInicial = y + slotAltura / 2 - blocoAltura / 2 + lineHeight / 2;
     
     linhas.forEach((linha, index) => {
-      const yLinha = y + (index * (tamanhoFonte + 8));
-      drawCenteredText(ctx, linha, yLinha, tamanhoFonte, textoPersonalizadoBold);
-      espacoUsado += tamanhoFonte + 8;
+      drawCenteredText(ctx, linha, yInicial + index * lineHeight, tamanhoFonte, textoPersonalizadoBold);
     });
     
-    y += Math.max(espacoUsado + 10, 60); // Espaço mínimo de 60px
-    devLog(`📏 Texto: ${espacoUsado}px de altura`);
+    y += slotAltura + 26;
+    devLog(`📏 Texto: ${blocoAltura}px de altura`);
     
   } else {
     // Nenhum conteúdo no topo
