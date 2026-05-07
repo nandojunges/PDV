@@ -5,6 +5,7 @@ import Button from "../components/Button";
 import { fmtBRL, uid } from "../domain/math";
 import { ICONS } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
+import { sortProductsForDisplay } from "../domain/productOrder";
 import { imprimirTexto, imprimirBitmap } from "../utils/sunmiPrinter";
 import { buildTicketBitmapBase64 } from "../print/ticketBitmap";
 import {
@@ -76,7 +77,7 @@ export default function Venda({
   const produtosAtivos = useMemo(() => {
     const eventoId = evento?.id ?? null;
     const eventoNome = String(evento?.nome || "").trim();
-    return Array.isArray(produtos)
+    const ativos = Array.isArray(produtos)
       ? produtos.filter((p) => {
           if (p?.ativo === false) return false;
           const produtoEventoId = p?.eventoId ?? null;
@@ -86,6 +87,7 @@ export default function Venda({
           return true;
         })
       : [];
+    return sortProductsForDisplay(ativos);
   }, [evento?.id, evento?.nome, produtos]);
   const produtosAtivosVisiveis = useMemo(
     () => produtosAtivos.slice(0, productsRenderLimit),
@@ -301,7 +303,7 @@ export default function Venda({
 
   // ==================== FUNÇÕES DE IMPRESSÃO ====================
   const imprimirTicketsDaVenda = useCallback(async (venda) => {
-    const itens = Array.isArray(venda?.itens) ? venda.itens : [];
+    const itens = sortProductsForDisplay(Array.isArray(venda?.itens) ? venda.itens : []);
     if (!itens.length) {
       return { ok: false, error: "Nenhum item na venda para imprimir." };
     }
