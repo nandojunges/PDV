@@ -1,6 +1,7 @@
 import { fmtBRL, toBRDateTime } from "../domain/math";
 import { totalDoCarrinho } from "../domain/pos";
 import { ICONS } from "../domain/icons";
+import { sortProductsForDisplay } from "../domain/productOrder";
 
 const normalizeText = (value) => String(value ?? "").trim();
 
@@ -132,7 +133,7 @@ const buildTicketLikePreview = ({ venda, ajustes, item }) => {
 // 🔥 FUNÇÃO PRINCIPAL: Retorna tickets com imagem e texto
 export const buildTicketsPerItemComImagem = async ({ venda, ajustes, device } = {}) => {
   const itensRaw = getVendaItens(venda);
-  const itens = itensRaw.map(normalizeItem).filter(Boolean);
+  const itens = sortProductsForDisplay(itensRaw.map(normalizeItem).filter(Boolean));
   const tickets = [];
 
   for (const item of itens) {
@@ -178,7 +179,7 @@ export const buildTicketsPerItemComImagem = async ({ venda, ajustes, device } = 
 // Mantém as funções originais para compatibilidade
 export const buildTicketsPerItem = ({ venda, ajustes, device } = {}) => {
   const itensRaw = getVendaItens(venda);
-  const itens = itensRaw.map(normalizeItem).filter(Boolean);
+  const itens = sortProductsForDisplay(itensRaw.map(normalizeItem).filter(Boolean));
   const tickets = [];
 
   itens.forEach((item) => {
@@ -212,7 +213,7 @@ export const buildTicketsPerItem = ({ venda, ajustes, device } = {}) => {
 
 export const buildTicketText = ({ venda, ajustes, device } = {}) => {
   const itensRaw = getVendaItens(venda);
-  const itens = itensRaw.map(normalizeItem).filter(Boolean);
+  const itens = sortProductsForDisplay(itensRaw.map(normalizeItem).filter(Boolean));
 
   const lines = [];
   
