@@ -154,6 +154,7 @@ export default function Produtos({
 
   // ==================== REFS ====================
   const topoRef = useRef(null);
+  const precoFieldRef = useRef(null);
   const precoRef = useRef(null);
   const nomeRef = useRef(null);
 
@@ -190,26 +191,28 @@ export default function Produtos({
 
   // ==================== FUNÇÃO DE SCROLL SIMPLIFICADA ====================
   function scrollToTopAndFocusPrice() {
-    if (!topoRef.current) return;
+    if (bloqueadoEdicao || !precoRef.current) return;
 
-    // Scroll suave para o topo
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
+    const priceInput = precoRef.current;
+    const priceField = precoFieldRef.current || topoRef.current;
 
-    // Foca no campo de preço após o scroll
-    setTimeout(() => {
-      if (precoRef.current && !bloqueadoEdicao) {
-        precoRef.current.focus();
-        precoRef.current.select();
-        
-        // Em dispositivos móveis, força a abertura do teclado
-        if ('ontouchstart' in window) {
-          precoRef.current.click();
-        }
+    // O foco acontece ainda no gesto do toque para abrir o teclado numérico em mobile.
+    priceInput.focus({ preventScroll: true });
+    priceInput.select();
+
+    if (priceField?.scrollIntoView) {
+      priceField.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Reforça o foco depois do scroll, sem depender deste passo para abrir o teclado.
+    window.setTimeout(() => {
+      if (document.activeElement !== priceInput) {
+        priceInput.focus({ preventScroll: true });
       }
-    }, 300);
+      priceInput.select();
+    }, 250);
   }
 
   function escolherAtalho(it) {
@@ -667,7 +670,7 @@ export default function Produtos({
             </div>
           )}
 
-          <div className="fullRow">
+          <div className="fullRow" ref={precoFieldRef}>
             <div className="muted" style={{ marginBottom: 6 }}>
               {barrilAtual ? "Preço por litro (R$)" : "Preço (R$)"}
             </div>
@@ -680,6 +683,8 @@ export default function Produtos({
                   setPrecoDigits(String(e.target.value || "").replace(/\D/g, ""))
                 }
                 inputMode="numeric"
+                pattern="[0-9]*"
+                enterKeyHint="done"
                 style={{ fontSize: 18, fontWeight: 900, flex: 1 }}
                 disabled={bloqueadoEdicao}
                 placeholder="0,00"

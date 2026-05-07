@@ -14,7 +14,7 @@ import {
 
 /* ===================== CONSTANTES ===================== */
 const BARRIL_LITROS = [5, 10, 15, 20, 30, 50];
-const DEFAULT_BARRIL_LITROS = 30;
+const DEFAULT_BARRIL_LITROS = 0;
 const DELAY_BETWEEN_PRINTS = 200;
 const MAX_RECENT_SALES = 5;
 const INITIAL_PRODUCT_RENDER_LIMIT = 60;
@@ -185,7 +185,7 @@ export default function Venda({
       const isCombo = p.tipo === "combo" || p.comboQtd;
       const comboCount = isCombo ? Math.max(2, Number(p.comboQtd) || 2) : 1;
       const precoTotal = Number(p.preco || 0);
-      const precoUnitario = isCombo ? precoTotal / comboCount : precoTotal;
+      const precoUnitario = barril ? 0 : isCombo ? precoTotal / comboCount : precoTotal;
       
       const cartKey = barril ? `${p.id}::${barrilLitros}` : isCombo ? `${p.id}::combo` : `${p.id}`;
       const idx = prev.findIndex((x) => x.cartKey === cartKey);
@@ -214,7 +214,7 @@ export default function Venda({
           categoria: p.categoria || p.category || "",
           qtd: 1,
           comboCount: isCombo ? comboCount : 1,
-          subtotal: isCombo ? precoTotal : precoUnitario,
+          subtotal: barril ? 0 : isCombo ? precoTotal : precoUnitario,
           tipo: p.tipo || "simples",
           isCombo,
           img: p.img || "",
@@ -250,13 +250,14 @@ export default function Venda({
       if (idx < 0) return prev;
 
       const item = cp[idx];
-      if (!item?.barrilLitros) return prev;
+      if (item?.barrilLitros == null) return prev;
 
-      const novoLitros = Number(litros);
+      const novoLitros = Number(litros) || 0;
       const unitarioPorLitro = Number(item.unitarioPorLitro || 0);
       const novoUnitario = unitarioPorLitro * novoLitros;
       const novoCartKey = `${item.produtoId}::${novoLitros}`;
-      const nome = `Barril ${novoLitros}L`;
+      const nomeBase = String(item.nome || "Barril de chopp").replace(/\s+\d+(?:[,.]\d+)?L$/i, "");
+      const nome = novoLitros > 0 ? `${nomeBase} ${novoLitros}L` : nomeBase;
 
       const existenteIdx = cp.findIndex((x, i) => x.cartKey === novoCartKey && i !== idx);
       if (existenteIdx >= 0) {
@@ -392,6 +393,14 @@ export default function Venda({
     }
     if (itensCarrinho.length === 0) {
       setAviso({ type: "warning", message: "Carrinho vazio." });
+      return;
+    }
+
+    const barrilSemLitros = itensCarrinho.find(
+      (item) => item?.barrilLitros != null && Number(item.barrilLitros) <= 0,
+    );
+    if (barrilSemLitros) {
+      setAviso({ type: "warning", message: "Informe a quantidade de litros do barril" });
       return;
     }
 
@@ -670,6 +679,33 @@ export default function Venda({
           display: inline-block;
           margin-top: 3px;
         }
+        .barril-litros-field {
+          margin-top: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          align-items: flex-start;
+        }
+        .barril-litros-label {
+          font-size: 12px;
+          font-weight: 900;
+          color: #92400e;
+        }
+        .barril-litros-select {
+          width: 100%;
+          max-width: 240px;
+          min-height: 44px;
+          padding: 8px 12px;
+          font-size: 18px !important;
+          font-weight: 900;
+          border: 2px solid #f59e0b;
+          background: #fffbeb;
+        }
+        .barril-litros-warning {
+          color: #b45309;
+          font-size: 12px;
+          font-weight: 800;
+        }
         @media (max-width: 640px) {
           .venda-container { padding: 0; }
           .venda-container .card { padding: 9px; }
@@ -815,21 +851,28 @@ export default function Venda({
                     </div>
                   )}
 
-                  {it.barrilLitros && (
-                    <div style={{ marginTop: 6 }}>
+                  {it.barrilLitros != null && (
+                    <div className="barril-litros-field">
+                      <label className="barril-litros-label">Litros do barril</label>
                       <select
-                        className="input"
+                        className="input barril-litros-select"
                         value={it.barrilLitros}
                         disabled={isPrinting}
                         onChange={(e) => alterarLitros(it.cartKey, e.target.value)}
-                        style={{ width: "auto", padding: "2px 6px", fontSize: 12 }}
+                        aria-label="Litros do barril"
                       >
+                        <option value={0}>Informe os litros</option>
                         {BARRIL_LITROS.map((litros) => (
                           <option key={litros} value={litros}>
                             {litros}L
                           </option>
                         ))}
                       </select>
+                      {Number(it.barrilLitros) <= 0 && (
+                        <div className="barril-litros-warning">
+                          Informe a quantidade de litros do barril
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
