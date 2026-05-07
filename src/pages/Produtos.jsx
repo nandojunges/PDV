@@ -3,7 +3,6 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import Card from "../components/Card";
 import { ICONS } from "../domain/icons";
 import { executarComSenha } from "../domain/security";
-import { sortProductsForDisplay } from "../domain/productOrder";
 
 /* ===================== CONSTANTES ===================== */
 const TIPO_OPTIONS = [
@@ -173,10 +172,18 @@ export default function Produtos({
     [produtos]
   );
 
-  const itensEventoOrdenados = useMemo(
-    () => sortProductsForDisplay(itensEvento),
-    [itensEvento]
-  );
+  const itensEventoOrdenados = useMemo(() => {
+    const ordemAtalhos = new Map(LIB.map((item, index) => [item.key, index]));
+    return itensEvento
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        const ordemA = ordemAtalhos.get(a.item?.iconKey || a.item?.icone || "") ?? LIB.length;
+        const ordemB = ordemAtalhos.get(b.item?.iconKey || b.item?.icone || "") ?? LIB.length;
+        if (ordemA !== ordemB) return ordemA - ordemB;
+        return a.index - b.index;
+      })
+      .map(({ item }) => item);
+  }, [itensEvento]);
 
   const atalhosDisponiveis = useMemo(() => LIB, []);
 
@@ -855,7 +862,7 @@ export default function Produtos({
               type="button"
               onClick={() => {
                 if (typeof onSalvarOfertaDoEvento === "function") {
-                  onSalvarOfertaDoEvento(sortProductsForDisplay(itensEvento));
+                  onSalvarOfertaDoEvento(itensEventoOrdenados);
                 }
                 if (typeof onFinalizarItens === "function") {
                   onFinalizarItens();
