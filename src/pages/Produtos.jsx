@@ -1,7 +1,8 @@
 // src/pages/Produtos.jsx
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import Card from "../components/Card";
-import { ICONS } from "../domain/icons";
+import { getFallbackIconSrc, getIconSrc } from "../domain/icons";
+import { PRODUCT_SHORTCUTS } from "../domain/productShortcuts";
 import { executarComSenha } from "../domain/security";
 
 /* ===================== CONSTANTES ===================== */
@@ -10,23 +11,7 @@ const TIPO_OPTIONS = [
   { value: "combo", label: "Combo" },
 ];
 
-const LIB = [
-  { key: "agua", nome: "Água (500ml)" },
-  { key: "ref_lata", nome: "Refrigerante Lata" },
-  { key: "ref_600", nome: "Refrigerante 600ml" },
-  { key: "ref_2l", nome: "Refrigerante 2L" },
-  { key: "cer_lata", nome: "Cerveja Lata" },
-  { key: "cer_garrafa", nome: "Cerveja Garrafa" },
-  { key: "chope", nome: "Chopp (Copo)" },
-  { key: "barril", nome: "Barril de chopp" },
-  { key: "lanche", nome: "Lanche" },
-  { key: "sobremesa", nome: "Sobremesa" },
-  { key: "sorvete", nome: "Sorvete" },
-  { key: "fichas", nome: "Fichas" },
-  { key: "suco", nome: "Suco" },
-  { key: "almoco_socio", nome: "Almoço do Sócio" },
-  { key: "prato_talher", nome: "Prato e Talher" },
-];
+const LIB = PRODUCT_SHORTCUTS;
 
 /* ===================== HELPERS ===================== */
 function mkId() {
@@ -113,7 +98,8 @@ function TipoSelectSafe({ value, onChange, disabled }) {
 }
 
 function IconImg({ iconKey, size = 42 }) {
-  const src = ICONS[iconKey] || ICONS.ref_600;
+  const src = getIconSrc(iconKey);
+  const fallbackSrc = getFallbackIconSrc(iconKey);
   return (
     <img
       src={src}
@@ -126,6 +112,10 @@ function IconImg({ iconKey, size = 42 }) {
       }}
       loading="lazy"
       onError={(e) => {
+        if (fallbackSrc && e.currentTarget.src !== fallbackSrc) {
+          e.currentTarget.src = fallbackSrc;
+          return;
+        }
         e.currentTarget.style.display = "none";
       }}
     />

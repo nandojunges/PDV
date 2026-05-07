@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { readFileAsDataURL, fmtBRL } from "../domain/math";
-import { ICONS } from "../domain/icons";
+import { getIconSrc } from "../domain/icons";
 
 /* ===================== CONSTANTES ===================== */
 const LOGO_SLOT_MM = 35;
@@ -161,7 +161,7 @@ export default function Ajustes({
     modoImagem === "logo"
       ? preview.logo
       : modoImagem === "produto"
-        ? ICONS[previewIconKey] || ICONS.ref_600
+        ? getIconSrc(previewIconKey)
         : "";
 
   const previewTextoTopo = modoImagem === "texto" ? textoTopoTicket.trim() : "";
