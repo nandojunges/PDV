@@ -22,7 +22,8 @@ const DEV = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
 
 /* ===================== COMPONENTES AUXILIARES ===================== */
 function IconImg({ iconKey, size = 30 }) {
-  const src = ICONS[iconKey] || ICONS.ref_600;
+  const src = ICONS[iconKey] || "";
+  if (!src) return null;
   return (
     <img
       src={src}
@@ -342,7 +343,7 @@ export default function Venda({
               nome: String(it?.nome || it?.produto || it?.name || "Item").trim(),
               qtd: 1,
               subtotal: valorPorFicha,
-              iconKey: it?.iconKey || it?.icone || "ref_600",
+              iconKey: it?.iconKey || it?.icone || "",
             },
           });
 
