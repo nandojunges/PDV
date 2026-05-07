@@ -59,10 +59,10 @@ function fmtBRL(n) {
 
 /* ===================== ESTILOS DOS BOTÕES ===================== */
 const btnBase = {
-  height: 44,
-  borderRadius: 14,
+  height: 34,
+  borderRadius: 10,
   border: "1px solid #d1d5db",
-  padding: "0 14px",
+  padding: "0 11px",
   fontWeight: 900,
   cursor: "pointer",
   background: "#fff",
@@ -100,7 +100,7 @@ function TipoSelectSafe({ value, onChange, disabled }) {
         const opt = TIPO_OPTIONS.find((o) => o.value === e.target.value) || TIPO_OPTIONS[0];
         onChange(opt);
       }}
-      style={{ height: 44, borderRadius: 14, fontWeight: 900, width: "100%" }}
+      style={{ height: 36, borderRadius: 10, fontWeight: 900, width: "100%" }}
       disabled={disabled}
     >
       {TIPO_OPTIONS.map((o) => (
@@ -388,9 +388,9 @@ export default function Produtos({
     },
     produtoNomeClamp: {
       fontWeight: 700,
-      fontSize: 12,
+      fontSize: 11,
       textAlign: "center",
-      lineHeight: 1.3,
+      lineHeight: 1.15,
       maxWidth: "100%",
       display: "-webkit-box",
       WebkitLineClamp: 2,
@@ -399,7 +399,7 @@ export default function Produtos({
       whiteSpace: "normal",
       wordBreak: "break-word",
       color: "#2563eb",
-      height: 32,
+      minHeight: 26,
     },
   };
 
@@ -409,7 +409,7 @@ export default function Produtos({
         .produtos-container {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 12px;
+          padding: 4px;
         }
         .produtos-container input,
         .produtos-container select,
@@ -433,22 +433,22 @@ export default function Produtos({
         .grid-3 {
           display: grid !important;
           grid-template-columns: repeat(3, 1fr) !important;
-          gap: 10px !important;
+          gap: 5px !important;
         }
         
         .atalho-button {
-          border: 2px solid #e5e7eb !important;
-          border-radius: 18px !important;
+          border: 1px solid #e5e7eb !important;
+          border-radius: 13px !important;
           background: #fff !important;
-          padding: 10px !important;
+          padding: 7px 4px !important;
           cursor: pointer !important;
-          min-height: 110px !important;
+          min-height: 96px !important;
           display: flex !important;
           flex-direction: column !important;
           justify-content: center !important;
           align-items: center !important;
-          gap: 6px !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+          gap: 5px !important;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
           width: 100% !important;
           transform: translateZ(0);
           backface-visibility: hidden;
@@ -458,8 +458,8 @@ export default function Produtos({
         }
         .atalho-button:hover:not(:disabled) {
           border-color: #2563eb !important;
-          transform: translateY(-2px) translateZ(0);
-          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.15) !important;
+          transform: translateY(-1px) translateZ(0);
+          box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12) !important;
         }
         .atalho-button:active:not(:disabled) {
           transform: scale(0.97) translateZ(0);
@@ -475,11 +475,11 @@ export default function Produtos({
           align-items: center !important;
           justify-content: center !important;
           gap: 4px !important;
-          padding: 4px 12px !important;
+          padding: 3px 8px !important;
           background: #2563eb !important;
           color: white !important;
           border-radius: 999px !important;
-          font-size: 13px !important;
+          font-size: 11px !important;
           font-weight: 700 !important;
           border: none !important;
           white-space: nowrap !important;
@@ -504,9 +504,9 @@ export default function Produtos({
         }
         
         .alert {
-          padding: 10px 14px;
+          padding: 8px 10px;
           border-radius: 8px;
-          margin-bottom: 16px;
+          margin-bottom: 8px;
           font-weight: 500;
           font-size: 14px;
           animation: fadeIn 0.2s ease;
@@ -520,12 +520,13 @@ export default function Produtos({
         .formGrid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
+          gap: 8px;
         }
         
         @media (max-width: 640px) {
           .formGrid {
             grid-template-columns: 1fr;
+            gap: 7px;
           }
         }
         
@@ -536,7 +537,7 @@ export default function Produtos({
         .hr {
           height: 1px;
           background: #e5e7eb;
-          margin: 16px 0;
+          margin: 8px 0;
         }
         
         .muted {
@@ -547,10 +548,10 @@ export default function Produtos({
         
         .input {
           width: 100%;
-          padding: 10px 12px;
+          padding: 7px 9px;
           border: 1px solid #d1d5db;
-          border-radius: 12px;
-          font-size: 15px;
+          border-radius: 10px;
+          font-size: 14px;
           outline: none;
           transition: border-color 0.15s ease;
         }
@@ -562,6 +563,13 @@ export default function Produtos({
           background: #f3f4f6;
           cursor: not-allowed;
         }
+        @media (max-width: 640px) {
+          .produtos-container { padding: 0; }
+          .produtos-container .card { padding: 9px; }
+          .compact-actions > button { flex: 0 0 auto; min-width: 82px; }
+          .split-actions { align-items: center; }
+        }
+
       `}</style>
 
       {/* Alerta */}
@@ -586,12 +594,12 @@ export default function Produtos({
         }
       >
         {vendaEmAndamentoComSenha && (
-          <div className="badge" style={{ marginBottom: 16, background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }}>
+          <div className="badge" style={{ marginBottom: 8, background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }}>
             🔒 Venda em andamento: adicionar, editar, excluir, inativar ou reativar exige senha
           </div>
         )}
         {itensFinalizados && (
-          <div className="badge" style={{ marginBottom: 16, background: "#dbeafe", color: "#1e40af", borderColor: "#bfdbfe" }}>
+          <div className="badge" style={{ marginBottom: 8, background: "#dbeafe", color: "#1e40af", borderColor: "#bfdbfe" }}>
             ✓ Itens finalizados
           </div>
         )}
@@ -602,13 +610,13 @@ export default function Produtos({
               Nome do produto
             </div>
 
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
               <div
                 style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 16,
-                  border: "2px solid #e5e7eb",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
                   background: "#fff",
                   display: "flex",
                   alignItems: "center",
@@ -616,7 +624,7 @@ export default function Produtos({
                   flex: "0 0 auto",
                 }}
               >
-                <IconImg iconKey={getIconKeyForItem(nome.trim())} size={36} />
+                <IconImg iconKey={getIconKeyForItem(nome.trim())} size={30} />
               </div>
 
               <input
@@ -663,7 +671,7 @@ export default function Produtos({
             <div className="muted" style={{ marginBottom: 6 }}>
               {barrilAtual ? "Preço por litro (R$)" : "Preço (R$)"}
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
               <input
                 ref={precoRef}
                 className="input"
@@ -685,7 +693,7 @@ export default function Produtos({
 
         <div className="hr" />
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div className="compact-actions" style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button
             type="button"
             onClick={limparTopo}
@@ -712,14 +720,14 @@ export default function Produtos({
       <Card 
         title="Itens do Evento" 
         subtitle="Gerencie os produtos"
-        style={{ marginTop: 16 }}
+        style={{ marginTop: 8 }}
       >
         {itensEvento.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 32, color: "#6b7280" }}>
+          <div style={{ textAlign: "center", padding: 18, color: "#6b7280" }}>
             📦 Nenhum item adicionado
           </div>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 6 }}>
             {itensEvento.map((p) => (
               <div
                 key={p.id}
@@ -727,21 +735,21 @@ export default function Produtos({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  gap: 10,
-                  padding: 12,
-                  borderRadius: 16,
+                  gap: 7,
+                  padding: 7,
+                  borderRadius: 12,
                   border: "1px solid #e5e7eb",
                   background: p.ativo === false ? "#f3f4f6" : "#fff",
                   opacity: p.ativo === false ? 0.65 : 1,
                 }}
               >
-                <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
+                <div style={{ display: "flex", gap: 7, alignItems: "center", flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 14,
-                      border: "2px solid #e5e7eb",
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
                       background: "#fff",
                       display: "flex",
                       alignItems: "center",
@@ -749,12 +757,12 @@ export default function Produtos({
                       flex: "0 0 auto",
                     }}
                   >
-                    <IconImg iconKey={p.iconKey} size={34} />
+                    <IconImg iconKey={p.iconKey} size={26} />
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>
+                      <span style={{ fontWeight: 800, fontSize: 13, color: "#111827" }}>
                         {p.nome}
                       </span>
                       {!p.ativo && (
@@ -768,17 +776,17 @@ export default function Produtos({
                         </span>
                       )}
                     </div>
-                    <div style={{ marginTop: 4, fontSize: 14, color: "#2563eb", fontWeight: 600 }}>
+                    <div style={{ marginTop: 2, fontSize: 12, color: "#2563eb", fontWeight: 600 }}>
                       R$ {fmtBRL(p.preco)}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 4, flex: "0 0 auto" }}>
                   <button
                     type="button"
                     onClick={() => editarItem(p)}
-                    style={{ ...btnSoft, minWidth: 44, padding: "0 10px" }}
+                    style={{ ...btnSoft, width: 32, height: 32, minWidth: 32, padding: 0, borderRadius: 9 }}
                     disabled={bloqueadoEdicao}
                     title="Editar produto"
                     aria-label={`Editar ${p.nome}`}
@@ -788,7 +796,7 @@ export default function Produtos({
                   <button
                     type="button"
                     onClick={() => toggleAtivo(p.id)}
-                    style={{ ...btnSoft, minWidth: 44, padding: "0 10px" }}
+                    style={{ ...btnSoft, width: 32, height: 32, minWidth: 32, padding: 0, borderRadius: 9 }}
                     disabled={bloqueadoEdicao}
                     title={p.ativo ? "Inativar produto" : "Reativar produto"}
                     aria-label={p.ativo ? `Inativar ${p.nome}` : `Reativar ${p.nome}`}
@@ -798,7 +806,7 @@ export default function Produtos({
                   <button
                     type="button"
                     onClick={() => removerItem(p.id)}
-                    style={{ ...btnDanger, minWidth: 44, padding: "0 10px" }}
+                    style={{ ...btnDanger, width: 32, height: 32, minWidth: 32, padding: 0, borderRadius: 9 }}
                     disabled={bloqueadoEdicao}
                     title="Excluir produto"
                     aria-label={`Excluir ${p.nome}`}
@@ -813,7 +821,7 @@ export default function Produtos({
 
         <div className="hr" />
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div className="compact-actions split-actions" style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "space-between" }}>
           <button
             type="button"
             onClick={limparItensEvento}
@@ -846,7 +854,7 @@ export default function Produtos({
       <Card 
         title="Atalhos" 
         subtitle="Toque para selecionar"
-        style={{ marginTop: 16 }}
+        style={{ marginTop: 8 }}
       >
         <div className="grid-3">
           {atalhosDisponiveis.map((it) => (
@@ -857,7 +865,7 @@ export default function Produtos({
               disabled={bloqueadoEdicao}
               title={it.nome}
             >
-              <IconImg iconKey={it.key} size={42} />
+              <IconImg iconKey={it.key} size={46} />
               <div style={styles.produtoNomeClamp}>
                 {it.nome}
               </div>

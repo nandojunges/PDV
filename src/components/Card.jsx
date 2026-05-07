@@ -8,12 +8,14 @@ export default function Card({
   subtitulo,
   right,
   children,
+  className = "",
+  style,
 }) {
   const tituloFinal = title || titulo;
   const subtituloFinal = subtitle || subtitulo;
 
   return (
-    <div className="card">
+    <div className={`card ${className}`.trim()} style={style}>
       {(tituloFinal || right) && (
         <div className="cardHeader">
           <div>
