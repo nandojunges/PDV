@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { fmtBRL, uid } from "../domain/math";
-import { ICONS } from "../domain/icons";
+import { getFallbackIconSrc, getIconSrc } from "../domain/icons";
 import { buildVenda, totalDoCarrinho } from "../domain/pos";
 import { imprimirTexto, imprimirBitmap } from "../utils/sunmiPrinter";
 import { buildTicketBitmapBase64 } from "../print/ticketBitmap";
@@ -22,7 +22,8 @@ const DEV = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
 
 /* ===================== COMPONENTES AUXILIARES ===================== */
 function IconImg({ iconKey, size = 30 }) {
-  const src = ICONS[iconKey] || ICONS.ref_600;
+  const src = getIconSrc(iconKey);
+  const fallbackSrc = getFallbackIconSrc(iconKey);
   return (
     <img
       src={src}
@@ -35,6 +36,10 @@ function IconImg({ iconKey, size = 30 }) {
       }}
       loading="lazy"
       onError={(e) => {
+        if (fallbackSrc && e.currentTarget.src !== fallbackSrc) {
+          e.currentTarget.src = fallbackSrc;
+          return;
+        }
         e.currentTarget.style.display = "none";
       }}
     />

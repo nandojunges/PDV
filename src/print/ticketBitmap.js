@@ -1,5 +1,5 @@
 // src/print/ticketBitmap.js
-import { ICONS } from "../domain/icons";
+import { getFallbackIconSrc, getIconSrc } from "../domain/icons";
 import { toBRDateTime } from "../domain/math";
 
 const WIDTH = 384; // 58mm Sunmi (geralmente 384px)
@@ -46,27 +46,25 @@ async function loadImage(iconKeyOrUrl) {
     return imageCache.get(iconKeyOrUrl);
   }
 
-  const promise = new Promise((resolve) => {
-    // Se já for uma URL de dados (base64), usa direto
-    if (iconKeyOrUrl && iconKeyOrUrl.startsWith("data:image")) {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = iconKeyOrUrl;
-      return;
+  const promise = (async () => {
+    const urls = String(iconKeyOrUrl).startsWith("data:image")
+      ? [iconKeyOrUrl]
+      : [getIconSrc(iconKeyOrUrl), getFallbackIconSrc(iconKeyOrUrl)].filter(Boolean);
+
+    for (const url of [...new Set(urls)]) {
+      const img = await new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = "Anonymous";
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = url;
+      });
+
+      if (img) return img;
     }
 
-    // Caso contrário, busca no ICONS
-    const url = ICONS[iconKeyOrUrl] || null;
-    if (!url) return resolve(null);
-
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+    return null;
+  })();
   imageCache.set(iconKeyOrUrl, promise);
 
   return promise;

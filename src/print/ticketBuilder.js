@@ -1,6 +1,6 @@
 import { fmtBRL, toBRDateTime } from "../domain/math";
 import { totalDoCarrinho } from "../domain/pos";
-import { ICONS } from "../domain/icons";
+import { getFallbackIconSrc, getIconSrc } from "../domain/icons";
 
 const normalizeText = (value) => String(value ?? "").trim();
 
@@ -48,47 +48,49 @@ const normalizeItem = (item) => {
 
 // 🔥 FUNÇÃO: Converte URL do ícone para Base64 (otimizada)
 const iconUrlToBase64 = async (iconKey) => {
-  return new Promise((resolve) => {
-    const url = ICONS[iconKey];
-    if (!url) {
-      resolve(null);
-      return;
-    }
+  const urls = [getIconSrc(iconKey), getFallbackIconSrc(iconKey)].filter(Boolean);
 
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        // Tamanho ideal para impressão térmica (150x150)
-        canvas.width = 150;
-        canvas.height = 150;
-        const ctx = canvas.getContext("2d");
-        
-        // Limpa o canvas (fundo transparente)
-        ctx.clearRect(0, 0, 150, 150);
-        
-        // Centraliza a imagem
-        const scale = Math.min(120 / img.width, 120 / img.height);
-        const width = img.width * scale;
-        const height = img.height * scale;
-        const x = (150 - width) / 2;
-        const y = (150 - height) / 2;
-        
-        // Desenha a imagem redimensionada e centralizada
-        ctx.drawImage(img, x, y, width, height);
-        
-        // Converte para PNG base64
-        const base64 = canvas.toDataURL("image/png").split(",")[1];
-        resolve(base64);
-      } catch (e) {
-        console.warn("Erro ao converter imagem:", e);
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+  for (const url of [...new Set(urls)]) {
+    const base64 = await new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          // Tamanho ideal para impressão térmica (150x150)
+          canvas.width = 150;
+          canvas.height = 150;
+          const ctx = canvas.getContext("2d");
+          
+          // Limpa o canvas (fundo transparente)
+          ctx.clearRect(0, 0, 150, 150);
+          
+          // Centraliza a imagem
+          const scale = Math.min(120 / img.width, 120 / img.height);
+          const width = img.width * scale;
+          const height = img.height * scale;
+          const x = (150 - width) / 2;
+          const y = (150 - height) / 2;
+          
+          // Desenha a imagem redimensionada e centralizada
+          ctx.drawImage(img, x, y, width, height);
+          
+          // Converte para PNG base64
+          const base64 = canvas.toDataURL("image/png").split(",")[1];
+          resolve(base64);
+        } catch (e) {
+          console.warn("Erro ao converter imagem:", e);
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+
+    if (base64) return base64;
+  }
+
+  return null;
 };
 
 // 🔥 FUNÇÃO QUE CRIA O TICKET EXATAMENTE IGUAL AO PREVIEW
