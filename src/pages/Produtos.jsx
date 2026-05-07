@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import Card from "../components/Card";
 import { ICONS } from "../domain/icons";
 import { executarComSenha } from "../domain/security";
+import { sortProductsForDisplay } from "../domain/pos";
 
 /* ===================== CONSTANTES ===================== */
 const TIPO_OPTIONS = [
@@ -12,27 +13,27 @@ const TIPO_OPTIONS = [
 
 const LIB = [
   { key: "agua", nome: "Água (500ml)" },
-  { key: "almoco_adulto", nome: "Almoço Adulto" },
-  { key: "almoco_socio", nome: "Almoço do Sócio" },
-  { key: "barril", nome: "Barril de chopp" },
-  { key: "caipirinha", nome: "Caipirinha" },
-  { key: "cer_garrafa", nome: "Cerveja Garrafa" },
-  { key: "cer_lata", nome: "Cerveja Lata" },
-  { key: "chope", nome: "Chopp (Copo)" },
-  { key: "fichas", nome: "Fichas" },
-  { key: "lanche", nome: "Lanche" },
-  { key: "meio_almoco", nome: "Meio Almoço" },
-  { key: "petchopp", nome: "Pet Chopp" },
-  { key: "petchopp_2l", nome: "Pet Chopp 2L" },
-  { key: "picole", nome: "Picolé" },
-  { key: "prato_talher", nome: "Prato e Talher" },
+  { key: "ref_lata", nome: "Refrigerante Lata" },
+  { key: "ref_600", nome: "Refrigerante 600ml" },
   { key: "ref_1l", nome: "Refrigerante 1L" },
   { key: "ref_2l", nome: "Refrigerante 2L" },
-  { key: "ref_600", nome: "Refrigerante 600ml" },
-  { key: "ref_lata", nome: "Refrigerante Lata" },
+  { key: "cer_lata", nome: "Cerveja Lata" },
+  { key: "cer_garrafa", nome: "Cerveja Garrafa" },
+  { key: "chope", nome: "Chopp (Copo)" },
+  { key: "petchopp", nome: "Pet Chopp" },
+  { key: "petchopp_2l", nome: "Pet Chopp 2L" },
+  { key: "barril", nome: "Barril de chopp" },
+  { key: "caipirinha", nome: "Caipirinha" },
+  { key: "suco", nome: "Suco" },
+  { key: "lanche", nome: "Lanche" },
   { key: "sobremesa", nome: "Sobremesa" },
   { key: "sorvete", nome: "Sorvete" },
-  { key: "suco", nome: "Suco" },
+  { key: "picole", nome: "Picolé" },
+  { key: "prato_talher", nome: "Prato e Talher" },
+  { key: "fichas", nome: "Fichas" },
+  { key: "meio_almoco", nome: "Meio Almoço" },
+  { key: "almoco_adulto", nome: "Almoço Adulto" },
+  { key: "almoco_socio", nome: "Almoço do Sócio" },
 ];
 
 /* ===================== HELPERS ===================== */
@@ -170,6 +171,11 @@ export default function Produtos({
   const itensEvento = useMemo(
     () => (Array.isArray(produtos) ? produtos : []),
     [produtos]
+  );
+
+  const itensEventoOrdenados = useMemo(
+    () => sortProductsForDisplay(itensEvento),
+    [itensEvento]
   );
 
   const atalhosDisponiveis = useMemo(() => LIB, []);
@@ -741,7 +747,7 @@ export default function Produtos({
           </div>
         ) : (
           <div style={{ display: "grid", gap: 6 }}>
-            {itensEvento.map((p) => (
+            {itensEventoOrdenados.map((p) => (
               <div
                 key={p.id}
                 style={{
@@ -849,7 +855,7 @@ export default function Produtos({
               type="button"
               onClick={() => {
                 if (typeof onSalvarOfertaDoEvento === "function") {
-                  onSalvarOfertaDoEvento(itensEvento);
+                  onSalvarOfertaDoEvento(sortProductsForDisplay(itensEvento));
                 }
                 if (typeof onFinalizarItens === "function") {
                   onFinalizarItens();
