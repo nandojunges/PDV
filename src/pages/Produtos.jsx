@@ -12,20 +12,27 @@ const TIPO_OPTIONS = [
 
 const LIB = [
   { key: "agua", nome: "Água (500ml)" },
-  { key: "ref_lata", nome: "Refrigerante Lata" },
-  { key: "ref_600", nome: "Refrigerante 600ml" },
-  { key: "ref_2l", nome: "Refrigerante 2L" },
-  { key: "cer_lata", nome: "Cerveja Lata" },
-  { key: "cer_garrafa", nome: "Cerveja Garrafa" },
-  { key: "chope", nome: "Chopp (Copo)" },
+  { key: "almoco_adulto", nome: "Almoço Adulto" },
+  { key: "almoco_socio", nome: "Almoço do Sócio" },
   { key: "barril", nome: "Barril de chopp" },
+  { key: "caipirinha", nome: "Caipirinha" },
+  { key: "cer_garrafa", nome: "Cerveja Garrafa" },
+  { key: "cer_lata", nome: "Cerveja Lata" },
+  { key: "chope", nome: "Chopp (Copo)" },
+  { key: "fichas", nome: "Fichas" },
   { key: "lanche", nome: "Lanche" },
+  { key: "meio_almoco", nome: "Meio Almoço" },
+  { key: "petchopp", nome: "Pet Chopp" },
+  { key: "petchopp_2l", nome: "Pet Chopp 2L" },
+  { key: "picole", nome: "Picolé" },
+  { key: "prato_talher", nome: "Prato e Talher" },
+  { key: "ref_1l", nome: "Refrigerante 1L" },
+  { key: "ref_2l", nome: "Refrigerante 2L" },
+  { key: "ref_600", nome: "Refrigerante 600ml" },
+  { key: "ref_lata", nome: "Refrigerante Lata" },
   { key: "sobremesa", nome: "Sobremesa" },
   { key: "sorvete", nome: "Sorvete" },
-  { key: "fichas", nome: "Fichas" },
   { key: "suco", nome: "Suco" },
-  { key: "almoco_socio", nome: "Almoço do Sócio" },
-  { key: "prato_talher", nome: "Prato e Talher" },
 ];
 
 /* ===================== HELPERS ===================== */
@@ -113,7 +120,8 @@ function TipoSelectSafe({ value, onChange, disabled }) {
 }
 
 function IconImg({ iconKey, size = 42 }) {
-  const src = ICONS[iconKey] || ICONS.ref_600;
+  const src = ICONS[iconKey] || "";
+  if (!src) return null;
   return (
     <img
       src={src}
@@ -271,7 +279,7 @@ export default function Produtos({
     const qtdCombo =
       t === "combo" ? Math.max(2, parseInt(comboQtd || "2", 10) || 2) : null;
     const varKey = `${nm}__${t}__${qtdCombo ?? ""}`;
-    const iconKey = getIconKeyForItem(nm) || "ref_600";
+    const iconKey = getIconKeyForItem(nm) || "";
     const barril = barrilAtual || iconKey === "barril";
 
     setProdutos((prev) => {
@@ -288,7 +296,7 @@ export default function Produtos({
         tipo: t,
         comboQtd: qtdCombo,
         varKey,
-        iconKey: iconKey || "ref_600",
+        iconKey,
         isBarril: barril,
         precoModo: barril ? "por_litro" : "unitario",
         atualizadoEm: new Date().toISOString(),

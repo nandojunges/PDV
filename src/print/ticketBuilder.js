@@ -35,7 +35,7 @@ const normalizeItem = (item) => {
     Number(item?.subtotal ?? item?.total ?? item?.sum ?? qtd * unitario) || 0;
   const subtotal = subtotalRaw || qtd * unitario;
 
-  const iconKey = item?.iconKey || item?.icone || "ref_600";
+  const iconKey = item?.iconKey || item?.icone || "";
 
   return {
     nome,
