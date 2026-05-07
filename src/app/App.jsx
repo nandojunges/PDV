@@ -293,26 +293,6 @@ export default function App() {
     );
   }
 
-  function zerarCaixaEvento() {
-    const nomeEv = (evento?.nome || "").trim();
-    if (!nomeEv) return;
-    if (!confirm(`Zerar caixa do evento "${nomeEv}"?`)) return;
-
-    setCaixa((prev) => ({
-      ...prev,
-      abertura: null,
-      movimentos: [],
-    }));
-    setEvento((prev) =>
-      prev
-        ? {
-            ...prev,
-            caixaAberto: false,
-          }
-        : prev
-    );
-  }
-
   function finalizarCaixaEvento() {
     void encerrarEventoAtual("evento");
   }
@@ -423,7 +403,6 @@ export default function App() {
               vendas={vendas}
               flowState={flowState}
               disabled={!hasEventoAberto}
-              onZerarCaixa={zerarCaixaEvento}
               onAbrirCaixaOk={() => {
                 setEvento((prev) =>
                   prev
