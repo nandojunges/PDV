@@ -106,8 +106,8 @@ export default function Ajustes({
       nomeOrganizacao: nomeOrg,
       textoRodape: rodape,
       logoImgMm: logoAlturaMm,
-      ticketImagemModo: ajustes?.ticketImagemModo || "produto",
-      ticketTopoTexto: (ajustes?.ticketTopoTexto || "").toUpperCase(),
+      ticketImagemModo: normalizeTicketImagemModo(ajustes?.ticketImagemModo),
+      ticketTopoTexto: normalizeTicketTexto(ajustes?.ticketTopoTexto),
       ticketTopoTextoBold: Boolean(ajustes?.ticketTopoTextoBold),
       impressaoEcoImagem: Boolean(ajustes?.impressaoEcoImagem),
     }));
@@ -131,6 +131,14 @@ export default function Ajustes({
     return trimmedLines.join("\n");
   }
 
+  function normalizeTicketImagemModo(value) {
+    const raw = String(value || "").toLowerCase();
+    if (/texto|personalizado/.test(raw)) return "texto";
+    if (/logo/.test(raw)) return "logo";
+    if (/produto|icone|ícone|icon|product/.test(raw)) return "produto";
+    return "produto";
+  }
+
   // ==================== PREVIEW ====================
   const preview = useMemo(() => {
     return {
@@ -146,16 +154,7 @@ export default function Ajustes({
     };
   }, [nomeOrg, rodape, ajustes?.logoDataUrl, logoAlturaMm]);
 
-  const rawModoImagem = String(ajustes?.ticketImagemModo || "").toLowerCase();
-  const modoImagem = rawModoImagem
-    ? /texto/i.test(rawModoImagem)
-      ? "texto"
-      : /logo/i.test(rawModoImagem)
-        ? "logo"
-        : /produto|icone|ícone|icon|product/i.test(rawModoImagem)
-          ? "produto"
-          : "produto"
-    : "produto";
+  const modoImagem = normalizeTicketImagemModo(ajustes?.ticketImagemModo);
     
   const previewIconKey = preview.iconKey || "ref_600";
   const previewImgSrc =
