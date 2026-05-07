@@ -498,19 +498,19 @@ export default function Venda({
   // ==================== ESTILOS ====================
   const styles = useMemo(() => ({
     produtoCard: {
-      border: "2px solid #e5e7eb",
-      borderRadius: 14,
+      border: "1px solid #e5e7eb",
+      borderRadius: 12,
       background: "#fff",
-      padding: 8,
+      padding: "8px 4px",
       cursor: "pointer",
-      minHeight: 88,
+      minHeight: 104,
       display: "flex",
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
-      gap: 4,
+      gap: 5,
       transition: "all 0.2s ease",
-      boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
       minWidth: 0,
       overflow: "hidden",
     },
@@ -520,8 +520,10 @@ export default function Venda({
       textAlign: "center",
       maxWidth: "100%",
       overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
+      display: "-webkit-box",
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: "vertical",
+      wordBreak: "break-word",
       color: "#2563eb",
       lineHeight: 1.2,
     },
@@ -574,7 +576,7 @@ export default function Venda({
         .venda-container {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 12px;
+          padding: 4px;
         }
         .venda-container input,
         .venda-container select,
@@ -584,12 +586,12 @@ export default function Venda({
         .grid-3 {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 8px;
+          gap: 6px;
         }
         @media (max-width: 640px) {
           .grid-3 {
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 6px;
+            gap: 5px;
           }
         }
         .product-button {
@@ -599,8 +601,8 @@ export default function Venda({
         }
         .product-button:hover {
           border-color: #2563eb !important;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.15) !important;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12) !important;
         }
         .low-performance .product-button:hover {
           transform: none;
@@ -629,10 +631,10 @@ export default function Venda({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px;
-          background: #f8fafc;
-          border-radius: 12px;
-          border: 1px solid #e5e7eb;
+          padding: 7px 6px;
+          background: #fff;
+          border-radius: 10px;
+          border: 1px solid #edf2f7;
           transition: all 0.2s ease;
         }
         .cart-item > div:first-child {
@@ -651,23 +653,34 @@ export default function Venda({
         }
         .badge {
           display: inline-block;
-          padding: 4px 10px;
+          padding: 3px 8px;
           border-radius: 999px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           background: #f3f4f6;
           border: 1px solid #e5e7eb;
           color: #4b5563;
         }
         .combo-info {
-          font-size: 11px;
+          font-size: 10px;
           color: #2563eb;
           background: #eff6ff;
-          padding: 2px 8px;
+          padding: 2px 6px;
           border-radius: 999px;
           display: inline-block;
-          margin-top: 4px;
+          margin-top: 3px;
         }
+        @media (max-width: 640px) {
+          .venda-container { padding: 0; }
+          .venda-container .card { padding: 9px; }
+          .venda-pay-grid { grid-template-columns: 1fr 1fr !important; gap: 7px !important; }
+          .venda-actions { gap: 7px !important; margin-top: 10px !important; }
+          .venda-actions button { min-width: 78px !important; }
+          .cart-item { gap: 6px; }
+          .cart-controls { gap: 4px !important; }
+          .cart-controls button { width: 30px; min-width: 30px; padding: 0 !important; }
+        }
+
       `}</style>
 
       {/* Alerta */}
@@ -688,7 +701,7 @@ export default function Venda({
         }
       >
         {precisaEventoAberto() && (
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8 }}>
             <span className="badge" style={{ background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
               ⚠️ Abra um evento antes de vender
             </span>
@@ -718,13 +731,13 @@ export default function Venda({
                     loading="lazy"
                     decoding="async"
                     style={{
-                      width: 30,
-                      height: 30,
+                      width: 42,
+                      height: 42,
                       objectFit: "contain",
                     }}
                   />
                 ) : (
-                  <IconImg iconKey={p.iconKey} size={30} />
+                  <IconImg iconKey={p.iconKey} size={42} />
                 )}
 
                 <div style={styles.produtoNome}>
@@ -737,7 +750,7 @@ export default function Venda({
                   </div>
                 )}
 
-                <div style={{ fontWeight: 700, fontSize: 12, color: "#111827" }}>
+                <div style={{ fontWeight: 800, fontSize: 12, color: "#111827" }}>
                   {fmtBRL(precoTotal)}
                 </div>
 
@@ -751,7 +764,7 @@ export default function Venda({
           })}
 
           {produtosAtivos.length === 0 && (
-            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 32, color: "#6b7280" }}>
+            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 18, color: "#6b7280" }}>
               Nenhum produto ativo. Vá em Produtos e cadastre.
             </div>
           )}
@@ -780,10 +793,10 @@ export default function Venda({
             {itensCarrinho.length} {itensCarrinho.length === 1 ? 'item' : 'itens'}
           </span>
         }
-        style={{ marginTop: 16 }}
+        style={{ marginTop: 8 }}
       >
         {itensCarrinho.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 32, color: "#6b7280" }}>
+          <div style={{ textAlign: "center", padding: 18, color: "#6b7280" }}>
             🛒 Carrinho vazio. Adicione produtos para começar.
           </div>
         ) : (
@@ -821,7 +834,7 @@ export default function Venda({
                   )}
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="cart-controls" style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <Button small onClick={() => alterarQtd(it.cartKey, -1)} disabled={isPrinting}>
                     −
                   </Button>
@@ -837,7 +850,7 @@ export default function Venda({
           </div>
         )}
 
-        <div style={{ height: 1, background: "#e5e7eb", margin: "16px 0" }} />
+        <div style={{ height: 1, background: "#e5e7eb", margin: "9px 0" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontWeight: 700, fontSize: 16 }}>Total</span>
@@ -846,9 +859,9 @@ export default function Venda({
           </span>
         </div>
 
-        <div style={{ height: 1, background: "#e5e7eb", margin: "16px 0" }} />
+        <div style={{ height: 1, background: "#e5e7eb", margin: "9px 0" }} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="venda-pay-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>
               Pagamento
@@ -890,7 +903,7 @@ export default function Venda({
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+        <div className="venda-actions" style={{ display: "flex", gap: 7, marginTop: 10, justifyContent: "flex-end" }}>
           <Button onClick={limparCarrinho} disabled={isPrinting} variant="secondary" small>
             Limpar
           </Button>
@@ -898,7 +911,7 @@ export default function Venda({
             variant="primary" 
             onClick={handleFinalizar} 
             disabled={isPrinting || itensCarrinho.length === 0}
-            style={{ minWidth: 100 }}
+            style={{ minWidth: 82 }}
             small
           >
             {isPrinting ? "..." : "Finalizar"}
@@ -913,7 +926,7 @@ export default function Venda({
       </Card>
 
       {/* Últimas Vendas */}
-      <Card title="Últimas vendas" subtitle="Reimprima se necessário" style={{ marginTop: 16 }}>
+      <Card title="Últimas vendas" subtitle="Reimprima se necessário" style={{ marginTop: 8 }}>
         {ultimasVendas.length === 0 ? (
           <div style={{ textAlign: "center", padding: 24, color: "#6b7280", fontSize: 14 }}>
             Nenhuma venda registrada.
@@ -1038,7 +1051,7 @@ export default function Venda({
               </>
             )}
 
-            <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+            <div className="venda-actions" style={{ display: "flex", gap: 7, marginTop: 10, justifyContent: "flex-end" }}>
               <Button onClick={handleCancelConfirm} disabled={isPrinting} variant="secondary" small>
                 Cancelar
               </Button>

@@ -301,3 +301,159 @@ html { scroll-padding-top: var(--sticky-offset, 140px); }
   transform: none !important;
   box-shadow: none !important;
 }
+
+/* ===== Layout compacto para POS/mobile ===== */
+.appMain {
+  padding: 10px;
+}
+
+.card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.card + .card { margin-top: 10px; }
+
+.cardHeader {
+  margin-bottom: 8px;
+}
+
+.cardHeader h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.cardBody { margin-top: 8px; }
+
+@media (max-width: 640px) {
+  body { background: #f8fafc; }
+
+  .appMain {
+    padding: 6px 4px 10px;
+  }
+
+  .wrap {
+    padding: 6px 4px;
+  }
+
+  .topbar {
+    padding: 8px 6px;
+  }
+
+  .topbarRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+  }
+
+  .topbarLeft,
+  .topbarRight {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .topTitle {
+    font-size: 14px;
+    line-height: 1.15;
+  }
+
+  .topDeveloper {
+    display: block;
+    margin: 1px 0 0;
+    font-size: 10px;
+  }
+
+  .topMeta {
+    margin-top: 5px;
+    gap: 5px;
+  }
+
+  .topMetaText,
+  .muted {
+    font-size: 11px;
+  }
+
+  .badge {
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+
+  .tabsWrap {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    overflow: visible;
+    padding-bottom: 0;
+    width: 100%;
+  }
+
+  .tab {
+    min-width: 0;
+    padding: 7px 2px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .tabNotice {
+    align-self: stretch;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .card {
+    border-radius: 11px;
+    padding: 9px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
+  }
+
+  .card + .card { margin-top: 8px; }
+  .cardHeader { gap: 6px; margin-bottom: 6px; }
+  .cardHeader h2 { font-size: 15px; }
+  .cardBody { margin-top: 6px; }
+
+  .input {
+    min-height: 36px;
+    padding: 7px 9px;
+    border-radius: 10px;
+  }
+
+  .btn,
+  .btn.small {
+    min-height: 32px;
+    padding: 6px 9px;
+    border-radius: 9px;
+  }
+
+  .hr { margin: 8px 0; }
+}
+
+.cardHeader > div:first-child {
+  min-width: 0;
+}
+
+.cardHeader > div:last-child {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .tabs {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .tab {
+    font-size: 10px;
+    padding: 6px 1px;
+    letter-spacing: -0.15px;
+  }
+}

@@ -347,7 +347,7 @@ export default function App() {
         onZerarTudo={zerarTudo}
       />
 
-      <main style={{ padding: 16 }} data-etapa={etapaAtual}>
+      <main className="appMain" data-etapa={etapaAtual}>
         {podeVoltar && (
           <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <Button variant="ghost" onClick={handleVoltar}>
