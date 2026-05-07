@@ -211,11 +211,9 @@ export default function Caixa({
   evento = {},
   caixa,
   setCaixa = () => {},
-  resumoEvento,
   vendas = [],
   flowState,
   onAbrirCaixaOk,
-  onZerarCaixa,
   onFinalizarCaixa,
   disabled = false,
 }) {
@@ -231,7 +229,7 @@ export default function Caixa({
   const aberturaJaDefinida = abertura > 0;
 
   const eventoNome = String(evento?.nome || "").trim();
-  const eventoAberto = Boolean(eventoNome);
+  const hasEventoConfigurado = Boolean(eventoNome);
 
   const vendasLista = Array.isArray(vendas) ? vendas : loadJSON(LS_KEYS.vendas, []);
   const eventoCache = loadJSON(LS_KEYS.evento, null);
@@ -277,6 +275,9 @@ export default function Caixa({
     return Number(toNumBR(aberturaTxt) || 0) || 0;
   }, [aberturaTxt]);
 
+  const eventoAberto = Boolean(evento?.caixaAberto || flowState === "CAIXA_ABERTO" || aberturaJaDefinida);
+  const mostraAberturaCaixa = !eventoAberto;
+
   const entrouDinheiro = useMemo(() => pagamentosGeral.dinheiro, [pagamentosGeral]);
   const movimentos = useMemo(() => {
     return Array.isArray(caixaSafe.movimentos) ? caixaSafe.movimentos : [];
@@ -295,12 +296,11 @@ export default function Caixa({
     return Number(toNumBR(sangriaTxt) || 0) || 0;
   }, [sangriaTxt]);
 
-  const bloqueiaZerarCaixa = vendasEvento.length > 0 || flowState === "CAIXA_ABERTO";
 
   // ==================== FUNÇÕES ====================
   function abrirCaixa() {
     if (disabled) return;
-    if (!eventoAberto) {
+    if (!hasEventoConfigurado) {
       setAviso({ type: "warning", message: "Abra um evento primeiro." });
       return;
     }
@@ -359,7 +359,7 @@ export default function Caixa({
       saveJSON(getCaixaStorageKey(), nextCaixa);
       return nextCaixa;
     });
-    
+
     setSangriaTxt("");
     setAviso({ type: "success", message: "Sangria registrada!" });
   }
@@ -575,160 +575,151 @@ export default function Caixa({
         </div>
       )}
 
-      <Card
-        title="Caixa"
-        subtitle="Abertura e encerramento do evento"
-        right={
-          <Button
-            variant="danger"
-            onClick={onZerarCaixa}
-            disabled={disabled || bloqueiaZerarCaixa}
-            small
-          >
-            Zerar
-          </Button>
-        }
-      >
-        {disabled && (
-          <div className="badge" style={{ marginBottom: 16, background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
-            ⚠️ Abra um evento para usar o Caixa
-          </div>
-        )}
-
-        <div className="hr" />
-
-        {/* ABERTURA DO CAIXA */}
-        <div>
-          <div className="muted" style={{ marginBottom: 8, fontWeight: 700 }}>
-            Abertura do caixa
-          </div>
-
-          <div className="formGrid">
-            <div>
-              <input
-                className="input"
-                placeholder="Valor inicial (R$)"
-                value={aberturaTxt}
-                onChange={(e) => setAberturaTxt(maskBRLFromDigits(e.target.value))}
-                inputMode="numeric"
-                disabled={disabled || aberturaJaDefinida}
-              />
-              <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>
-                Digite apenas números (ex: 5000 = R$ 50,00)
+      <Card title="Caixa" subtitle="Abertura e encerramento do evento">
+        {mostraAberturaCaixa ? (
+          <>
+            {disabled && (
+              <div className="badge" style={{ marginBottom: 16, background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" }}>
+                ⚠️ Abra um evento para usar o Caixa
               </div>
-            </div>
+            )}
 
-            <Button
-              variant="primary"
-              onClick={abrirCaixa}
-              disabled={disabled || aberturaJaDefinida || aberturaValor <= 0 || !eventoAberto}
-              small
-            >
-              Abrir caixa
-            </Button>
-          </div>
-        </div>
+            <div className="hr" />
 
-        <div className="hr" />
-
-        {/* RESUMO DO CAIXA */}
-        <div>
-          <div className="row">
-            <span style={{ fontWeight: 600 }}>Abertura</span>
-            <span style={{ fontWeight: 700 }}>{fmtBRL(abertura)}</span>
-          </div>
-          <div className="row">
-            <span className="muted">Entrada em dinheiro</span>
-            <span style={{ fontWeight: 600 }}>{fmtBRL(entrouDinheiro)}</span>
-          </div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 16 }}>Total em caixa</span>
-            <span style={{ fontWeight: 900, fontSize: 18, color: "#2563eb" }}>
-              {fmtBRL(totalNoCaixaAgora)}
-            </span>
-          </div>
-        </div>
-
-        <div className="hr" />
-
-        {/* SANGRIAS */}
-        <div>
-          <div className="muted" style={{ marginBottom: 8, fontWeight: 700 }}>
-            Sangrias
-          </div>
-
-          <div className="formGrid" style={{ marginBottom: 12 }}>
+            {/* ABERTURA DO CAIXA */}
             <div>
-              <input
-                className="input"
-                placeholder="Valor da sangria"
-                value={sangriaTxt}
-                onChange={(e) => setSangriaTxt(maskBRLFromDigits(e.target.value))}
-                inputMode="numeric"
-                disabled={disabled || !aberturaJaDefinida || !eventoAberto}
-              />
-            </div>
+              <div className="muted" style={{ marginBottom: 8, fontWeight: 700 }}>
+                Abertura do caixa
+              </div>
 
-            <Button
-              variant="primary"
-              onClick={adicionarSangria}
-              disabled={disabled || !aberturaJaDefinida || !eventoAberto || sangriaValor <= 0}
-              small
-            >
-              Adicionar
-            </Button>
-          </div>
-
-          {sangrias.length > 0 ? (
-            <div style={{ marginTop: 8 }}>
-              {sangrias.map((mov, index) => (
-                <div key={mov?.id || index} className="sangria-item">
-                  <div>
-                    <div style={{ fontWeight: 600 }}>Sangria {index + 1}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      {fmtBRL(Number(mov?.valor) || 0)} • {formatHora(mov?.criadoEm)}
-                    </div>
+              <div className="formGrid">
+                <div>
+                  <input
+                    className="input"
+                    placeholder="Valor inicial (R$)"
+                    value={aberturaTxt}
+                    onChange={(e) => setAberturaTxt(maskBRLFromDigits(e.target.value))}
+                    inputMode="numeric"
+                    disabled={disabled || aberturaJaDefinida}
+                  />
+                  <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>
+                    Digite apenas números (ex: 5000 = R$ 50,00)
                   </div>
-                  <Button
-                    variant="ghost"
-                    small
-                    onClick={() => removerSangria(mov?.id)}
-                    disabled={disabled}
-                  >
-                    ✕
-                  </Button>
                 </div>
-              ))}
-              
-              <div className="row" style={{ marginTop: 8 }}>
-                <span className="muted" style={{ fontWeight: 600 }}>Total sangrias</span>
-                <span style={{ fontWeight: 700 }}>{fmtBRL(totalSangrias)}</span>
+
+                <Button
+                  variant="primary"
+                  onClick={abrirCaixa}
+                  disabled={disabled || aberturaJaDefinida || aberturaValor <= 0 || !hasEventoConfigurado}
+                  small
+                >
+                  Abrir caixa
+                </Button>
               </div>
             </div>
-          ) : (
-            <div className="muted" style={{ textAlign: "center", padding: 12 }}>
-              Nenhuma sangria registrada
+          </>
+        ) : (
+          <>
+            {/* RESUMO DO CAIXA */}
+            <div>
+              <div className="row">
+                <span style={{ fontWeight: 600 }}>Abertura</span>
+                <span style={{ fontWeight: 700 }}>{fmtBRL(abertura)}</span>
+              </div>
+              <div className="row">
+                <span className="muted">Entrada em dinheiro</span>
+                <span style={{ fontWeight: 600 }}>{fmtBRL(entrouDinheiro)}</span>
+              </div>
+              <div className="row" style={{ marginTop: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 16 }}>Total em caixa</span>
+                <span style={{ fontWeight: 900, fontSize: 18, color: "#2563eb" }}>
+                  {fmtBRL(totalNoCaixaAgora)}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
 
-        <div className="hr" />
+            <div className="hr" />
 
-        {/* ENCERRAMENTO */}
-        <div className="row">
-          <span className="muted" style={{ fontWeight: 700 }}>Encerramento</span>
-          <Button
-            variant="primary"
-            onClick={finalizarCaixa}
-            disabled={disabled || !aberturaJaDefinida || !eventoAberto}
-          >
-            Finalizar caixa
-          </Button>
-        </div>
+            {/* SANGRIAS */}
+            <div>
+              <div className="muted" style={{ marginBottom: 8, fontWeight: 700 }}>
+                Sangrias
+              </div>
 
-        <div className="muted" style={{ marginTop: 12, fontSize: 11, textAlign: "center" }}>
-          Ao finalizar, o evento será encerrado e o relatório impresso
-        </div>
+              <div className="formGrid" style={{ marginBottom: 12 }}>
+                <div>
+                  <input
+                    className="input"
+                    placeholder="Valor da sangria"
+                    value={sangriaTxt}
+                    onChange={(e) => setSangriaTxt(maskBRLFromDigits(e.target.value))}
+                    inputMode="numeric"
+                    disabled={disabled || !aberturaJaDefinida || !eventoAberto}
+                  />
+                </div>
+
+                <Button
+                  variant="primary"
+                  onClick={adicionarSangria}
+                  disabled={disabled || !aberturaJaDefinida || !eventoAberto || sangriaValor <= 0}
+                  small
+                >
+                  Adicionar
+                </Button>
+              </div>
+
+              {sangrias.length > 0 ? (
+                <div style={{ marginTop: 8 }}>
+                  {sangrias.map((mov, index) => (
+                    <div key={mov?.id || index} className="sangria-item">
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Sangria {index + 1}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {fmtBRL(Number(mov?.valor) || 0)} • {formatHora(mov?.criadoEm)}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        small
+                        onClick={() => removerSangria(mov?.id)}
+                        disabled={disabled}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+
+                  <div className="row" style={{ marginTop: 8 }}>
+                    <span className="muted" style={{ fontWeight: 600 }}>Total sangrias</span>
+                    <span style={{ fontWeight: 700 }}>{fmtBRL(totalSangrias)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="muted" style={{ textAlign: "center", padding: 12 }}>
+                  Nenhuma sangria registrada
+                </div>
+              )}
+            </div>
+
+            <div className="hr" />
+
+            {/* ENCERRAMENTO */}
+            <div className="row">
+              <span className="muted" style={{ fontWeight: 700 }}>Encerramento</span>
+              <Button
+                variant="primary"
+                onClick={finalizarCaixa}
+                disabled={disabled || !aberturaJaDefinida || !eventoAberto}
+              >
+                Finalizar caixa
+              </Button>
+            </div>
+
+            <div className="muted" style={{ marginTop: 12, fontSize: 11, textAlign: "center" }}>
+              Ao finalizar, o evento será encerrado e o relatório impresso
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
