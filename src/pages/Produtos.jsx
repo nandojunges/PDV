@@ -598,7 +598,7 @@ export default function Produtos({
       >
         {vendaEmAndamentoComSenha && (
           <div className="badge" style={{ marginBottom: 8, background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }}>
-            🔒 Venda em andamento: adicionar, editar, excluir, inativar ou reativar exige senha
+            🔒 Evento em andamento
           </div>
         )}
         {itensFinalizados && (
