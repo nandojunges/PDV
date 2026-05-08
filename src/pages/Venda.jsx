@@ -546,16 +546,21 @@ export default function Venda({
       alignItems: "center",
       justifyContent: "center",
       zIndex: 9999,
-      padding: 16,
+      padding: 12,
+      overflowY: "auto",
+      boxSizing: "border-box",
     },
     modalCard: {
       background: "#fff",
       borderRadius: 16,
-      padding: 20,
-      width: "100%",
-      maxWidth: 600,
-      maxHeight: "80vh",
-      overflowY: "auto",
+      padding: 16,
+      width: "min(100%, 640px)",
+      maxWidth: "calc(100vw - 24px)",
+      maxHeight: "calc(100dvh - 24px)",
+      overflow: "hidden",
+      boxSizing: "border-box",
+      display: "flex",
+      flexDirection: "column",
       boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
     },
     comboChip: {
@@ -622,8 +627,40 @@ export default function Venda({
         .product-button:active:not(:disabled) {
           transform: translateY(0);
         }
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 8px;
+          margin-bottom: 12px;
+          flex: 0 0 auto;
+          min-width: 0;
+        }
+        .modal-header > div:first-child {
+          min-width: 0;
+        }
+        .modal-header .badge {
+          max-width: 45%;
+          white-space: normal;
+          overflow-wrap: anywhere;
+          text-align: right;
+        }
+        .modal-items-scroll {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .modal-footer {
+          flex: 0 0 auto;
+          padding-top: 12px;
+        }
         .modal-table {
           width: 100%;
+          max-width: 100%;
+          table-layout: fixed;
           border-collapse: collapse;
           font-size: 13px;
         }
@@ -633,10 +670,36 @@ export default function Venda({
           font-weight: 600;
           color: #4b5563;
           border-bottom: 2px solid #e5e7eb;
+          overflow-wrap: anywhere;
         }
         .modal-table td {
           padding: 8px 4px;
           border-bottom: 1px solid #e5e7eb;
+          vertical-align: top;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+        .modal-table .item-col {
+          width: auto;
+        }
+        .modal-table .qtd-col {
+          width: 44px;
+          text-align: center;
+        }
+        .modal-table .total-col {
+          width: 98px;
+          text-align: right;
+        }
+        .modal-item-name {
+          font-size: 12px;
+          line-height: 1.25;
+          white-space: normal;
+        }
+        .modal-combo-info {
+          color: #2563eb;
+          display: inline;
+          font-size: 10px;
+          margin-left: 4px;
         }
         .cart-item {
           display: flex;
@@ -1019,7 +1082,7 @@ export default function Venda({
             style={styles.modalCard}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div className="modal-header">
               <div>
                 <h4 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Confirmar venda</h4>
                 <p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>
@@ -1031,83 +1094,89 @@ export default function Venda({
               </span>
             </div>
 
-            <table className="modal-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th style={{ textAlign: "center", width: 45 }}>Qtd</th>
-                  <th style={{ textAlign: "right", width: 70 }}>Unit.</th>
-                  <th style={{ textAlign: "right", width: 70 }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {itensConfirm.map((it, idx) => {
-                  const unitarioExibicao = it.isCombo ? it.unitario : it.preco;
-                  const subtotalExibicao = it.isCombo ? it.qtd * it.unitario * it.comboCount : it.subtotal;
-                  
-                  return (
-                    <tr key={idx}>
-                      <td style={{ fontSize: 12, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {it.nome}
-                        {it.isCombo && (
-                          <span style={{ fontSize: 10, color: "#2563eb", marginLeft: 4 }}>
-                            ({it.qtd} combo × {it.comboCount} fichas)
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: "center", fontSize: 12 }}>{it.qtd}</td>
-                      <td style={{ textAlign: "right", fontSize: 12 }}>{fmtBRL(unitarioExibicao)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600, fontSize: 12 }}>{fmtBRL(subtotalExibicao)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            <div style={{ height: 1, background: "#e5e7eb", margin: "12px 0" }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Total</span>
-              <span style={{ fontWeight: 900, fontSize: 18, color: "#2563eb" }}>
-                {fmtBRL(totalDoCarrinho(itensConfirm))}
-              </span>
+            <div className="modal-items-scroll">
+              <table className="modal-table">
+                <colgroup>
+                  <col className="item-col" />
+                  <col className="qtd-col" />
+                  <col className="total-col" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th className="qtd-col">Qtd</th>
+                    <th className="total-col">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itensConfirm.map((it, idx) => {
+                    const subtotalExibicao = it.isCombo ? it.qtd * it.unitario * it.comboCount : it.subtotal;
+                    
+                    return (
+                      <tr key={idx}>
+                        <td>
+                          <div className="modal-item-name">
+                            {it.nome}
+                            {it.isCombo && (
+                              <span className="modal-combo-info">
+                                ({it.qtd} combo × {it.comboCount} fichas)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="qtd-col" style={{ fontSize: 12 }}>{it.qtd}</td>
+                        <td className="total-col" style={{ fontWeight: 600, fontSize: 12 }}>{fmtBRL(subtotalExibicao)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>Pagamento</span>
-              <span style={{ fontWeight: 600, fontSize: 12, textTransform: "capitalize" }}>
-                {vendaDraft.pagamento === "dinheiro" && "💵 "}
-                {vendaDraft.pagamento === "pix" && "📱 "}
-                {vendaDraft.pagamento === "cartao" && "💳 "}
-                {vendaDraft.pagamento}
-              </span>
-            </div>
+            <div className="modal-footer">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 12 }}>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>Total</span>
+                <span style={{ fontWeight: 900, fontSize: 18, color: "#2563eb", textAlign: "right" }}>
+                  {fmtBRL(totalDoCarrinho(itensConfirm))}
+                </span>
+              </div>
 
-            {vendaDraft.pagamento === "dinheiro" && vendaDraft.recebido > 0 && (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span style={{ fontSize: 12, color: "#6b7280" }}>Recebido</span>
-                  <span style={{ fontSize: 12 }}>{fmtBRL(vendaDraft.recebido)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span style={{ fontSize: 12, color: "#6b7280" }}>Troco</span>
-                  <span style={{ fontWeight: 600, fontSize: 12, color: "#059669" }}>{fmtBRL(vendaDraft.troco)}</span>
-                </div>
-              </>
-            )}
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, gap: 12 }}>
+                <span style={{ fontSize: 12, color: "#6b7280" }}>Pagamento</span>
+                <span style={{ fontWeight: 600, fontSize: 12, textTransform: "capitalize", textAlign: "right" }}>
+                  {vendaDraft.pagamento === "dinheiro" && "💵 "}
+                  {vendaDraft.pagamento === "pix" && "📱 "}
+                  {vendaDraft.pagamento === "cartao" && "💳 "}
+                  {vendaDraft.pagamento}
+                </span>
+              </div>
 
-            <div className="venda-actions" style={{ display: "flex", gap: 7, marginTop: 10, justifyContent: "flex-end" }}>
-              <Button onClick={handleCancelConfirm} disabled={isPrinting} variant="secondary" small>
-                Cancelar
-              </Button>
-              <Button 
-                variant="primary" 
-                onClick={handleConfirmVenda} 
-                disabled={isPrinting}
-                small
-              >
-                {isPrinting ? "Imprimindo..." : "Confirmar"}
-              </Button>
+              {vendaDraft.pagamento === "dinheiro" && vendaDraft.recebido > 0 && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, gap: 12 }}>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>Recebido</span>
+                    <span style={{ fontSize: 12, textAlign: "right" }}>{fmtBRL(vendaDraft.recebido)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, gap: 12 }}>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>Troco</span>
+                    <span style={{ fontWeight: 600, fontSize: 12, color: "#059669", textAlign: "right" }}>{fmtBRL(vendaDraft.troco)}</span>
+                  </div>
+                </>
+              )}
+
+              <div className="venda-actions" style={{ display: "flex", gap: 7, marginTop: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <Button onClick={handleCancelConfirm} disabled={isPrinting} variant="secondary" small>
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleConfirmVenda} 
+                  disabled={isPrinting}
+                  small
+                >
+                  {isPrinting ? "Imprimindo..." : "Confirmar"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
