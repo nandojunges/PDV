@@ -343,16 +343,14 @@ export default function Produtos({
 
   function editarItem(p) {
     if (!p || bloqueadoEdicao) return;
-    executarAcaoSensivel("editar produto/alterar preço", () => {
-      setEditingId(p.id);
-      setNome(p.nome || "");
-      setPrecoDigits(String(Math.round((Number(p.preco) || 0) * 100)));
-      setTipo(TIPO_OPTIONS.find((opt) => opt.value === p.tipo) || TIPO_OPTIONS[0]);
-      setComboQtd(String(p.comboQtd || "4"));
-      setAtalhoKey(p.iconKey || "");
-      setAviso({ type: "info", message: `✏️ Editando "${p.nome}"` });
-      scrollToTopAndFocusPrice();
-    });
+    setEditingId(p.id);
+    setNome(p.nome || "");
+    setPrecoDigits(String(Math.round((Number(p.preco) || 0) * 100)));
+    setTipo(TIPO_OPTIONS.find((opt) => opt.value === p.tipo) || TIPO_OPTIONS[0]);
+    setComboQtd(String(p.comboQtd || "4"));
+    setAtalhoKey(p.iconKey || "");
+    setAviso({ type: "info", message: `✏️ Editando "${p.nome}"` });
+    scrollToTopAndFocusPrice();
   }
 
   function removerItem(id) {
