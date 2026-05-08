@@ -355,6 +355,7 @@ export default function App() {
               setProdutos={setProdutos}
               ajustes={ajustes}
               setAjustes={setAjustes}
+              setTab={goToTab}
             />
           </Suspense>
         )}
