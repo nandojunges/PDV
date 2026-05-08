@@ -2,7 +2,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { loadJSON, saveJSON } from "../storage/storage";
 import { LS_KEYS } from "../storage/keys";
-import { getFlowState } from "../domain/eventoFlow";
 import { imprimirTexto } from "../utils/sunmiPrinter";
 import {
   REPORT_LINE_WIDTH,
@@ -14,6 +13,7 @@ import {
 } from "../services/reportText";
 
 const SENHA_EXCLUIR = "123456";
+const SENHA_HISTORICO = "123456";
 const INITIAL_HISTORY_LIMIT = 25;
 
 /* ===================== storage: status do evento ===================== */
@@ -112,6 +112,98 @@ function extractItensFromVenda(venda) {
   return itens;
 }
 
+function mkProdutoId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
+}
+
+
+function getProdutosModeloFromMeta(meta, vendasEvento = []) {
+  const listasPossiveis = [
+    meta?.produtos,
+    meta?.fechamento?.produtos,
+    meta?.evento?.produtos,
+    meta?.fechamento?.eventoProdutos,
+    meta?.fechamento?.itensConfigurados,
+  ];
+
+  const listaConfigurada = listasPossiveis.find((lista) => Array.isArray(lista) && lista.length > 0);
+  if (Array.isArray(listaConfigurada)) return listaConfigurada;
+
+  const itensFechamento = Array.isArray(meta?.fechamento?.itensGeral)
+    ? meta.fechamento.itensGeral
+    : [];
+  if (itensFechamento.length > 0) return itensFechamento;
+
+  const porChave = new Map();
+  for (const venda of Array.isArray(vendasEvento) ? vendasEvento : []) {
+    for (const item of extractItensFromVenda(venda)) {
+      const nomeKey = normalizeNameKey(item.nome);
+      const precoKey = item.preco == null ? "sem-preco" : Number(item.preco).toFixed(2);
+      const chave = `${nomeKey}__${precoKey}`;
+      if (!porChave.has(chave)) {
+        porChave.set(chave, { nome: item.nome, preco: item.preco });
+      }
+    }
+  }
+  return Array.from(porChave.values());
+}
+
+function normalizarProdutoModelo(produto, index = 0) {
+  if (!produto || typeof produto !== "object") return null;
+
+  const nome = String(pickField(produto, ITEM_NAME_KEYS) || "").trim();
+  if (!nome) return null;
+
+  const preco = toNumber(
+    pickField(produto, ["preco", "price", "valor", "valorUnitario", "unitPrice", "precoUnit"])
+  );
+  if (preco == null || preco <= 0) return null;
+
+  const tipo = produto.tipo === "combo" || produto.type === "combo" ? "combo" : "unitario";
+  const comboQtdRaw = toNumber(produto.comboQtd ?? produto.combo_qtd ?? produto.qtdCombo);
+  const comboQtd = tipo === "combo" ? Math.max(2, comboQtdRaw || 2) : null;
+  const iconKey = String(produto.iconKey || produto.icone || produto.icon || "").trim();
+  const varKey = `${nome}__${tipo}__${comboQtd ?? ""}`;
+  const agora = new Date().toISOString();
+
+  const copia = {
+    ...produto,
+    id: mkProdutoId(),
+    nome,
+    preco,
+    ativo: produto.ativo !== false,
+    tipo,
+    comboQtd,
+    varKey,
+    iconKey,
+    isBarril: Boolean(produto.isBarril || produto.barril || iconKey === "barril"),
+    precoModo:
+      produto.precoModo || produto.modoPreco ||
+      (produto.isBarril || produto.barril || iconKey === "barril" ? "por_litro" : "unitario"),
+    criadoEm: agora,
+    atualizadoEm: agora,
+    ordem: produto.ordem ?? produto.order ?? index,
+  };
+
+  delete copia.qtd;
+  delete copia.qty;
+  delete copia.quantidade;
+  delete copia.quantity;
+  delete copia.total;
+  delete copia.subtotal;
+  delete copia.valorTotal;
+  delete copia.valor_total;
+  delete copia.itens;
+  delete copia.items;
+  delete copia.carrinho;
+  delete copia.cart;
+
+  return copia;
+}
+
 function extractProdutoInfo(produto) {
   if (!produto || typeof produto !== "object") return null;
   const nome = pickField(produto, ITEM_NAME_KEYS);
@@ -179,14 +271,12 @@ export default function Evento({
   abrirEvento,
   vendas = [],
   caixa,
-  flowState,
   readOnly = false,
   setEvento,
   setCaixa,
   setVendas,
   setProdutos,
-  ajustes = {},
-  setAjustes,
+  setTab,
 }) {
   const [nome, setNome] = useState(evento?.nome || "");
 
@@ -204,6 +294,8 @@ export default function Evento({
   const [senha, setSenha] = useState("");
   const [erroSenha, setErroSenha] = useState("");
   const [historyLimit, setHistoryLimit] = useState(INITIAL_HISTORY_LIMIT);
+  const [historicoLiberado, setHistoricoLiberado] = useState(false);
+  const [avisoHistorico, setAvisoHistorico] = useState("");
 
   // ✅ mapa de encerrados (cache)
   const encerradosMap = useMemo(() => {
@@ -306,8 +398,6 @@ export default function Evento({
 
   const eventoAberto = Boolean(String(evento?.nome || "").trim());
   const produtosEvento = Array.isArray(evento?.produtos) ? evento.produtos : [];
-  const estadoFluxo =
-    flowState || getFlowState({ evento, produtos: produtosEvento, caixa, vendas });
   const eventoBloqueado = readOnly;
   const bloqueioStyle = eventoBloqueado ? { opacity: 0.5, cursor: "not-allowed" } : {};
 
@@ -320,6 +410,82 @@ export default function Evento({
     if (!nm) return alert("Informe o nome do evento.");
     abrirEvento(nm, { modo: "local", rede: null });
     setNome("");
+  }
+
+  function pedirSenhaHistorico() {
+    const senhaDigitada = window.prompt("Digite a senha para ver o histórico:");
+    if (senhaDigitada === SENHA_HISTORICO) {
+      setHistoricoLiberado(true);
+      setAvisoHistorico("");
+      return;
+    }
+    setHistoricoLiberado(false);
+    setAvisoHistorico("Senha incorreta. Histórico oculto.");
+  }
+
+  function montarProdutosModelo(nomeEv) {
+    const nomeEvLimpo = String(nomeEv || "").trim();
+    const meta = encerradosMap.get(nomeEvLimpo);
+    const vendasDoEvento = (Array.isArray(vendas) ? vendas : []).filter(
+      (v) => String(v?.eventoNome || "").trim() === nomeEvLimpo
+    );
+
+    const modelos = getProdutosModeloFromMeta(meta, vendasDoEvento);
+    return modelos
+      .map((produto, index) => normalizarProdutoModelo(produto, index))
+      .filter(Boolean);
+  }
+
+  function usarItensDoEvento(ev) {
+    if (eventoBloqueado) {
+      alertEventoBloqueado();
+      return;
+    }
+
+    const itensModelo = montarProdutosModelo(ev?.nome);
+    if (itensModelo.length === 0) {
+      alert("Este evento não tem itens configurados para copiar.");
+      return;
+    }
+
+    const itensAtuais = Array.isArray(produtosEvento) ? produtosEvento : [];
+    if (itensAtuais.length > 0) {
+      const substituir = window.confirm("Substituir itens atuais pelos itens deste evento?");
+      if (!substituir) return;
+    }
+
+    const aplicarItens = () => {
+      if (typeof setProdutos === "function") setProdutos(itensModelo);
+      if (typeof setEvento === "function") {
+        setEvento((prev) =>
+          prev
+            ? {
+                ...prev,
+                produtos: itensModelo,
+                itensFinalizados: false,
+                produtosConfirmados: false,
+                ajustesSalvos: false,
+                ajustesConfirmados: false,
+              }
+            : prev
+        );
+      }
+    };
+
+    if (!eventoAberto) {
+      const novoNome = String(nome || "").trim();
+      if (!novoNome) {
+        alert("Informe o nome do novo evento antes de usar os itens.");
+        return;
+      }
+      abrirEvento(novoNome, { modo: "local", rede: null });
+      aplicarItens();
+      setNome("");
+      return;
+    }
+
+    aplicarItens();
+    if (typeof setTab === "function") setTab("produtos");
   }
 
   function calcularCaixaDoEvento(nomeEv) {
@@ -661,11 +827,64 @@ export default function Evento({
       </div>
 
       <div style={{ marginTop: 14 }}>
-        <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10, color: "#111827" }}>
-          Histórico de eventos
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ fontSize: 15, fontWeight: 950, color: "#111827" }}>
+            Histórico de eventos
+          </div>
+          <button
+            style={btn(historicoLiberado ? "soft" : "dark")}
+            onClick={() => {
+              if (historicoLiberado) {
+                setHistoricoLiberado(false);
+                setAvisoHistorico("");
+                return;
+              }
+              pedirSenhaHistorico();
+            }}
+          >
+            {historicoLiberado ? "Ocultar histórico" : "Ver histórico"}
+          </button>
         </div>
 
-        {historico.length === 0 ? (
+        {avisoHistorico && (
+          <div
+            style={{
+              marginBottom: 10,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "#fee2e2",
+              color: "#991b1b",
+              border: "1px solid #fca5a5",
+              fontSize: 14,
+              fontWeight: 800,
+            }}
+          >
+            {avisoHistorico}
+          </div>
+        )}
+
+        {!historicoLiberado ? (
+          <div
+            style={{
+              color: "#6b7280",
+              fontSize: 14,
+              background: "#fff",
+              border: "1px dashed #d1d5db",
+              borderRadius: 14,
+              padding: 12,
+            }}
+          >
+            Histórico oculto. Use “Ver histórico” para consultar eventos anteriores e reaproveitar itens.
+          </div>
+        ) : historico.length === 0 ? (
           <div style={{ color: "#6b7280", fontSize: 14 }}>
             Nenhum histórico ainda. Depois das primeiras vendas, o resumo aparece aqui.
           </div>
@@ -771,6 +990,15 @@ export default function Evento({
                       >
                         Caixa
                       </button>
+
+                      {!isAtual && (
+                        <button
+                          style={{ ...btn("primary"), padding: "0 10px", height: 34, ...bloqueioStyle }}
+                          onClick={() => usarItensDoEvento(ev)}
+                        >
+                          Usar itens
+                        </button>
+                      )}
 
                       <button
                         style={{ ...btn("danger"), padding: "0 10px", height: 34, ...bloqueioStyle }}
