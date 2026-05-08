@@ -221,12 +221,13 @@ export default function Caixa({
   const [aberturaTxt, setAberturaTxt] = useState("");
   const [sangriaTxt, setSangriaTxt] = useState("");
   const [aviso, setAviso] = useState({ type: "", message: "" });
+  const [confirmarAberturaZerada, setConfirmarAberturaZerada] = useState(false);
 
   // ==================== MEMOIZED VALUES ====================
   const caixaSafe = caixa && typeof caixa === "object" ? caixa : {};
   const abertura = Number(caixaSafe.abertura || 0) || 0;
   const abertoEm = caixaSafe.abertoEm || null;
-  const aberturaJaDefinida = abertura > 0;
+  const aberturaJaDefinida = Boolean(abertoEm || abertura > 0);
 
   const eventoNome = String(evento?.nome || "").trim();
   const hasEventoConfigurado = Boolean(eventoNome);
@@ -298,20 +299,28 @@ export default function Caixa({
 
 
   // ==================== FUNÇÕES ====================
-  function abrirCaixa() {
+  function confirmarAbrirCaixa() {
     if (disabled) return;
     if (!hasEventoConfigurado) {
       setAviso({ type: "warning", message: "Abra um evento primeiro." });
       return;
     }
     if (aberturaValor <= 0) {
-      setAviso({ type: "warning", message: "Informe um valor válido." });
+      setConfirmarAberturaZerada(true);
       return;
     }
 
+    abrirCaixa(aberturaValor);
+  }
+
+  function abrirCaixa(valorInicial = 0) {
+    const valorInicialSeguro = Number(valorInicial || 0) || 0;
+
+    setConfirmarAberturaZerada(false);
+
     setCaixa((prev) => ({
       ...(prev && typeof prev === "object" ? prev : {}),
-      abertura: aberturaValor,
+      abertura: valorInicialSeguro,
       abertoEm: prev?.abertoEm || new Date().toISOString(),
     }));
 
@@ -566,7 +575,59 @@ export default function Caixa({
           border: 1px solid #e5e7eb;
           margin-bottom: 8px;
         }
+        .modalOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          background: rgba(15, 23, 42, 0.48);
+        }
+        .modalBox {
+          width: min(100%, 420px);
+          padding: 20px;
+          border-radius: 16px;
+          background: #ffffff;
+          box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+        }
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          margin-top: 20px;
+        }
+        @media (max-width: 480px) {
+          .modalActions {
+            flex-direction: column-reverse;
+          }
+          .modalActions button {
+            width: 100%;
+          }
+        }
       `}</style>
+
+      {confirmarAberturaZerada && (
+        <div className="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modal-abertura-zerada-title">
+          <div className="modalBox">
+            <div id="modal-abertura-zerada-title" style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>
+              Confirmar abertura
+            </div>
+            <div style={{ color: "#475569", lineHeight: 1.5 }}>
+              Você está abrindo o caixa sem valor inicial. Deseja continuar?
+            </div>
+            <div className="modalActions">
+              <Button variant="ghost" onClick={() => setConfirmarAberturaZerada(false)} disabled={disabled}>
+                Cancelar
+              </Button>
+              <Button variant="primary" onClick={() => abrirCaixa(0)} disabled={disabled}>
+                Abrir sem valor inicial
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alerta */}
       {aviso.message && (
@@ -609,8 +670,8 @@ export default function Caixa({
 
                 <Button
                   variant="primary"
-                  onClick={abrirCaixa}
-                  disabled={disabled || aberturaJaDefinida || aberturaValor <= 0 || !hasEventoConfigurado}
+                  onClick={confirmarAbrirCaixa}
+                  disabled={disabled || aberturaJaDefinida || !hasEventoConfigurado}
                   small
                 >
                   Abrir caixa
